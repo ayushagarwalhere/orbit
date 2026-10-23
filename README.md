@@ -4,6 +4,8 @@
 
 Built for the **IEEE ClimateChain Global Hackathon**, track **Sustainable Supply Chains**: *increase transparency and accountability in supply chains, where ethical sourcing and sustainability claims are hard to verify.*
 
+⛓️ **Live contract:** [`OrbitAnchor` on Base Sepolia · 0x9735…8a06](https://sepolia.basescan.org/address/0x9735e3824f7dafb5d2302ed4796c644534688a06): every checkpoint is a public transaction.
+
 📄 [Problem statement](docs/PROBLEM_STATEMENT.md) · 🌍 [Climate impact assessment & projections](docs/IMPACT.md) · 🔐 [Security & data integrity assessment](docs/SECURITY.md) · 📝 [Devpost write-up](docs/DEVPOST.md)
 
 | Track idea | What Orbit does |
