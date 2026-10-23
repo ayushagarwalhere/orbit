@@ -52,13 +52,19 @@ export function evaluateClaim(db: Db, claim: Claim, product: Product): ClaimResu
       const claimed = Number(claim.value);
       const cf = carbonFootprint(db, product);
       evidence.push(`Ledger-derived footprint ${fmt(cf.total, 2)} kg CO2e (materials ${fmt(cf.materials, 2)}, factory ${fmt(cf.manufacturing, 2)}, transport ${fmt(cf.transport, 3)})`);
-      evidence.push("Materials from lots signed by independent suppliers; transport from registered locations of both parties");
+      evidence.push("Materials from lots signed by independent suppliers; transport distance from both parties' registered sites");
+      const checked = cf.legs.filter((l) => l.check === "consistent").length;
+      if (checked) evidence.push(`${checked} transport leg${checked > 1 ? "s" : ""} cross-checked against the recipient's signed arrival time`);
+      // A mode the recipient's own receipt disproves is a misstatement in itself, whatever the total.
+      for (const l of cf.legs.filter((x) => x.check === "contradicted")) reasons.push(l.note!);
+      const pending = cf.legs.filter((l) => l.check === "pending").length;
+      if (pending) evidence.push(`${pending} leg${pending > 1 ? "s" : ""} in transit: the declared mode will be checked against the recipient's signed receipt`);
       const selfShare = cf.total > 0 ? cf.manufacturing / cf.total : 0;
       if (selfShare > 0 && !approvals.length) {
         caveats.push(`${fmt(selfShare * 100, 0)}% of this footprint (factory energy) is self-reported by the brand and not yet independently attested`);
       }
       // Understating the footprint by more than 10% is a contradiction. Overstating is conservative.
-      if (claimed >= cf.total * 0.9) status = "VERIFIED";
+      if (claimed >= cf.total * 0.9 && !cf.legs.some((l) => l.check === "contradicted")) status = "VERIFIED";
       else {
         status = "CONTRADICTED";
         reasons.push(`Claims ${fmt(claimed, 2)} kg but ledger shows ${fmt(cf.total, 2)} kg (${fmt((1 - claimed / cf.total) * 100, 0)}% understated)`);
@@ -136,17 +142,19 @@ export function trustReport(db: Db, product: Product, ledgerReport?: IntegrityRe
   const contradicted = claims.filter((c) => c.status === "CONTRADICTED").length;
   const highLint = claims.reduce((s, c) => s + c.lint.filter((l) => l.severity === "high").length, 0);
 
+  const misdeclaredLegs = carbonFootprint(db, product).legs.filter((l) => l.check === "contradicted").length;
   let score = 35; // base: product has a signed passport
   if (claims.length) score += (verifiedWeight / claims.length) * 45;
   score += Math.min(lifecycleEntries(db, product.id).length, 5) * 4; // traceability depth
-  score -= contradicted * 25 + highLint * 5;
+  score -= contradicted * 25 + highLint * 5 + misdeclaredLegs * 15;
   if (badEntries || passportTampered) score = Math.min(score, 10);
   score = Math.max(0, Math.min(100, Math.round(score)));
   const grade = score >= 85 ? "A" : score >= 70 ? "B" : score >= 50 ? "C" : score >= 30 ? "D" : "E";
 
   let summary: string;
   if (badEntries || passportTampered) summary = "Tampering detected: records no longer match their signatures.";
-  else if (contradicted) summary = `${contradicted} claim${contradicted > 1 ? "s are" : " is"} contradicted by the supply chain data.`;
+  else if (contradicted) summary = `${contradicted} claim${contradicted > 1 ? "s are" : " is"} contradicted by the supply chain data.${misdeclaredLegs ? ` Transport mode misdeclared on ${misdeclaredLegs} leg${misdeclaredLegs > 1 ? "s" : ""}.` : ""}`;
+  else if (misdeclaredLegs) summary = `Transport mode misdeclared on ${misdeclaredLegs} leg${misdeclaredLegs > 1 ? "s" : ""}: the recipient's signed receipt proves a faster, higher-emission mode.`;
   else if (claims.length && verified === claims.length) summary = "Every sustainability claim is backed by signed supply chain evidence.";
   else if (claims.length) summary = `${verified} of ${claims.length} claims verified; others await evidence.`;
   else summary = "Traceable product with no sustainability claims yet.";

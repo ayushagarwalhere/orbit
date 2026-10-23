@@ -35,11 +35,12 @@ export default async function LedgerPage() {
   };
 
   const find = (pred: (i: number) => boolean) => db.ledger.findIndex((_, idx) => pred(idx));
-  const airLeg = find((i) => db.ledger[i].type === "SHIPPED" && db.ledger[i].data.mode === "air");
+  const hoodieId = db.products.find((p) => p.name === "EcoCloud Hoodie")?.id;
+  const freightLeg = find((i) => db.ledger[i].type === "SHIPPED" && db.ledger[i].subjectId === hoodieId);
   const audit = find((i) => db.ledger[i].type === "CLAIM_ATTESTED" && db.ledger[i].data.verdict === "REJECT");
   const mint = find((i) => db.ledger[i].type === "CREDIT_MINTED");
   const scenarios = [
-    airLeg >= 0 && { index: airLeg, mode: "rewrite", who: "Malicious operator", label: `Hide the hoodie's air-freight leg (#${airLeg}), then re-hash and re-sign all later history`, catches: "Only the blockchain catches this one" },
+    freightLeg >= 0 && { index: freightLeg, mode: "rewrite", who: "Malicious operator", label: `Shrink the hoodie's freight leg to 1 km (#${freightLeg}), then re-hash and re-sign all later history`, catches: "Only the blockchain catches this one" },
     audit >= 0 && { index: audit, mode: "rewrite", who: "Malicious operator", label: `Flip the failed labour audit (#${audit}) to APPROVE and re-sign`, catches: "Caught: the auditor's own signature says REJECT" },
     mint >= 0 && { index: mint, mode: "edit", who: "Database intruder", label: `Inflate a credit payout ×10 (#${mint})`, catches: "Caught: hash no longer matches" },
   ].filter(Boolean) as { index: number; mode: string; who: string; label: string; catches: string }[];

@@ -1,6 +1,6 @@
 // Read-side queries: everything here is derived from the ledger + records, never stored.
 import { hashObject } from "./crypto.ts";
-import { MATERIAL_FACTORS, TRANSPORT_FACTORS } from "./factors.ts";
+import { MATERIAL_FACTORS, MAX_KM_PER_DAY, TRANSPORT_FACTORS } from "./factors.ts";
 import type { Actor, Batch, Claim, Db, LedgerEntry, LifecycleStage, Material, Place, Product, TransportMode } from "./types.ts";
 
 export class OrbitError extends Error {
@@ -149,32 +149,76 @@ export function batchConsumed(db: Db, batchId: string): number {
   return used;
 }
 
+export interface Leg {
+  shippedIndex: number;
+  from: string;
+  to: string;
+  declaredMode: TransportMode; // what the shipper said
+  mode: TransportMode; // what we account for: declared, or the cheapest mode physically consistent with the receipt
+  distanceKm: number;
+  co2eKg: number;
+  transitHours?: number;
+  /** consistent: receipt time fits the declared mode; contradicted: too fast for it; pending: not yet received */
+  check: "consistent" | "contradicted" | "pending";
+  note?: string;
+}
+
 export interface CarbonBreakdown {
   materials: number;
   manufacturing: number;
   transport: number;
   total: number;
-  legs: { from: string; to: string; mode: TransportMode; distanceKm: number; co2eKg: number }[];
+  legs: Leg[];
+}
+
+/** Lowest-emission mode first, so an inferred mode always gives the shipper the benefit of the doubt. */
+const MODES_BY_EMISSIONS: TransportMode[] = (Object.keys(TRANSPORT_FACTORS) as TransportMode[]).sort((a, b) => TRANSPORT_FACTORS[a] - TRANSPORT_FACTORS[b]);
+
+/**
+ * Transport legs, cross-checked against the recipient. The shipper declares the mode, but the
+ * RECEIVED entry is signed by the recipient, so the shipper doesn't control the arrival time.
+ * If the implied speed is impossible for the declared mode, the leg is contradicted and
+ * accounted for with the lowest-emission mode that could actually have made the trip.
+ */
+export function shipmentLegs(db: Db, p: Product): Leg[] {
+  const mass = productMass(p);
+  const life = lifecycleEntries(db, p.id);
+  const legs: Leg[] = [];
+  life.forEach((e, i) => {
+    if (e.type !== "SHIPPED") return;
+    const declaredMode = (e.data.mode as TransportMode) ?? "truck";
+    const to = String(e.data.to);
+    const distanceKm = Number(e.data.distanceKm ?? 0);
+    const received = life.slice(i + 1).find((r) => r.type === "RECEIVED" && r.actorId === to);
+    let mode = declaredMode;
+    let check: Leg["check"] = "pending";
+    let transitHours: number | undefined;
+    let note: string | undefined;
+    if (received) {
+      transitHours = Math.max(0.5, (Date.parse(received.timestamp) - Date.parse(e.timestamp)) / 3.6e6);
+      const kmPerDay = distanceKm / (transitHours / 24);
+      if (kmPerDay <= MAX_KM_PER_DAY[declaredMode]) check = "consistent";
+      else {
+        check = "contradicted";
+        mode = MODES_BY_EMISSIONS.find((m) => MAX_KM_PER_DAY[m] >= kmPerDay) ?? "air";
+        note = `Declared ${declaredMode}, but the recipient's signed receipt shows ${Math.round(distanceKm).toLocaleString("en")} km in ${transitHours < 48 ? `${Math.round(transitHours)} h` : `${Math.round(transitHours / 24)} days`} (≈${Math.round(kmPerDay).toLocaleString("en")} km/day). A ${declaredMode} can't do more than ${MAX_KM_PER_DAY[declaredMode].toLocaleString("en")} km/day, so this leg is counted as ${mode}.`;
+      }
+    }
+    legs.push({ shippedIndex: e.index, from: e.actorId, to, declaredMode, mode, distanceKm, co2eKg: distanceKm * (mass / 1000) * TRANSPORT_FACTORS[mode], transitHours, check, note });
+  });
+  return legs;
 }
 
 export function carbonFootprint(db: Db, p: Product): CarbonBreakdown {
-  const mass = productMass(p);
   const materials = materialLines(db, p).reduce((s, l) => {
     const f = MATERIAL_FACTORS[l.material];
     return s + (l.massKg - l.recycledKg) * f.virgin + l.recycledKg * f.recycled;
   }, 0);
   let manufacturing = 0;
-  const legs: CarbonBreakdown["legs"] = [];
   for (const e of lifecycleEntries(db, p.id)) {
-    if (e.type === "MANUFACTURED") manufacturing += Number(e.data.co2eKg ?? 0);
-    if (e.type === "REPAIRED") manufacturing += Number(e.data.co2eKg ?? 0);
-    if (e.type === "SHIPPED") {
-      const mode = (e.data.mode as TransportMode) ?? "truck";
-      const distanceKm = Number(e.data.distanceKm ?? 0);
-      const co2eKg = distanceKm * (mass / 1000) * TRANSPORT_FACTORS[mode];
-      legs.push({ from: e.actorId, to: String(e.data.to), mode, distanceKm, co2eKg });
-    }
+    if (e.type === "MANUFACTURED" || e.type === "REPAIRED") manufacturing += Number(e.data.co2eKg ?? 0);
   }
+  const legs = shipmentLegs(db, p);
   const transport = legs.reduce((s, l) => s + l.co2eKg, 0);
   return { materials, manufacturing, transport, total: materials + manufacturing + transport, legs };
 }

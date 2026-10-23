@@ -13,7 +13,7 @@ import type { Db, SignedRequest } from "./types.ts";
 
 const g = globalThis as unknown as { __orbit?: { db: Db; keys: Keystore } };
 
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 
 function dataDir(): string {
   return process.env.ORBIT_DATA_DIR ?? (process.env.VERCEL ? "/tmp" : path.join(process.cwd(), "data"));

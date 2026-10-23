@@ -293,8 +293,17 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
           {cf.legs.length > 0 && (
             <ul className="mt-3 space-y-0.5 text-xs text-muted">
               {cf.legs.map((l, i) => (
-                <li key={i}>
-                  {getActor(db, l.from).place.city} → {getActor(db, l.to).place.city}: {fmt(l.distanceKm, 0)} km by {l.mode}
+                <li key={i} className={l.check === "contradicted" ? "rounded-lg border border-rust/30 bg-rust-soft p-2 text-rust" : ""}>
+                  {getActor(db, l.from).place.city} → {getActor(db, l.to).place.city}: {fmt(l.distanceKm, 0)} km by{" "}
+                  {l.check === "contradicted" ? (
+                    <>
+                      <s>{l.declaredMode}</s> <b>{l.mode}</b> · {l.note}
+                    </>
+                  ) : (
+                    <>
+                      {l.mode} {l.check === "consistent" ? <span className="text-leaf">· ✓ arrival time fits</span> : <span className="text-amber">· awaiting receipt</span>}
+                    </>
+                  )}
                 </li>
               ))}
             </ul>

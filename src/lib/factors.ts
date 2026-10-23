@@ -24,6 +24,22 @@ export const TRANSPORT_FACTORS: Record<TransportMode, number> = {
   air: 0.602,
 };
 
+/**
+ * Generous upper bounds on door-to-door distance per day (great-circle km), used to test a declared
+ * transport mode against the recipient's signed arrival time. Deliberately loose so honest
+ * shipments never trip them:
+ *  - ship: a fast container ship at ~20 knots covers ~900 km/day, and real routes are longer than great-circle
+ *  - rail: freight trains rarely exceed ~1,200 km/day including stops
+ *  - truck: a two-driver team running ~20 h at ~80 km/h is ~1,600 km/day
+ *  - air: ~900 km/h cruise; anything faster is impossible
+ */
+export const MAX_KM_PER_DAY: Record<TransportMode, number> = {
+  ship: 900,
+  rail: 1200,
+  truck: 1600,
+  air: 20000,
+};
+
 /** Credits paid per kg of material recovered at recycling, split between returner and recycler. */
 export const CREDITS_PER_KG_RECOVERED = 20;
 

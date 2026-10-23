@@ -43,7 +43,7 @@ export const ACTOR_IDS = ACTORS.map((a) => a.id);
  */
 export function seedDb(keys: Keystore): Db {
   const pub = publicKeys(keys);
-  const db: Db = { version: 2, actors: ACTORS.map((a) => ({ ...a, publicKey: pub[a.id] })), batches: [], products: [], claims: [], ledger: [], checkpoints: [] };
+  const db: Db = { version: 3, actors: ACTORS.map((a) => ({ ...a, publicKey: pub[a.id] })), batches: [], products: [], claims: [], ledger: [], checkpoints: [] };
 
   /** Run `fn` as `actorId`, authorised by a request that actor signed at time `at`. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -102,6 +102,7 @@ export function seedDb(keys: Keystore): Db {
   as("greenloop", "sell", d("02-05T12:30:00"), { productId: tee.id, actorId: "greenloop", toId: "priya" }, sell);
 
   // --- 2. A greenwashing product: the ledger contradicts the marketing ---
+  // Lumen even declares sea freight, but GreenLoop signs for the delivery 24 h later: only possible by air.
   const hoodie = as("lumen", "manufacture", d("02-08T09:00:00"), {
     brandId: "lumen",
     name: "EcoCloud Hoodie",
@@ -121,7 +122,7 @@ export function seedDb(keys: Keystore): Db {
   as("lumen", "issue-claim", d("02-08T10:00:00"), { productId: hoodie.id, issuerId: "lumen", kind: "RECYCLED_CONTENT", value: 70, statement: "Made from 70% recycled materials. 100% eco-friendly!" }, issueClaim);
   as("lumen", "issue-claim", d("02-08T10:01:00"), { productId: hoodie.id, issuerId: "lumen", kind: "CARBON_FOOTPRINT", value: 1.2, statement: "Carbon neutral: only 1.2 kg CO2e" }, issueClaim);
   const hoodieLabor = as("lumen", "issue-claim", d("02-08T10:02:00"), { productId: hoodie.id, issuerId: "lumen", kind: "ETHICAL_LABOR", value: "SA8000", statement: "Ethically made" }, issueClaim);
-  as("lumen", "ship", d("02-09T09:00:00"), { productId: hoodie.id, actorId: "lumen", toId: "greenloop", mode: "air" }, ship);
+  as("lumen", "ship", d("02-09T09:00:00"), { productId: hoodie.id, actorId: "lumen", toId: "greenloop", mode: "ship" }, ship);
   as("greenloop", "receive", d("02-10T09:00:00"), { productId: hoodie.id, actorId: "greenloop" }, receive);
   as("clearsight", "attest", d("02-12T11:00:00"), { claimId: hoodieLabor.id, auditorId: "clearsight", verdict: "REJECT", note: "Fleece made at unregistered subcontractor; overtime records missing" }, attestClaim);
 

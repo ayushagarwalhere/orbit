@@ -62,7 +62,8 @@ test("naive edit is caught by hash check, and restore fixes it", () => {
 test("insider rewrite with the sequencer key passes local checks but fails against the anchored root", () => {
   const { db, keys } = world();
   const anchored = { covers: db.ledger.length, merkleRoot: prefixRoot(db, db.ledger.length), label: "on-chain checkpoint" };
-  const i = db.ledger.findIndex((e) => e.type === "SHIPPED" && e.data.mode === "air");
+  const hoodie = byName(db, "EcoCloud Hoodie");
+  const i = db.ledger.findIndex((e) => e.type === "SHIPPED" && e.subjectId === hoodie.id);
   tamper(db, i, "rewrite", keys[PROTOCOL_ID]);
   assert.equal(db.ledger[i].data.distanceKm, 1);
   assert.equal(verifyLedger(db).ok, true, "every hash, link and signature looks valid locally");
@@ -153,6 +154,31 @@ test("closed loop: recovered material carries into the next product", () => {
   assert.ok(t.claims.every((c) => c.status === "VERIFIED"));
   assert.equal(custody(db, byName(db, "Strata 500 Wh E-bike Battery").id).stage, "recycled");
   assert.ok(carbonFootprint(db, loop).total < carbonFootprint(db, byName(db, "Strata 500 Wh E-bike Battery")).total * 0.4);
+});
+
+test("a misdeclared transport mode is exposed by the recipient's signed arrival time", () => {
+  const { db } = world();
+  const hoodie = carbonFootprint(db, byName(db, "EcoCloud Hoodie"));
+  const leg = hoodie.legs[0];
+  assert.equal(leg.declaredMode, "ship");
+  assert.equal(leg.check, "contradicted");
+  assert.equal(leg.mode, "air", "counted as the lowest-emission mode that could make the trip");
+  const claim = trustReport(db, byName(db, "EcoCloud Hoodie")).claims.find((c) => c.claim.kind === "CARBON_FOOTPRINT");
+  assert.ok(claim?.reasons.some((r) => r.includes("Declared ship")));
+  // Honest legs pass, and a leg still in transit is pending rather than trusted.
+  assert.ok(carbonFootprint(db, byName(db, "Orbit Tee")).legs.every((l) => l.check === "consistent"));
+  assert.equal(carbonFootprint(db, byName(db, "Strata 500 Wh Loop Edition")).legs[0].check, "pending");
+});
+
+test("a brand that lies about the mode is caught live through the API", () => {
+  const { db, act } = world();
+  const lot = act("kutch-coop", "create-batch", { material: "organic-cotton", massKg: 5 }) as { id: string };
+  const p = act("lumen", "manufacture", { name: "Fast Tee", category: "apparel", inputs: [{ batchId: lot.id, massKg: 0.2 }] }) as { id: string };
+  act("lumen", "ship", { productId: p.id, toId: "greenloop", mode: "ship" }); // Dhaka -> Singapore "by sea"
+  act("greenloop", "receive", { productId: p.id }); // signed minutes later
+  const legs = carbonFootprint(db, db.products.find((x) => x.id === p.id)!).legs;
+  assert.equal(legs[0].check, "contradicted");
+  assert.equal(legs[0].mode, "air");
 });
 
 test("mass balance prevents overselling a material lot", () => {
