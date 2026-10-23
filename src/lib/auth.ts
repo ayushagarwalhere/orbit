@@ -1,5 +1,6 @@
 // Actor authorisation. Every write is an instruction signed by the actor's own key.
-// The server verifies it but can never produce it, so it cannot act on someone's behalf.
+// The server verifies it. In production it never holds actor keys, so it cannot act on anyone's
+// behalf. (Demo mode is the exception: the server generates the role-play keys.)
 import { hashObject, randomPrivateKey, signHash, verifySignature } from "./crypto.ts";
 import type { ActionRequest, LedgerEntry, SignedRequest } from "./types.ts";
 

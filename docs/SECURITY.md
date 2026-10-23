@@ -22,11 +22,12 @@ Each actor (supplier, brand, carrier, retailer, consumer, repairer, recycler, au
 | Adversary | Capability | What stops them | Enforced in |
 | --- | --- | --- | --- |
 | **Outsider calling the API** | Sends arbitrary requests | Every supply chain action needs a valid Ed25519 signature from a registered actor. Unsigned or forged requests get `401`. | `dispatch.ts` `applySigned` |
+| **Verifier pointed at a fake contract** | Edits the anchor address inside a passport | The browser verifier reads roots only from Orbit's published `OrbitAnchor` address, pinned in code (`networks.ts` `OFFICIAL_ANCHORS`), and rejects passports that name another contract. | `verify/VerifyClient.tsx` |
 | **Actor impersonating another actor** | Holds their own key | The signer is the actor. A body naming someone else gets `403`, and protocol rules then check custody and role (only the holder ships, only a retailer sells, only an auditor attests). | `dispatch.ts`, `actions.ts` |
 | **Replay of a captured request** | Has a valid signed request | Nonce uniqueness per actor (`409`), and requests older than 5 minutes are rejected. The verifier also flags an instruction reused later in the ledger. | `dispatch.ts`, `ledger.ts` |
 | **Database intruder** | Edits stored records | Any edit changes the content hash and breaks the chain. Product and claim records are committed by hash at creation (`passportHash`, `claimHash`). | `ledger.ts` `verifyLedger`, `verify.ts` |
 | **Malicious operator** (holds the sequencer key) | Rewrites history and re-signs it | 1) Cannot forge actors' signed instructions, so changing anything an actor signed (a verdict, a recipient, a mass) is caught as `auth-mismatch`. 2) Cannot change roots already on the public chain: any rewrite of anchored history makes the recomputed root differ from the on-chain root. The demo shows exactly this. | `auth.ts` `authMismatch`, `chain.ts` `checkAnchors`, browser verifier |
-| **Operator withholding or reordering events** | Delays sequencing | Reordering anchored history fails the anchor check. Withholding unanchored recent events is possible (see §6). Auto-anchoring every ~20 s narrows the window. | `chain.ts` `scheduleAnchor` |
+| **Operator withholding or reordering events** | Delays sequencing | Reordering anchored history fails the anchor check. Withholding unanchored recent events is possible (see §6). Auto-anchoring about 45 s after the last write narrows the window. | `chain.ts` `scheduleAnchor` |
 | **Greenwashing brand** | Publishes misleading claims | Claims are checked against independent data: recycled content against supplier- and recycler-signed lots (mass balance), carbon against those lots plus transport distances derived from both parties' registered sites, and labour claims against a signed auditor approval. Contradictions are shown on the passport, and a rejection by any auditor overrides the brand. | `verify.ts`, `actions.ts` |
 | **Supplier inventing recycled content** | Registers material lots | Only recyclers can mint recycled lots, and those lots link to the product they were recovered from. | `actions.ts` `createBatch` |
 | **Over-drawing a material lot** | Builds products | Mass balance: a lot can't be drawn beyond its mass, even within a single request. | `actions.ts` `manufacture` |
@@ -55,11 +56,11 @@ No private keys are in the repository. Earlier prototype keys derived from publi
 
 ## 6. Residual risks & limitations
 
-- **Unanchored window.** Events newer than the latest checkpoint aren't yet publicly timestamped. The operator could withhold or reorder them until the next anchor (about 20 s with auto-anchoring). Passports mark such entries as "not yet anchored".
+- **Unanchored window.** Events newer than the latest checkpoint aren't yet publicly timestamped. The operator could withhold or reorder them until the next anchor (about 45 s with auto-anchoring). Passports mark such entries as "not yet anchored".
 - **Single sequencer.** Ordering is centralised. Anchoring makes it auditable, but not censorship-resistant. A production path would rotate the sequencer, let actors anchor via their own transactions, or move to a permissioned consortium chain.
 - **Registration trust.** The first registration of an actor id wins. Onboarding (KYC or GS1 GLN verification) decides which key belongs to which real company. That step happens off-ledger and is out of scope for the prototype.
 - **Demo mode** hands out role-play keys by design. Never enable it on a production deployment.
-- **No rate limiting** on the API in the prototype. Put it behind a gateway or WAF in production.
+- **No rate limiting** on the API in the prototype. Put it behind a gateway or WAF in production. Auto-anchoring is debounced and pauses below a minimum wallet balance, so heavy demo traffic can't drain the anchor wallet.
 - **Storage** is a single JSON document with atomic rollback per write. Integrity doesn't depend on it, but availability and scale do. Next step: Postgres with an append-only ledger table.
 
 ## 7. Verification evidence

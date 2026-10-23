@@ -5,7 +5,7 @@ import { readCheckpoint } from "@/lib/anchor-read.ts";
 import { PROTOCOL_ID, authMismatch, verifyRequest } from "@/lib/auth.ts";
 import { hashObject, rootFromProof, verifySignature, type ProofStep } from "@/lib/crypto.ts";
 import { hashEntry } from "@/lib/ledger.ts";
-import { networkById, txUrl } from "@/lib/networks.ts";
+import { OFFICIAL_ANCHORS, addressUrl, networkById, txUrl } from "@/lib/networks.ts";
 import type { LedgerEntry } from "@/lib/types.ts";
 
 interface Result {
@@ -89,8 +89,21 @@ async function verifyDoc(doc: any, onProgress: (r: Result[]) => void): Promise<R
     push({ label: "On-chain root", ok: "warn", detail: "Checkpoint is local only; it cannot be independently timestamped" });
     return out;
   }
+  // Read only from Orbit's published contract, never from an address the passport supplies.
+  const official = OFFICIAL_ANCHORS[network.chainId];
+  if (official && official.toLowerCase() !== String(anchor.contract).toLowerCase()) {
+    push({ label: "Anchor contract", ok: false, detail: `Passport points to ${anchor.contract}, not Orbit's published OrbitAnchor ${official}` });
+    return out;
+  }
+  const contract = official ?? String(anchor.contract);
+  push({
+    label: "Anchor contract",
+    ok: official ? true : "warn",
+    detail: official ? `Orbit's published OrbitAnchor on ${network.name}: ${official}` : `No published Orbit contract on ${network.name}; using the passport's address`,
+    link: addressUrl(network, contract),
+  });
   try {
-    const cp = await readCheckpoint(network, anchor.contract, Number(anchor.checkpointId));
+    const cp = await readCheckpoint(network, contract, Number(anchor.checkpointId));
     const ok = cp.merkleRoot === anchor.merkleRoot && cp.ledgerLength === anchor.covers;
     push({
       label: `On-chain root (${network.name})`,
@@ -191,8 +204,8 @@ export function VerifyClient({ products }: { products: { id: string; name: strin
                     <div className="hash truncate">
                       {r.detail}{" "}
                       {r.link && (
-                        <a href={r.link} target="_blank" className="text-leaf underline">
-                          tx
+                        <a href={r.link} target="_blank" className="text-accent underline">
+                          view ↗
                         </a>
                       )}
                     </div>

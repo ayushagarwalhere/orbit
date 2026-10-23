@@ -60,7 +60,7 @@ Every input is either cited (§2) or stated as an assumption (§3). The model is
 | Typical e-bike battery | ≈ 0.6 kWh, ≈ 3 kg, mostly NMC/NCA; most used for ~10 years (range 3–14) | JRC[^jrc-afc] |
 | EU share of global EV battery demand (2024) | ≈ 13% of ~950 GWh, so **≈ 120 GWh/yr** (derived) | IEA via Argus[^argus] |
 | Cell carbon footprint, NMC811 | 59 / **74** / 115 kg CO2e per kWh (5th / median / 95th percentile); LFP 54 / 62 / 69 | Peiseler et al. 2024, *Nature Communications*[^peiseler] |
-| Share of footprint from materials (extraction, refining, active materials) | ≈ 50% (secondary reporting of the same study; **uncertain**) | [^peiseler-share] |
+| Share of cell footprint from materials | Active materials **> 50%**, plus copper 7% and aluminium 5%; cell-production electricity ≈ 15% (global median, NMC811) | Peiseler et al. 2024, Results / Fig. 2b[^peiseler] |
 | Recycled vs. mined battery materials | **58–81% lower GHG** (industrial-scale recycler, US) | Machala et al. 2025, *Nature Communications*[^machala] |
 | Collection targets | Portable: 63% (2027), 73% (2030). LMT: **51% (2028)**, 61% (2031) | Reg. (EU) 2023/1542[^battreg][^council] |
 | Material recovery targets | Lithium 50% (2027) → 80% (2031); cobalt, nickel, copper 90% → 95% | [^council] |
@@ -77,7 +77,6 @@ Every input is either cited (§2) or stated as an assumption (§3). The model is
 - *Evidence:* IVL's consequential LCA (Sandin et al. 2025) finds that raising EU textile-to-textile recycling from ~1% to **10%** reduces climate impact by an average **0.5%, about 0.44 Mt CO2e/yr**, with a 92% probability of a net reduction.[^ivl-2025][^ec-ivl] An earlier IVL scenario (1% → 26% by 2035) gives about **1.3%**.[^textile-etp] Both give roughly 0.05 Mt CO2e/yr per percentage point of EU textiles recycled fibre-to-fibre.
 - *Assumption:* Products on Orbit reach the IVL 10% scenario (deposit returns plus verified recycled-content demand), while the rest of the market stays at ~1%.
 - *Formula:* **Avoided = *s* × 0.44 Mt CO2e/yr**
-- *Cross-check:* At *s* = 5%, Orbit covers 0.43 Mt of textiles. Recycling 9 percentage points more of that is 38.5 kt. At JRC-reported net savings of 0.40–1.33 t CO2e per tonne for mechanical recycling (Solis et al. 2024, as reported; **not verified against full text**)[^solis], that gives 15–51 kt. Our scaling method gives 22 kt, so the two methods agree on the order of magnitude.
 
 **1b. E-bike batteries: extra collection and closed-loop recycling.**
 - *Per pack (derived):* 0.6 kWh × 74 kg CO2e/kWh × 50% materials share × 80% material recovered × 58% saving (low end) = **≈ 10 kg CO2e avoided per extra pack recycled**.
@@ -90,7 +89,7 @@ Every input is either cited (§2) or stated as an assumption (§3). The model is
 
 **How Orbit drives it.** Owners earn a protocol-minted bonus when a repairer signs a `REPAIRED` event, which rewards repairing over replacing. The repair history also stays on the passport, which supports resale value.
 
-- *Evidence:* WRAP estimates that extending the life of clothing by nine months reduces carbon, water and waste footprints by **up to 20%**.[^wrap] JRC work ranks preparing for reuse as the best environmental option for used textiles.[^jrc-textiles][^solis]
+- *Evidence:* WRAP estimates that extending the life of clothing by nine months reduces carbon, water and waste footprints by **up to 20%**.[^wrap] JRC work ranks preparing for reuse as the best environmental option for used textiles.[^jrc-textiles]
 - *Assumptions:* **10%** of Orbit-tracked textile items receive a repair that extends life by about nine months. For those items we credit **10%** of their production footprint, half of WRAP's "up to 20%", to allow for rebound and for purchases that are not actually avoided.
 - *Formula:* **Avoided = *s* × 159 Mt × 0.10 × 0.10 = *s* × 1.59 Mt CO2e/yr**
 - *Per item:* A 0.5 kg garment carries about 9.3 kg CO2e (0.5 × 18.6). One credited repair avoids about **0.9 kg CO2e**.
@@ -149,7 +148,7 @@ For scale, a full year of hourly anchoring emits about as much as the production
 ## 7. What the projections leave out (upside not credited)
 
 - **Enabling policy.** Textile EPR schemes (required by ~2028) are expected to **eco-modulate** producer fees on environmental performance.[^wfd] ESPR will add recycled-content and durability requirements. These schemes need trustworthy per-product data, which Orbit provides. JRC modelling finds that EU textile waste-management interventions could cut up to **22.3 Mt CO2e/yr by 2035** (18% of the sector's impact).[^jrc-wm] Orbit is infrastructure for that, but we claim none of it.
-- **Reuse** of deposit-returned garments, which JRC ranks above recycling.[^solis]
+- **Reuse** of deposit-returned garments, which JRC ranks above recycling.[^jrc-textiles]
 - **Battery repair and second life.** In the demo, a battery is repaired before it is recycled.
 - **EV batteries reaching end of life after 2030**, when recycled-content minimums start to bind (2031).
 
@@ -168,7 +167,7 @@ These come from the seeded demo world, which uses **illustrative** emission fact
 - **Data quality (the oracle problem).** Orbit verifies consistency between signed records, not physical truth. Counter-signatures from suppliers on lots and auditor attestations reduce the risk, as do distances derived from registered locations. Self-reported fields (e.g. factory energy) are labelled on the passport. Projections assume most data comes from counter-signed sources.
 - **Behavioural parameters are assumptions.** The repair rate, the collection uplift and the procurement shift are not yet measured. They should be the first metrics of any pilot.
 - **Footprint scope.** The EEA's 159 Mt is a consumption-based footprint that includes footwear and household textiles. IVL's percentages use a narrower baseline (≈ 88 Mt implied). We use each source's own baseline and do not mix them within one lever.
-- **Secondary-sourced figures.** The ≈ 50% materials share of battery footprint, the JRC per-tonne textile recycling savings and the CONEBI scope (EU + UK) come from reporting rather than full text. They are flagged above.
+- **Source scope.** CONEBI e-bike sales cover EU + UK, so using them as the end-of-life flow overstates the EU 2030 figure. The battery materials share is verified against the full text of Peiseler et al. (open access).
 - **Timing.** The textile passport is unlikely to be mandatory before ~2029.[^ec-textiles] Most e-bike batteries sold from 2027 reach end of life after 2030. The 2027–2030 ramp is therefore optimistic for the batteries lever and depends on voluntary textile adoption.
 - **Linearity.** Large adoption could saturate recycling capacity or shift prices, so the 15% scenario is less reliable than the 1% one.
 
@@ -190,8 +189,7 @@ Every lever is computed from signed ledger events, so a deployment can report ac
 [^conebi]: CONEBI, *European Bicycle Industry and Market Profile 2024* (2023 data). https://www.conebi.eu/?p=7252
 [^jrc-afc]: Huisman, J. & Bobba, S. (2021), *'Available For Collection' study on alternative collection targets for waste portable and LMT batteries*, JRC125615, §3.1 "E-bikes batteries". https://publications.jrc.ec.europa.eu/repository/bitstream/JRC125615/jrc125615_afc_study_waste_lmt_and_portable_batteries_(final_online_version).pdf
 [^argus]: Argus Media, *Global battery demand rises close to 1TWh in 2024: IEA* (EU 13% share; EV batteries > 950 GWh). https://www.argusmedia.com/en/news-and-insights/latest-market-news/2688652-global-battery-demand-rises-close-to-1twh-in-2024-iea. Underlying: IEA, *Global EV Outlook 2025*, https://www.iea.org/reports/global-ev-outlook-2025/electric-vehicle-batteries
-[^peiseler]: Peiseler, L. et al. (2024), *Carbon footprint distributions of lithium-ion batteries and their materials*, Nature Communications 15. https://doi.org/10.1038/s41467-024-54634-y
-[^peiseler-share]: Secondary coverage of Peiseler et al. stating materials account for roughly half the footprint, e.g. https://carboncopy.info/mineral-sourcing-has-the-biggest-carbon-footprint-in-lithium-battery-production-report. **Not verified against the full text.**
+[^peiseler]: Peiseler, L. et al. (2024), *Carbon footprint distributions of lithium-ion batteries and their materials*, Nature Communications 15. https://doi.org/10.1038/s41467-024-54634-y (open access: https://pmc.ncbi.nlm.nih.gov/articles/PMC11603021/). Figures checked against the full text: active materials > 50% of the cell footprint, copper 7%, aluminium 5%, cell-production electricity ≈ 15%.
 [^machala]: Machala, M. L. et al. (2025), *Life cycle comparison of industrial-scale lithium-ion battery recycling and mining supply chains*, Nature Communications. Summary: https://news.stanford.edu/stories/2025/01/recycling-lithium-ion-batteries-cuts-emissions-and-strengthens-supply-chain
 [^battreg]: Regulation (EU) 2023/1542 on batteries and waste batteries. https://eur-lex.europa.eu/eli/reg/2023/1542/oj
 [^council]: Council of the EU press release, 10 July 2023. https://www.consilium.europa.eu/en/press/press-releases/2023/07/10/council-adopts-new-regulation-on-batteries-and-waste-batteries/
@@ -199,7 +197,6 @@ Every lever is computed from signed ledger events, so a deployment can report ac
 [^ivl-2025]: Sandin, G., Lidfeldt, M. & Nellström, M. (2025), *Exploring the Environmental Impact of Textile Recycling in Europe: A Consequential Life Cycle Assessment*, Sustainability 17(5), 1931. https://doi.org/10.3390/su17051931
 [^ec-ivl]: European Commission, Science for Environment Policy, 18 June 2025 (440,000 t CO2e/yr; 92% probability). https://environment.ec.europa.eu/news/study-highlights-positive-environmental-impacts-increasing-textile-textile-recycling-rates-eu-2025-06-18_en
 [^textile-etp]: Textile ETP, *Does large-scale textile recycling reduce climate impact?* (1% → 26% by 2035 gives ≈ 1.3% reduction). https://www.textile-platform.eu/news/does-large-scale-textile-recycling-reduce-climate-impact
-[^solis]: Solis, M., Huygens, D., Tonini, D. & Astrup, T. F. (2024), *Management of textile waste in Europe: an environmental and a socio-economic assessment of current and future scenarios*, Resources, Conservation & Recycling. https://doi.org/10.1016/j.resconrec.2024.107693. Per-tonne values (mechanical recycling ≈ 0.40–1.33 t CO2e/t saved) were taken from indexed excerpts, **not the full text**.
 [^jrc-textiles]: Huygens, D. et al. (2023), *Techno-scientific assessment of the management options for used and waste textiles in the EU*, JRC134586. https://publications.jrc.ec.europa.eu/repository/handle/JRC134586
 [^jrc-wm]: Solis, M. et al. (2024), *Contribution of waste management to a sustainable textile sector*, Waste Management, JRC138459. https://publications.jrc.ec.europa.eu/repository/handle/JRC138459
 [^wrap]: WRAP, *Extending Product Lifetimes: WRAP's Work on Clothing Durability*. https://www.wrap.ngo/es/node/47400

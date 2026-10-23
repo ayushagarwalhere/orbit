@@ -16,6 +16,15 @@ export const NETWORKS: Network[] = [
   { key: "localhost", chainId: 31337, name: "Local Hardhat", rpc: "http://127.0.0.1:8545", explorer: "" },
 ];
 
+/**
+ * Orbit's published OrbitAnchor deployments. The verifier reads roots ONLY from these addresses,
+ * never from an address supplied inside a passport, so a forged passport can't point it at a
+ * contract its forger controls.
+ */
+export const OFFICIAL_ANCHORS: Record<number, string> = {
+  84532: "0x9735e3824f7dafb5d2302ed4796c644534688a06", // Base Sepolia
+};
+
 export function networkByKey(key: string): Network | undefined {
   return NETWORKS.find((n) => n.key === key);
 }

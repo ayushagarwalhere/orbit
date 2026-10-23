@@ -78,6 +78,9 @@ export function ConsoleClient({ data }: { data: ConsoleData }) {
             </div>
           </div>
           <p className="mt-2 text-sm text-ink-soft">{ROLE_HELP[actor.role]}</p>
+          <p className="mt-3 rounded-lg border border-amber/30 bg-amber-soft px-3 py-2 text-xs text-amber">
+            Demo mode: your browser holds role-play keys for every demo party, so you can act as anyone. Requests are still signed here and verified by the API. In production each key stays in its owner&apos;s wallet.
+          </p>
           {last && <div className="mt-3 rounded-lg bg-leaf-soft px-3 py-2 text-sm font-medium text-leaf">✓ Signed in your browser with {actor.name}&apos;s key, verified and recorded: {last}</div>}
           {error && <div className="mt-3 rounded-lg bg-rust-soft px-3 py-2 text-sm font-medium text-rust">✕ Rejected by protocol rules: {error}</div>}
         </div>

@@ -47,10 +47,24 @@ const g = globalThis as unknown as { __orbitAnchor?: { inflight: Promise<Checkpo
 const svc = () => (g.__orbitAnchor ??= { inflight: null, timer: null, booted: false });
 
 /** Commit the current ledger root: on-chain when configured, otherwise as a local-only checkpoint. */
-export function anchorNow(): Promise<Checkpoint> {
+/** Below this balance, automatic anchoring pauses (manual anchoring still works). */
+const MIN_AUTO_BALANCE_WEI = 20_000_000_000_000n; // 0.00002 ETH ≈ 40 anchors of headroom on Base Sepolia
+
+export async function anchorWalletBalance(): Promise<bigint | null> {
+  const cfg = chainConfig();
+  if (!cfg?.privateKey) return null;
+  const pub = createPublicClient({ chain: viemChain(cfg.network, cfg.rpc), transport: http(cfg.rpc) });
+  return pub.getBalance({ address: privateKeyToAccount(cfg.privateKey).address });
+}
+
+export function anchorNow(opts: { auto?: boolean } = {}): Promise<Checkpoint> {
   const s = svc();
   if (s.inflight) return s.inflight;
   s.inflight = (async () => {
+    if (opts.auto) {
+      const bal = await anchorWalletBalance().catch(() => null);
+      if (bal !== null && bal < MIN_AUTO_BALANCE_WEI) throw new OrbitError("Anchor wallet is low on testnet ETH; auto-anchoring paused until it is topped up", 503);
+    }
     const db = getDb();
     if (db.tamper) throw new OrbitError("Restore the ledger before anchoring: refusing to anchor tampered history", 409);
     const covers = db.ledger.length;
@@ -80,15 +94,15 @@ export function anchorNow(): Promise<Checkpoint> {
   return s.inflight;
 }
 
-/** Debounced auto-anchoring after writes, so live demo activity reaches the chain within ~20 s. */
-export function scheduleAnchor(delayMs = 20_000) {
+/** Debounced auto-anchoring: a burst of writes produces one transaction ~45 s after the last write. */
+export function scheduleAnchor(delayMs = 45_000) {
   const cfg = chainConfig();
   if (!cfg?.privateKey || process.env.ORBIT_AUTO_ANCHOR === "0") return;
   const s = svc();
   if (s.timer) clearTimeout(s.timer);
   s.timer = setTimeout(() => {
     s.timer = null;
-    anchorNow().catch((e) => console.error("[orbit] auto-anchor failed:", e instanceof Error ? e.message : e));
+    anchorNow({ auto: true }).catch((e) => console.error("[orbit] auto-anchor skipped:", e instanceof Error ? e.message : e));
   }, delayMs);
 }
 

@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 
 // POST /api/actions/:action
 //  - Supply chain actions require { request, signature }: an instruction signed by the actor's own
-//    Ed25519 key. The server verifies it (signature, freshness, nonce) and can never forge one.
+//    Ed25519 key. The server verifies it (signature, freshness, nonce). In production the server never
+//    holds actor keys; in demo mode it generated the role-play keys, so it could sign as them.
 //  - "anchor" publishes the current Merkle root on-chain. Anyone may trigger it; it only commits.
 //  - "tamper", "restore", "reset" exist only in demo mode (ORBIT_DEMO_MODE != 0).
 export async function POST(req: Request, { params }: { params: Promise<{ action: string }> }) {

@@ -39,13 +39,15 @@ npm run dev          # http://localhost:3000 (works without a chain: checkpoints
 npm test             # 22 unit tests (node:test)
 ```
 
+> **Judges:** a fresh clone generates its own random keys, so it builds a *new* ledger that isn't anchored on our contract. Its passports show "local checkpoint only", and the operator-rewrite demo has nothing on-chain to be caught against. To see the anchored demo, use the hosted app (link at the top), or deploy your own anchor with the steps below.
+
 ### Anchor on a public testnet (Base Sepolia by default)
 
 ```bash
 npm run wallet          # creates an anchor wallet in .env.local and prints its address
 # fund that address with a little Base Sepolia ETH from a faucet
 npm run deploy:anchor   # deploys OrbitAnchor, writes ORBIT_ANCHOR_ADDRESS to .env.local
-npm run dev             # the ledger is anchored on boot and ~20 s after every write
+npm run dev             # the ledger is anchored on boot and ~45 s after the last write
 ```
 
 Use `ORBIT_CHAIN=sepolia` or `polygon-amoy` for another testnet. `npm run test:chain` runs the contract integration test against a local node (`npx hardhat node`).
@@ -94,7 +96,7 @@ See **[docs/SECURITY.md](docs/SECURITY.md)** for the full threat model, includin
 
 ## Stack
 
-Next.js 15 · React 19 · TypeScript · Tailwind CSS v4 · `@noble/curves` (Ed25519) & `@noble/hashes` (SHA-256) · `viem` · Solidity 0.8.26 (`solc`) · `motion`, `@number-flow/react`, `lucide-react`, `sonner` for the UI. The design takes cues from recent Awwwards Sites of the Month: an editorial serif on a deep forest-night palette with a single signal-lime accent.
+Next.js 15 · React 19 · TypeScript · Tailwind CSS v4 · `@noble/curves` (Ed25519) & `@noble/hashes` (SHA-256) · `viem` · Solidity 0.8.26 (`solc`) · `motion`, `@number-flow/react`, `lucide-react`, `sonner` for the UI.
 
 ## Standards it borrows from
 
