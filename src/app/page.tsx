@@ -28,8 +28,8 @@ export default function Home() {
   return (
     <div className="space-y-20">
       {/* Hero */}
-      <section className="relative -mx-4 -mt-10 overflow-hidden px-4 pb-6 pt-16 sm:-mx-6 sm:px-6">
-        <div aria-hidden className="pointer-events-none absolute inset-0 [mask-image:radial-gradient(ellipse_70%_75%_at_35%_40%,#000_45%,transparent_100%)]">
+      <section className="relative -mt-10 pb-6 pt-16">
+        <div aria-hidden className="pointer-events-none absolute -top-32 bottom-0 left-1/2 w-screen -translate-x-1/2 overflow-hidden [mask-image:linear-gradient(to_bottom,#000_70%,transparent)]">
           <div className="aurora-a absolute -left-[10%] -top-[30%] h-[70%] w-[60%] rounded-full bg-accent/20 blur-[90px]" />
           <div className="aurora-b absolute -right-[10%] top-[10%] h-[60%] w-[45%] rounded-full bg-leaf/15 blur-[90px]" />
           <div className="aurora-a absolute bottom-[-30%] left-[30%] h-[50%] w-[40%] rounded-full bg-sky/10 blur-[90px]" />
@@ -67,7 +67,7 @@ export default function Home() {
       </section>
 
       {/* Live ledger marquee */}
-      <section aria-label="Latest ledger entries" className="marquee -mx-4 -mt-12 overflow-hidden border-y border-line bg-surface/60 py-3 sm:-mx-6">
+      <section aria-label="Latest ledger entries" className="marquee relative left-1/2 -mt-12 w-screen -translate-x-1/2 overflow-hidden border-y border-line bg-surface/60 py-3">
         <div aria-hidden className="[mask-image:linear-gradient(90deg,transparent,#000_8%,#000_92%,transparent)]">
           <div className="marquee-track flex w-max gap-10">
             {[...ticker, ...ticker].map((e, i) => (
@@ -92,11 +92,11 @@ export default function Home() {
               <ArrowUpRight className="h-4 w-4 text-muted" strokeWidth={1.5} />
             </div>
             <div>
-              <div className="flex items-start gap-3">
+              <div className="flex items-end gap-3">
                 <span className="display text-[clamp(4.5rem,11vw,9rem)] leading-[0.85] text-accent">
                   <Num value={s.avoidedKg} decimals={1} />
                 </span>
-                <span className="mt-3 text-xl text-ink-soft">kg CO₂e</span>
+                <span className="pb-3 text-xl text-ink-soft">kg CO₂e</span>
               </div>
               <p className="mt-4 max-w-md text-sm text-ink-soft">
                 {fmt(s.recoveredKg, 2)} kg of material recovered and fed back into new products, each lot traceable to the passport it came from.
