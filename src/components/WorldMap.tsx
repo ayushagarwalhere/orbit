@@ -3,13 +3,34 @@ import type { Place } from "@/lib/types.ts";
 // Lightweight equirectangular map: graticule, stops and curved routes. No tiles, no API keys.
 const W = 720;
 const H = 330;
-const LAT_TOP = 72;
-const LAT_BOTTOM = -40;
 
-function project(p: { lat: number; lng: number }) {
-  const x = ((p.lng + 180) / 360) * W;
-  const y = ((LAT_TOP - p.lat) / (LAT_TOP - LAT_BOTTOM)) * H;
-  return { x, y };
+interface View {
+  west: number;
+  east: number;
+  north: number;
+  south: number;
+}
+
+/** Fit the view to the stops (with padding), keeping the map's aspect ratio. */
+function fitView(points: { lat: number; lng: number }[]): View {
+  if (!points.length) return { west: -180, east: 180, north: 72, south: -40 };
+  let west = Math.min(...points.map((p) => p.lng)) - 12;
+  let east = Math.max(...points.map((p) => p.lng)) + 18;
+  let north = Math.max(...points.map((p) => p.lat)) + 10;
+  let south = Math.min(...points.map((p) => p.lat)) - 10;
+  const aspect = W / H;
+  if ((east - west) / (north - south) < aspect) {
+    const want = (north - south) * aspect;
+    const pad = (want - (east - west)) / 2;
+    west -= pad;
+    east += pad;
+  } else {
+    const want = (east - west) / aspect;
+    const pad = (want - (north - south)) / 2;
+    north += pad;
+    south -= pad;
+  }
+  return { west, east, north, south };
 }
 
 export interface MapStop {
@@ -25,14 +46,24 @@ export function WorldMap({ stops, routes }: { stops: MapStop[]; routes: [Place, 
     const prev = unique.get(k);
     if (!prev || s.kind === "current") unique.set(k, s);
   }
+  const v = fitView(stops.map((s) => s.place));
+  const project = (p: { lat: number; lng: number }) => ({
+    x: ((p.lng - v.west) / (v.east - v.west)) * W,
+    y: ((v.north - p.lat) / (v.north - v.south)) * H,
+  });
+  const step = v.east - v.west > 120 ? 30 : v.east - v.west > 50 ? 15 : 5;
+  const lngs: number[] = [];
+  for (let g = Math.ceil(v.west / step) * step; g <= v.east; g += step) lngs.push(g);
+  const lats: number[] = [];
+  for (let g = Math.ceil(v.south / step) * step; g <= v.north; g += step) lats.push(g);
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="Supply chain route map">
       <rect width={W} height={H} rx="12" fill="#eef3ef" />
-      {Array.from({ length: 13 }, (_, i) => -180 + i * 30).map((lng) => {
+      {lngs.map((lng) => {
         const { x } = project({ lat: 0, lng });
         return <line key={`g${lng}`} x1={x} x2={x} y1={0} y2={H} stroke="#dbe5de" strokeWidth="1" />;
       })}
-      {[60, 30, 0, -30].map((lat) => {
+      {lats.map((lat) => {
         const { y } = project({ lat, lng: 0 });
         return <line key={`t${lat}`} x1={0} x2={W} y1={y} y2={y} stroke={lat === 0 ? "#c8d6cc" : "#dbe5de"} strokeWidth="1" strokeDasharray={lat === 0 ? "4 4" : undefined} />;
       })}

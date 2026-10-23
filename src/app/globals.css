@@ -30,71 +30,73 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-.card {
-  background: var(--color-card);
-  border: 1px solid var(--color-line);
-  border-radius: 14px;
-}
+@layer components {
+  .card {
+    background: var(--color-card);
+    border: 1px solid var(--color-line);
+    border-radius: 14px;
+  }
 
-.label {
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-  font-weight: 600;
-}
+  .label {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+    font-weight: 600;
+  }
 
-.hash {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--color-ink-soft);
-}
+  .hash {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--color-ink-soft);
+  }
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border-radius: 10px;
-  padding: 8px 14px;
-  font-size: 14px;
-  font-weight: 600;
-  transition: background 0.15s, opacity 0.15s;
-  cursor: pointer;
-}
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.btn-primary {
-  background: var(--color-ink);
-  color: white;
-}
-.btn-primary:hover:not(:disabled) {
-  background: #1e3a31;
-}
-.btn-ghost {
-  border: 1px solid var(--color-line);
-  background: white;
-}
-.btn-ghost:hover:not(:disabled) {
-  background: var(--color-paper);
-}
-.btn-danger {
-  background: var(--color-rust);
-  color: white;
-}
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    transition: background 0.15s, opacity 0.15s;
+    cursor: pointer;
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .btn-primary {
+    background: var(--color-ink);
+    color: white;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: #1e3a31;
+  }
+  .btn-ghost {
+    border: 1px solid var(--color-line);
+    background: white;
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--color-paper);
+  }
+  .btn-danger {
+    background: var(--color-rust);
+    color: white;
+  }
 
-.field {
-  width: 100%;
-  border: 1px solid var(--color-line);
-  border-radius: 10px;
-  padding: 8px 10px;
-  font-size: 14px;
-  background: white;
-}
-.field:focus {
-  outline: 2px solid var(--color-leaf);
-  outline-offset: -1px;
+  .field {
+    width: 100%;
+    border: 1px solid var(--color-line);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 14px;
+    background: white;
+  }
+  .field:focus {
+    outline: 2px solid var(--color-leaf);
+    outline-offset: -1px;
+  }
 }
 
 @keyframes pulse-ring {
@@ -103,4 +105,10 @@ body {
 }
 .pulse {
   animation: pulse-ring 1.8s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse {
+    animation: none;
+  }
 }

@@ -60,6 +60,14 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
   for (const s of j) if (s.type === "SOURCE" && made) routes.push([s.place, made.place]);
   const lifecycle = j.filter((s) => s.type !== "SOURCE");
   for (let i = 1; i < lifecycle.length; i++) routes.push([lifecycle[i - 1].place, lifecycle[i].place]);
+  // In transit or returned: draw the leg towards the party it is heading to.
+  const headingTo = c.pendingRecipientId ?? (c.stage === "returned" ? c.holderId : undefined);
+  if (headingTo && lifecycle.length) {
+    const dest = getActor(db, headingTo).place;
+    stops.forEach((s) => s.kind === "current" && (s.kind = "event"));
+    stops.push({ place: dest, label: "destination", kind: "current" });
+    routes.push([lifecycle[lifecycle.length - 1].place, dest]);
+  }
 
   return (
     <div className="space-y-6">
@@ -238,7 +246,7 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
           <dl className="mt-3 space-y-1 text-sm">
             <Row k="Materials (cradle-to-gate)" v={`${fmt(cf.materials, 2)} kg`} dot="#0d1f1a" />
             <Row k="Manufacturing & repair" v={`${fmt(cf.manufacturing, 2)} kg`} dot="#127a52" />
-            <Row k={`Transport (${cf.legs.length} legs)`} v={`${fmt(cf.transport, 3)} kg`} dot="#1f5fa8" />
+            <Row k={`Transport (${cf.legs.length} leg${cf.legs.length === 1 ? "" : "s"})`} v={`${fmt(cf.transport, 3)} kg`} dot="#1f5fa8" />
           </dl>
           {cf.legs.length > 0 && (
             <ul className="mt-3 space-y-0.5 text-xs text-muted">
@@ -279,7 +287,7 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
           <p className="mt-2 text-sm text-ink-soft">{p.endOfLife}</p>
           <dl className="mt-3 space-y-1 text-sm">
             <Row k="Repairability" v={`${p.repairabilityScore}/10`} />
-            <Row k="Warranty" v={`${p.warrantyYears} years`} />
+            <Row k="Warranty" v={`${p.warrantyYears} year${p.warrantyYears === 1 ? "" : "s"}`} />
             <Row k="Deposit refund on return" v={`${p.depositCredits} credits`} />
           </dl>
           {c.stage === "in-use" && (
