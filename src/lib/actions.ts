@@ -272,7 +272,7 @@ function mint(db: Db, input: { to: string; amount: number; reason: string; produ
 export const REWARDS = [
   { id: "repair-voucher", label: "Free repair at a partner repair café", cost: 40 },
   { id: "transit", label: "S$5 public transport top-up", cost: 60 },
-  { id: "tree", label: "Plant a mangrove via partner NGO", cost: 25 },
+  { id: "tree", label: "Plant a mangrove via partner NGO", cost: 20 },
   { id: "discount", label: "15% off a certified circular product", cost: 80 },
 ];
 
@@ -288,8 +288,8 @@ export function redeem(db: Db, input: { actorId: string; rewardId: string; at?: 
 // ---------- anchoring ----------
 
 /**
- * Commits the Merkle root of the whole ledger. Locally this is a signed checkpoint; with
- * ORBIT_ANCHOR_RPC configured, scripts/anchor.mjs posts the same root to an EVM chain.
+ * Commits the Merkle root of the whole ledger as a signed checkpoint entry. The same root
+ * can be published on-chain via contracts/OrbitAnchor.sol for public timestamping.
  */
 export function anchor(db: Db, input: { network?: string; txRef?: string; at?: string } = {}) {
   const root = merkleRoot(db.ledger.map((e) => e.hash));

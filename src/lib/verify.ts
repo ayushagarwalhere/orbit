@@ -91,6 +91,7 @@ export function evaluateClaim(db: Db, claim: Claim, product: Product): ClaimResu
 
   if (rejections.length) {
     status = "CONTRADICTED";
+    for (let i = reasons.length - 1; i >= 0; i--) if (/^(Awaiting|No repair)/.test(reasons[i])) reasons.splice(i, 1);
     for (const r of rejections) reasons.push(`Rejected by ${getActor(db, r.auditorId).name}: ${r.note}`);
   } else if (status !== "CONTRADICTED" && approvals.length && claim.kind !== "ETHICAL_LABOR") {
     for (const a of approvals) evidence.push(`Co-signed by ${getActor(db, a.auditorId).name}`);
@@ -112,7 +113,9 @@ export interface TrustReport {
 
 export function trustReport(db: Db, product: Product, ledgerReport?: IntegrityReport): TrustReport {
   const report = ledgerReport ?? verifyLedger(db);
-  const entries = productEntries(db, product.id);
+  // A product is only as trustworthy as its own events AND the material lots it was made from.
+  const lotIds = new Set(product.inputs.map((i) => i.batchId));
+  const entries = [...productEntries(db, product.id), ...db.ledger.filter((e) => e.type === "BATCH_CREATED" && lotIds.has(e.subjectId))];
   const badEntries = entries.filter((e) => report.badIndexes.has(e.index)).length;
   const made = lifecycleEntries(db, product.id).find((e) => e.type === "MANUFACTURED");
   const passportTampered = !made || made.data.passportHash !== passportHash(product);

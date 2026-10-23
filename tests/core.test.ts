@@ -63,6 +63,15 @@ test("tampering is detected and restorable", () => {
   assert.equal(verifyLedger(db).ok, true);
 });
 
+test("tampering with a material lot flags every product made from it", () => {
+  const db = seedDb();
+  const battery = byName(db, "Strata 500 Wh E-bike Battery");
+  const copperLot = battery.inputs[2].batchId;
+  tamper(db, db.ledger.findIndex((e) => e.type === "BATCH_CREATED" && e.subjectId === copperLot));
+  assert.equal(trustReport(db, battery).integrity.ok, false);
+  assert.equal(trustReport(db, byName(db, "Orbit Tee")).integrity.ok, true);
+});
+
 test("editing a passport record breaks its trust score", () => {
   const db = seedDb();
   const tee = byName(db, "Orbit Tee");

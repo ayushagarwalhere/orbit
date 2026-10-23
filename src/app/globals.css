@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-face), ui-monospace, SFMono-Regular, monospace;
+
+  --color-ink: #0d1f1a;
+  --color-ink-soft: #3d524b;
+  --color-muted: #6b7f78;
+  --color-paper: #f6f5f0;
+  --color-card: #ffffff;
+  --color-line: #e3e2da;
+  --color-leaf: #127a52;
+  --color-leaf-soft: #e3f3ea;
+  --color-amber: #b26b00;
+  --color-amber-soft: #fbf0dc;
+  --color-rust: #b8361f;
+  --color-rust-soft: #fbe6e1;
+  --color-sky: #1f5fa8;
+  --color-sky-soft: #e3edf8;
+}
+
+html {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.card {
+  background: var(--color-card);
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+}
+
+.label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  font-weight: 600;
+}
+
+.hash {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-ink-soft);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.15s, opacity 0.15s;
+  cursor: pointer;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--color-ink);
+  color: white;
+}
+.btn-primary:hover:not(:disabled) {
+  background: #1e3a31;
+}
+.btn-ghost {
+  border: 1px solid var(--color-line);
+  background: white;
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--color-paper);
+}
+.btn-danger {
+  background: var(--color-rust);
+  color: white;
+}
+
+.field {
+  width: 100%;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 14px;
+  background: white;
+}
+.field:focus {
+  outline: 2px solid var(--color-leaf);
+  outline-offset: -1px;
+}
+
+@keyframes pulse-ring {
+  0% { r: 4; opacity: 0.8; }
+  100% { r: 14; opacity: 0; }
+}
+.pulse {
+  animation: pulse-ring 1.8s ease-out infinite;
+}
