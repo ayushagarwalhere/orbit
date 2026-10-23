@@ -3,6 +3,7 @@ import { MATERIAL_FACTORS } from "@/lib/factors.ts";
 import { verifyLedger } from "@/lib/ledger.ts";
 import { getDb } from "@/lib/store.ts";
 import { trustReport } from "@/lib/verify.ts";
+import { PageHeader } from "@/components/ui.tsx";
 import { ConsoleClient, type ConsoleData } from "./ConsoleClient.tsx";
 
 export const dynamic = "force-dynamic";
@@ -35,12 +36,9 @@ export default function ConsolePage() {
   };
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-black tracking-tight">Partner console</h1>
-        <p className="mt-1 max-w-2xl text-ink-soft">
-          Act as any participant. Every action is checked against custody, role and mass-balance rules, then signed with that actor&apos;s key and appended to the ledger.
-        </p>
-      </div>
+      <PageHeader kicker="Role-play every party" title={<>Partner <em className="text-accent">console</em></>}>
+        Act as any participant. Each action is signed in your browser with that party&apos;s own key, then checked by the API against signature, custody, role and mass-balance rules before it reaches the ledger.
+      </PageHeader>
       <ConsoleClient data={data} />
     </div>
   );

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ActionButton } from "@/components/act.tsx";
-import { ENTRY_META, RoleTag, dateTime, short } from "@/components/ui.tsx";
+import { ENTRY_META, PageHeader, RoleTag, dateTime, short } from "@/components/ui.tsx";
 import { chainConfig, checkAnchors } from "@/lib/chain.ts";
 import { verifyLedger } from "@/lib/ledger.ts";
 import { addressUrl } from "@/lib/networks.ts";
@@ -46,17 +46,14 @@ export default async function LedgerPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-black tracking-tight">Ledger</h1>
-        <p className="mt-1 max-w-3xl text-ink-soft">
-          Append-only and hash-chained. Each entry carries the <b>actor&apos;s own signed instruction</b> (signed in their browser or wallet, never by the server), is sequenced and signed by the protocol, and is periodically committed to a public blockchain as a Merkle root.
-        </p>
-      </div>
+      <PageHeader kicker="Tamper-evident by construction" title={<>The <em className="text-accent">ledger</em></>}>
+          Append-only and hash-chained. Each entry carries the <b className="text-ink">actor&apos;s own signed instruction</b> (signed in their browser or wallet, never by the server). The protocol sequences and signs each entry, and periodically commits a Merkle root to a public blockchain.
+      </PageHeader>
 
       <section className="grid gap-4 md:grid-cols-3">
         <div className={`card p-5 ${r.ok && !chainBroken ? "" : "border-rust"}`}>
           <div className="label">Local integrity</div>
-          <div className={`mt-1 text-2xl font-black ${r.ok ? "text-leaf" : "text-rust"}`}>{r.ok ? "✓ Intact" : "✕ Tampered"}</div>
+          <div className={`display mt-2 text-5xl ${r.ok ? "text-leaf" : "text-rust"}`}>{r.ok ? "✓ Intact" : "✕ Tampered"}</div>
           <div className="mt-1 text-sm text-muted">
             {r.checked} entries: hashes, links, {r.checked} sequencer + actor signatures, signed-instruction bindings, replay
           </div>
@@ -91,7 +88,7 @@ export default async function LedgerPage() {
               .map((a) => (
                 <li key={`${a.checkpoint.covers}-${a.checkpoint.checkpointId}`} className="flex flex-wrap items-center gap-2">
                   <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-bold ${a.status === "match" ? "bg-leaf-soft text-leaf" : a.status === "mismatch" ? "bg-rust text-white" : "bg-amber-soft text-amber"}`}
+                    className={`rounded-full px-2 py-0.5 text-xs font-bold ${a.status === "match" ? "bg-leaf-soft text-leaf" : a.status === "mismatch" ? "bg-rust text-on-accent" : "bg-amber-soft text-amber"}`}
                   >
                     {a.status === "match" ? "✓ ON-CHAIN MATCH" : a.status === "mismatch" ? "✕ ON-CHAIN MISMATCH" : a.status === "local" ? "LOCAL ONLY" : "UNREACHABLE"}
                   </span>
@@ -116,7 +113,7 @@ export default async function LedgerPage() {
       {isDemoMode() && (
         <section className="card p-5">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="font-bold">Tamper simulator</h2>
+            <h2 className="display text-3xl">Tamper simulator</h2>
             <span className="text-xs text-muted">Try to rewrite history. Then check this page, the affected passport, and the Verify page.</span>
           </div>
           {db.tamper ? (
@@ -149,8 +146,8 @@ export default async function LedgerPage() {
 
       <section className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-paper text-left text-xs text-muted">
+          <table className="table w-full text-sm">
+            <thead className="text-left">
               <tr>
                 <th className="px-4 py-2 font-medium">#</th>
                 <th className="py-2 font-medium">Event</th>

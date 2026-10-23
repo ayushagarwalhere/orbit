@@ -1,162 +1,130 @@
 # Orbit: verifiable circular supply chains
 
-> Every product carries its proof. Orbit gives products a **digital product passport** backed by a **signed, tamper-evident ledger**, then **checks each sustainability claim against that ledger** to catch greenwashing automatically.
+> Green claims, checked against the supply chain. Orbit gives every product a **digital product passport** backed by **actor-signed, hash-chained records whose Merkle roots are anchored on a public blockchain**, then **checks every sustainability claim against that record** to catch greenwashing automatically.
 
 Built for the **IEEE ClimateChain Global Hackathon**, track **Sustainable Supply Chains**: *increase transparency and accountability in supply chains, where ethical sourcing and sustainability claims are hard to verify.*
 
+📄 [Problem statement](docs/PROBLEM_STATEMENT.md) · 🌍 [Climate impact assessment & projections](docs/IMPACT.md) · 🔐 [Security & data integrity assessment](docs/SECURITY.md) · 📝 [Devpost write-up](docs/DEVPOST.md)
+
 | Track idea | What Orbit does |
 | --- | --- |
-| Product lifecycle tracking | Every handover (sourcing, manufacture, shipping, sale, repair, return, recycling) is an EPCIS-style event, **signed with the actor's Ed25519 key** and **hash-chained** to the previous entry. |
-| Digital product passports | A public passport page per product (QR code + GS1 Digital Link) and a machine-readable **UNTP / W3C VC-style JSON-LD export** that anyone can verify offline. |
-| Recycling traceability | Recyclers turn returned products into **new recycled material lots that link back to their source product**. Recycled content is **proven by mass balance**, not declared. |
+| Product lifecycle tracking | Every handover (sourcing, manufacture, shipping, sale, repair, return, recycling) is an EPCIS-style event. It carries an **instruction signed in the actor's own browser or wallet (Ed25519)**, is **hash-chained**, and its Merkle root is **anchored on-chain** (`OrbitAnchor.sol`). |
+| Digital product passports | A public passport page per product (QR code + GS1 Digital Link) and a **UNTP / W3C VC-style JSON-LD export with Merkle inclusion proofs**. The browser verifies it against the blockchain directly. |
+| Recycling traceability | Recyclers turn returned products into **new recycled material lots linked to their source product**. Recycled content is **proven by mass balance**, not declared. |
 | Circular economy incentives | The protocol mints **credits** only when a matching signed event exists: deposit refund on return, a bonus for repair-instead-of-replace, and recovery credits per kg. |
-| *(Accountability layer)* | A **claim verification engine** grades every product A–E. Claims contradicted by the data are flagged, and vague wording ("eco-friendly", "carbon neutral") is linted against the EU Empowering Consumers Directive. |
+| *(Accountability layer)* | A **claim verification engine** grades every product A–E. Claims the data contradicts are flagged, **self-reported inputs are disclosed** (the oracle problem), and vague wording such as "eco-friendly" or "carbon neutral" is linted against EU Directive 2024/825. |
 
----
-
-## The demo story (seeded)
+## The demo story
 
 | Passport | What it shows |
 | --- | --- |
-| 👕 **Orbit Tee** · grade **A** | Honest product. 40% recycled claim matches batch lineage; carbon claim covers the ledger-derived footprint; SA8000 labour claim approved by an independent auditor. |
+| 👕 **Orbit Tee** · grade **A** | Honest product. Its 40% recycled claim matches batch lineage, and the labour claim is approved by an independent auditor. The carbon claim is verified but flagged because 54% of it rests on self-reported factory data. |
 | 🧥 **EcoCloud Hoodie** · grade **E** | Greenwashing. It claims "70% recycled, 100% eco-friendly", but the ledger proves **6.7%**. "Carbon neutral 1.2 kg" is contradicted by **6.0 kg** (it was air-freighted), and the auditor rejected the labour claim. |
 | 🔋 **Strata E-bike Battery** | Full life: shipped → sold → **repaired** (owner earns credits) → **returned** (deposit refunded) → **recycled** into 3 new recovered lots. |
-| ♻️ **Strata Loop Edition** | **Closed loop.** Built from the recovered lots of the first battery: **93% recycled content**, about 65% lower footprint, linked back to its ancestor passport. |
+| ♻️ **Strata Loop Edition** | **Closed loop.** Built from those recovered lots: **93% recycled content** and about 65% lower footprint, linked back to its ancestor passport. |
 
-Then, live in the UI:
-1. **Ledger → Tamper simulator**: flip the hoodie's failed audit to "APPROVE". Integrity immediately fails, the hoodie's passport shows a red tampering banner, and the trust score drops to 10.
-2. **Verify**: load a passport and your browser re-checks every hash and signature with no server trust. Edit one character in the JSON and watch it fail.
-3. **Console**: act as Priya (consumer) and return the Orbit Tee (+20 credits). Then act as Re:Fibre (recycler), recycle it, and see new recycled lots appear. As Lumen (brand), try publishing "90% recycled" on the hoodie and watch it get contradicted on the spot.
-
----
+**Live demo path (3 minutes)**
+1. **Overview → "See a greenwashed product get caught"**: shows the hoodie's contradicted claims.
+2. **Ledger → Tamper simulator → "Hide the hoodie's air-freight leg"**: a malicious operator rewrites and **re-signs** all later history. Every local hash and signature still checks out, but the **on-chain anchor shows MISMATCH**, and the passport turns red.
+3. **Verify**: your browser re-checks keys, signatures, signed-instruction bindings and Merkle proofs, then reads the root **straight from the chain**.
+4. **Console**: act as Priya and return the tee (+20 credits); the request is signed in your browser. As Re:Fibre, recycle it. As Lumen, claim "90% recycled" on the hoodie and watch it get contradicted.
 
 ## Quick start
 
 ```bash
 npm install
-npm run dev        # http://localhost:3000
-npm test           # 15 tests on the core engine (node:test, no extra deps)
+npm run dev          # http://localhost:3000 (works without a chain: checkpoints stay local-only)
+npm test             # 22 unit tests (node:test)
 ```
 
-Requires Node 22.6+ (tests use Node's built-in TypeScript type stripping). State lives in `data/orbit-db.json`. Delete it, or `POST /api/actions/reset`, to restore the demo world.
+### Anchor on a public testnet (Base Sepolia by default)
 
----
+```bash
+npm run wallet          # creates an anchor wallet in .env.local and prints its address
+# fund that address with a little Base Sepolia ETH from a faucet
+npm run deploy:anchor   # deploys OrbitAnchor, writes ORBIT_ANCHOR_ADDRESS to .env.local
+npm run dev             # the ledger is anchored on boot and ~20 s after every write
+```
+
+Use `ORBIT_CHAIN=sepolia` or `polygon-amoy` for another testnet. `npm run test:chain` runs the contract integration test against a local node (`npx hardhat node`).
+
+### Deploy (Render, one instance, so state stays consistent)
+
+`render.yaml` is a ready blueprint. Set `ORBIT_ANCHOR_ADDRESS`, `ORBIT_ANCHOR_PRIVATE_KEY` and `ORBIT_KEYSTORE` (the output of `npm run keystore`, which pins actor keys so the seeded ledger and its anchored root are identical across restarts). See [.env.example](.env.example).
 
 ## How it works
 
 ```mermaid
 flowchart LR
-  subgraph Actors["Supply chain actors (each holds an Ed25519 key)"]
-    S[Supplier] --> M[Manufacturer] --> L[Logistics] --> R[Retailer] --> C[Consumer]
+  subgraph Actors["Actors: each signs with its own Ed25519 key"]
+    S[Supplier] --> M[Brand] --> L[Carrier] --> R[Retailer] --> C[Consumer]
     C -- repair --> F[Repairer]
     C -- return --> Y[Recycler]
     A[Auditor]
   end
-  Actors -- signed actions --> V{Protocol rules<br/>custody · roles · mass balance}
-  V -- append --> LG[(Hash-chained ledger<br/>Merkle-anchored)]
+  Actors -- signed instruction --> V{API checks<br/>signature · freshness · nonce<br/>custody · role · mass balance}
+  V -- sequenced + hash-chained --> LG[(Ledger)]
+  LG -- Merkle root --> CH[[OrbitAnchor<br/>public EVM chain]]
   Y -- recovered lots --> M
   LG --> E[Claim verification engine]
-  LG --> P[Digital Product Passport<br/>page + JSON-LD]
-  LG --> K[Credits minted by protocol]
-  E --> P
+  LG --> P[Passport + Merkle proofs]
+  CH -. root read directly .-> B[Browser verifier]
+  P --> B
 ```
 
-**Ledger.** Each entry is `{index, type, subjectId, actorId, timestamp, place, data, prevHash}`. It is hashed with SHA-256 over canonical JSON (sorted keys) and signed with Ed25519 by the actor. `verifyLedger()` re-derives every hash, checks every link, and verifies every signature. A Merkle root of all entry hashes is checkpointed (`ANCHORED` entries). That root is the value you would post to a public chain; see `contracts/OrbitAnchor.sol`.
+- **Identity.** Each actor publishes its public key in a self-signed `ACTOR_REGISTERED` entry. Verifiers take keys only from these entries, never from the server's records.
+- **Writes.** The client signs `{action, actorId, body, nonce, issuedAt}`. The API (`src/lib/dispatch.ts`) verifies the signature, rejects stale requests, replays and impersonation, then applies the protocol rules (`src/lib/actions.ts`). The entry embeds the signed instruction, is hash-chained, and is signed by the sequencer to fix its order.
+- **Checks** (`src/lib/ledger.ts`): every hash, link and sequencer signature; every actor's signature; that each entry matches what the actor signed (`auth.ts`); no replays; and recomputed roots against on-chain roots (`chain.ts`).
+- **Anchoring.** Only a 32-byte Merkle root goes on-chain, so no commercial data is exposed. Cost is constant per checkpoint. `OrbitAnchor.verifyInclusion` checks proofs natively in Solidity.
+- **Claims** (`src/lib/verify.ts`): recycled % against mass-balanced lot lineage; carbon against supplier-signed lots + factory data (flagged as self-reported) + transport legs computed from registered sites with GLEC factors; origin against the signed manufacture site; labour against an independent auditor attestation. An auditor's rejection overrides the brand.
 
-**Passports are committed at birth.** The `MANUFACTURED` entry stores `passportHash = sha256(bill of materials, GTIN, serial, …)`, and each claim's `CLAIM_ISSUED` entry stores its `claimHash`. If someone quietly edits a product record later, the passport flags it.
-
-**Protocol rules enforced on every write** (`src/lib/actions.ts`):
-- Only the current custodian can ship; only the addressed recipient can receive.
-- **Mass balance**: a material lot can't be drawn into products beyond its mass.
-- Only recyclers can mint recycled lots, so suppliers can't invent recycled content.
-- Brands can only claim things about their own products; only independent auditors can attest.
-- Credits are minted by the protocol key, never by participants.
-
-**Claim verification** (`src/lib/verify.ts`):
-
-| Claim | Checked against |
-| --- | --- |
-| Recycled content % | Mass-weighted recycled share of the input lots (lineage) |
-| Carbon footprint | Materials (virgin vs recycled factors) + metered factory energy + every shipping leg (distance × mass × GLEC mode factor) |
-| Origin | Location signed on the manufacture event |
-| Labour standard | Requires an independent auditor's signed approval |
-| Repairability | Declared score and recorded repair events |
-
-A rejection by any auditor overrides the brand. The trust score combines verified-claim ratio and traceability depth, subtracts penalties for contradictions and banned wording, and is capped at 10 if tampering is detected.
-
----
+See **[docs/SECURITY.md](docs/SECURITY.md)** for the full threat model, including what a malicious operator can and cannot do and how the oracle problem is handled.
 
 ## API
 
-All writes go through one endpoint and are validated, signed and appended atomically (rolled back on error).
-
 | Method | Path | Body |
 | --- | --- | --- |
-| `GET` | `/api/passport/:id` | n/a. Returns the self-verifying JSON-LD passport. |
-| `GET` | `/api/ledger` | n/a. Returns the full ledger, public keys and integrity report. |
-| `POST` | `/api/actions/create-batch` | `{producerId, material, massKg, recycledKg?}` |
-| `POST` | `/api/actions/manufacture` | `{brandId, name, category, inputs:[{batchId, massKg}], depositCredits, co2eKg, …}` |
-| `POST` | `/api/actions/ship` | `{productId, actorId, toId, mode: ship\|rail\|truck\|air}` |
-| `POST` | `/api/actions/receive` | `{productId, actorId}` |
-| `POST` | `/api/actions/sell` | `{productId, actorId, toId}` |
-| `POST` | `/api/actions/repair` | `{productId, actorId, note}` |
-| `POST` | `/api/actions/return` | `{productId, actorId, toId}` |
-| `POST` | `/api/actions/recycle` | `{productId, actorId}` |
-| `POST` | `/api/actions/issue-claim` | `{productId, issuerId, kind, value, statement, evidence?}` |
-| `POST` | `/api/actions/attest` | `{claimId, auditorId, verdict: APPROVE\|REJECT, note}` |
-| `POST` | `/api/actions/redeem` | `{actorId, rewardId}` |
-| `POST` | `/api/actions/anchor` · `tamper` · `restore` · `reset` | demo controls |
+| `GET` | `/api/passport/:id` | n/a. Returns the self-verifying JSON-LD passport with Merkle proofs and anchor reference. |
+| `GET` | `/api/ledger` | n/a. Returns all entries, registered keys and an integrity report. |
+| `POST` | `/api/actions/{create-batch, manufacture, ship, receive, sell, repair, return, recycle, issue-claim, attest, redeem}` | `{ request: {action, actorId, body, nonce, issuedAt}, signature }`, signed by the actor |
+| `POST` | `/api/actions/anchor` | `{}`. Publishes the current root on-chain. |
+| `POST` | `/api/actions/{tamper, restore, reset}`, `GET /api/demo/keys` | Demo mode only (`ORBIT_DEMO_MODE`). |
 
-```bash
-curl -X POST localhost:3000/api/actions/issue-claim -H 'content-type: application/json' \
-  -d '{"productId":"DPP-0002","issuerId":"lumen","kind":"RECYCLED_CONTENT","value":90,"statement":"90% recycled"}'
-# -> claim is created, then shows as CONTRADICTED on /passport/DPP-0002
-```
+## Stack
 
----
+Next.js 15 · React 19 · TypeScript · Tailwind CSS v4 · `@noble/curves` (Ed25519) & `@noble/hashes` (SHA-256) · `viem` · Solidity 0.8.26 (`solc`) · `motion`, `@number-flow/react`, `lucide-react`, `sonner` for the UI. The design takes cues from recent Awwwards Sites of the Month: an editorial serif on a deep forest-night palette with a single signal-lime accent.
 
 ## Standards it borrows from
 
-- **UN Transparency Protocol (UNTP)** Digital Product Passport and **W3C Verifiable Credentials** for the passport document shape
-- **GS1 EPCIS 2.0** for the event vocabulary (what / where / when / who), and **GS1 Digital Link** for product identifiers
-- **EU ESPR (2024/1781)** and the **EU Battery Regulation (2023/1542)**, which bring passports, carbon footprint and recycled content declarations
-- **EU Empowering Consumers Directive (2024/825)** for the greenwashing lint rules
-- **GLEC Framework** for transport emission factors
+UNTP Digital Product Passport & W3C Verifiable Credentials · GS1 EPCIS 2.0 & Digital Link · EU ESPR 2024/1781 · EU Battery Regulation 2023/1542 · EU Directive 2024/825 (greenwashing) · GLEC Framework (transport emissions).
 
 ## Project layout
 
 ```
-src/lib/        core engine (framework-free, fully unit tested)
-  crypto.ts     canonical JSON, SHA-256, Ed25519, Merkle proofs
-  ledger.ts     append + full integrity verification
-  actions.ts    validated write operations (the protocol rules)
-  domain.ts     custody, mass balance, carbon, credits (derived views)
-  verify.ts     claim verification engine + trust score
-  greenwash.ts  vague-claim linter
-  passport.ts   JSON-LD passport export
-  seed.ts       reproducible demo world
-src/app/        Next.js pages + API routes
-contracts/      optional on-chain Merkle root anchor (Solidity)
-tests/          node:test suite
+src/lib/        core engine (framework-free, unit tested)
+  crypto.ts     canonical JSON, SHA-256, Ed25519, byte-level Merkle tree & proofs
+  auth.ts       signed instructions + entry/instruction binding checks
+  dispatch.ts   API write path: signature, freshness, nonce, impersonation
+  ledger.ts     append + full integrity verification (with anchored roots)
+  actions.ts    protocol rules (custody, roles, mass balance, credits)
+  verify.ts     claim verification engine + trust score + self-reported caveats
+  chain.ts      publish & check anchors (viem)   anchor-read.ts  browser-safe reads
+  passport.ts   JSON-LD passport with Merkle proofs
+  seed.ts       reproducible demo world, every action actor-signed
+contracts/      OrbitAnchor.sol + compiled artifact
+scripts/        compile, wallet, deploy, keystore export
+tests/          core unit tests + on-chain integration test
+docs/           problem statement, impact assessment, security assessment, Devpost text
 ```
 
-## Honest limitations / roadmap
+## Limitations
 
-- **Demo keys are derived server-side** so the demo is reproducible. In production each actor signs with their own wallet, HSM or DID key, and Orbit only stores public keys. The ledger format already supports this because verification only needs public keys.
-- Emission factors are **illustrative** values from public LCA summaries, not certified accounting.
-- Storage is a single JSON document. The next step is Postgres plus periodic anchoring of the Merkle root to a public L2 (`contracts/OrbitAnchor.sol`).
-- Next: IoT and scale-weight attestations at handovers, zero-knowledge proofs so suppliers can prove mass balance without revealing volumes, and integration with EU DPP registry once live.
+Demo mode serves the demo actors' keys to the role-play console; in production keys stay in each actor's wallet. Emission factors are illustrative. Storage is a single JSON document (integrity doesn't depend on it; scale does). The sequencer is centralised but auditable through anchoring. Full list in [SECURITY.md §6](docs/SECURITY.md#6-residual-risks--limitations).
 
 ## Inspiration & prior art
 
 We studied these open-source projects before designing Orbit. All code here is our own.
-- [eclipse-tractusx/digital-product-pass](https://github.com/eclipse-tractusx/digital-product-pass): DPP visualisation in the Catena-X ecosystem
-- [openepcis/openepcis-dpp-ready](https://github.com/openepcis/openepcis-dpp-ready): harmonised DPP vocabularies (GS1, ESPR, UNTP)
-- [artiso-ai/dppvalidator](https://github.com/artiso-ai/dppvalidator): DPP compliance validation
-- [faizack/Supply-Chain-Blockchain](https://github.com/faizack/Supply-Chain-Blockchain): Ethereum supply chain dApp
-- [geraldinabeutnagel/ChainTrace](https://github.com/geraldinabeutnagel/ChainTrace): traceability architecture with IoT and ZK roadmap
-
-Unlike most traceability demos that only *record* data, Orbit also *checks the claims against it*. That check is how the track's accountability problem gets addressed.
+[eclipse-tractusx/digital-product-pass](https://github.com/eclipse-tractusx/digital-product-pass) · [openepcis/openepcis-dpp-ready](https://github.com/openepcis/openepcis-dpp-ready) · [artiso-ai/dppvalidator](https://github.com/artiso-ai/dppvalidator) · [faizack/Supply-Chain-Blockchain](https://github.com/faizack/Supply-Chain-Blockchain) · [geraldinabeutnagel/ChainTrace](https://github.com/geraldinabeutnagel/ChainTrace)
 
 ## License
 

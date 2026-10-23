@@ -57,10 +57,10 @@ export function ConsoleClient({ data }: { data: ConsoleData }) {
                     setActorId(a.id);
                     setLast(null);
                   }}
-                  className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm ${a.id === actorId ? "bg-ink text-white" : "hover:bg-paper"}`}
+                  className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm ${a.id === actorId ? "bg-accent text-on-accent" : "hover:bg-raised"}`}
                 >
                   <span className="truncate">{a.name}</span>
-                  <span className={`text-[10px] uppercase tracking-wide ${a.id === actorId ? "text-white/70" : "text-muted"}`}>{a.role}</span>
+                  <span className={`text-[10px] uppercase tracking-wide ${a.id === actorId ? "text-on-accent/70" : "text-muted"}`}>{a.role}</span>
                 </button>
               ))}
           </div>
@@ -71,7 +71,7 @@ export function ConsoleClient({ data }: { data: ConsoleData }) {
         <div className="card p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <div className="text-xl font-bold">{actor.name}</div>
+              <div className="display text-4xl">{actor.name}</div>
               <div className="text-sm text-muted">
                 {actor.role} · {actor.city} · {actor.balance} credits
               </div>
@@ -140,7 +140,7 @@ type Run = (action: string, body: Record<string, unknown>, msg: string) => Promi
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="card p-5">
-      <h2 className="mb-3 font-bold">{title}</h2>
+      <h2 className="mb-4 text-lg font-semibold tracking-tight">{title}</h2>
       <div className="space-y-2">{children}</div>
     </div>
   );

@@ -1,47 +1,70 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import Link from "next/link";
+import { NavLinks, Providers } from "@/components/client.tsx";
+import { verifyLedger } from "@/lib/ledger.ts";
+import { latestCheckpoint } from "@/lib/passport.ts";
+import { getDb } from "@/lib/store.ts";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono-face" });
+const instrument = Instrument_Serif({ subsets: ["latin"], weight: "400", style: ["normal", "italic"], variable: "--font-instrument" });
+const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
+const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
 
 export const metadata: Metadata = {
   title: "Orbit · Verifiable circular supply chains",
-  description: "Digital product passports with signed lifecycle tracking, recycling traceability and automatic greenwashing detection.",
+  description: "Digital product passports with actor-signed lifecycle tracking, on-chain anchoring, recycling traceability and automatic greenwashing detection.",
 };
 
-const NAV = [
-  { href: "/", label: "Overview" },
-  { href: "/ledger", label: "Ledger" },
-  { href: "/console", label: "Console" },
-  { href: "/rewards", label: "Rewards" },
-  { href: "/verify", label: "Verify" },
-];
+export const dynamic = "force-dynamic";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const db = getDb();
+  const ok = verifyLedger(db).ok;
+  const cp = latestCheckpoint(db);
   return (
-    <html lang="en" className={`${inter.variable} ${mono.variable}`}>
+    <html lang="en" className={`${instrument.variable} ${geist.variable} ${geistMono.variable}`}>
       <body className="min-h-screen">
-        <header className="sticky top-0 z-30 border-b border-line bg-paper/90 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
-            <Link href="/" className="flex items-center gap-2 font-bold tracking-tight">
-              <OrbitMark />
-              <span className="text-lg">Orbit</span>
-            </Link>
-            <nav className="flex flex-1 gap-1 overflow-x-auto text-sm">
-              {NAV.map((n) => (
-                <Link key={n.href} href={n.href} className="rounded-lg px-3 py-1.5 text-ink-soft hover:bg-white hover:text-ink">
-                  {n.label}
+        <Providers>
+          <header className="sticky top-3 z-40 px-3">
+            <div className="mx-auto flex max-w-5xl items-center gap-3 rounded-full border border-line bg-bg/70 py-1.5 pl-4 pr-1.5 shadow-[0_8px_30px_rgb(0_0_0/0.35)] backdrop-blur-xl">
+              <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="Orbit home">
+                <OrbitMark />
+                <span className="display text-[22px] leading-none">Orbit</span>
+              </Link>
+              <NavLinks />
+              <Link
+                href="/ledger"
+                className={`chip hidden shrink-0 border sm:inline-flex ${ok ? "border-leaf/30 bg-leaf-soft text-leaf" : "border-rust/40 bg-rust-soft text-rust"}`}
+                title={cp?.onChain ? `Anchored on ${cp.network}` : "Not yet anchored on a public chain"}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${ok ? "live-dot bg-leaf" : "bg-rust"}`} />
+                {ok ? "Chain intact" : "Tampered"} · #{db.ledger.length}
+              </Link>
+            </div>
+          </header>
+          <main className="mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-6">{children}</main>
+          <footer className="border-t border-line">
+            <div className="mx-auto flex max-w-6xl flex-wrap items-end justify-between gap-6 px-4 py-10 sm:px-6">
+              <div>
+                <div className="display text-5xl text-ink">
+                  Every product, <em className="text-accent">verified.</em>
+                </div>
+                <p className="mt-3 max-w-md text-sm text-muted">
+                  Built for the IEEE ClimateChain Global Hackathon, Sustainable Supply Chains track. Demo data, illustrative emission factors.
+                </p>
+              </div>
+              <div className="flex gap-5 text-sm text-ink-soft">
+                <Link href="/verify" className="hover:text-ink">
+                  Verify a passport
                 </Link>
-              ))}
-            </nav>
-          </div>
-        </header>
-        <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
-        <footer className="mx-auto max-w-6xl px-4 pb-10 pt-4 text-xs text-muted">
-          Orbit prototype · Built for the IEEE ClimateChain Global Hackathon · Sustainable Supply Chains track. Demo data and illustrative emission factors.
-        </footer>
+                <a href="https://github.com/ayushagarwalhere/orbit" className="hover:text-ink" target="_blank">
+                  Source on GitHub
+                </a>
+              </div>
+            </div>
+          </footer>
+        </Providers>
       </body>
     </html>
   );
@@ -49,10 +72,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 function OrbitMark() {
   return (
-    <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden>
-      <circle cx="13" cy="13" r="5" fill="#127a52" />
-      <ellipse cx="13" cy="13" rx="11.5" ry="5" fill="none" stroke="#0d1f1a" strokeWidth="1.6" transform="rotate(-25 13 13)" />
-      <circle cx="23" cy="9" r="2" fill="#0d1f1a" />
+    <svg width="22" height="22" viewBox="0 0 26 26" aria-hidden>
+      <circle cx="13" cy="13" r="5" fill="#c8f169" />
+      <ellipse cx="13" cy="13" rx="11.5" ry="5" fill="none" stroke="#edf2ec" strokeOpacity=".7" strokeWidth="1.4" transform="rotate(-25 13 13)" />
+      <circle cx="23" cy="9" r="2" fill="#edf2ec" />
     </svg>
   );
 }

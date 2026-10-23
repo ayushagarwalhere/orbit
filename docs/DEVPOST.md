@@ -1,55 +1,61 @@
-# Orbit: sustainability claims, checked against the supply chain
+# Orbit: green claims, checked against the supply chain
 
-**Track:** Sustainable Supply Chains · **Tagline:** Digital product passports that verify themselves and catch greenwashing automatically.
+**Track:** Sustainable Supply Chains · **Tagline:** Digital product passports with actor-signed, blockchain-anchored records that verify themselves and catch greenwashing automatically.
 
 ## Inspiration
-More than half of the green claims the European Commission examined were vague, misleading or unfounded. Brands publish "70% recycled" or "carbon neutral" labels, and consumers, regulators and even the brands' own buyers have no practical way to check them. Most traceability projects record supply chain data, but almost none use that data to **check the claims made about the product**. From 2027 the EU will require Digital Product Passports for batteries and textiles. We wanted to show what a passport looks like when it is built for accountability rather than for marketing.
+The European Commission found that 53% of green claims it examined were vague, misleading or unfounded, and 40% had no supporting evidence at all. Brands publish "70% recycled" or "carbon neutral" labels, and consumers, regulators and even the brands' own buyers can't check them. Most traceability projects *record* supply chain data, but almost none use it to *check the claims* made about the product, and many still ask you to trust the operator's database. The EU is now making Digital Product Passports mandatory: battery passports from February 2027, and textiles to follow under ESPR, likely around 2029. We wanted to show what a passport looks like when it's built for accountability rather than marketing. (Full context: [problem statement](PROBLEM_STATEMENT.md).)
 
 ## What it does
-Orbit gives every product a **Digital Product Passport** backed by a **signed, hash-chained ledger**:
+- **Lifecycle tracking:** every handover (material lot → factory → ship → retailer → consumer → repair → return → recycler) is an instruction **signed with that actor's own Ed25519 key in their browser or wallet**. The API verifies the signature, freshness and nonce, plus custody, role and mass-balance rules. Entries are hash-chained, and their **Merkle root is anchored on a public EVM chain** through our `OrbitAnchor` contract.
+- **Digital product passport:** a public QR page showing materials and origin, carbon breakdown, journey map and the signed event trail. It exports as a UNTP / W3C VC-style JSON-LD credential **with a Merkle inclusion proof for every event**.
+- **Recycling traceability:** when a recycler processes a returned product, Orbit mints **new recycled lots that point back to the source product**. A battery built from them shows "material recovered from DPP-0003": a closed loop you can prove.
+- **Circular incentives:** the protocol, never the brand, mints credits for deposit refunds on return, repair-instead-of-replace and each kg recovered. Consumers spend them on rewards.
+- **Claim verification engine (the core idea):** each claim is checked automatically against independent data:
+  - recycled % against **mass balance** of supplier- and recycler-signed lots
+  - carbon against those lots plus metered factory energy plus every transport leg, computed from both parties' registered sites
+  - origin against the signed manufacture site
+  - labour standards against an independent auditor's signed approval
 
-- **Lifecycle tracking:** every handover (material lot → factory → ship → retailer → consumer → repair → return → recycler) is recorded as an event signed with that actor's Ed25519 key and chained to the previous entry. Protocol rules enforce custody: only the holder can ship, and only the addressee can receive.
-- **Digital product passport:** a public QR page showing materials and origin, carbon breakdown, journey map, the signed event trail and end-of-life instructions. It exports as a UNTP / W3C Verifiable Credential-style JSON-LD document.
-- **Recycling traceability:** when a recycler processes a returned product, Orbit creates **new recycled material lots that point back to the source product**. A new battery built from those lots shows *"material recovered from DPP-0003"*, which closes the loop on the ledger.
-- **Circular incentives:** the protocol, not the brand, mints credits for deposit refunds on return, repairing instead of replacing, and each kg of material recovered. Consumers can spend them on rewards.
-- **Claim verification engine (the core idea):** each claim is automatically checked against the ledger:
-  - recycled-content % against **mass balance** of the input lots
-  - carbon footprint against materials, metered factory energy and every shipping leg
-  - origin against the signed manufacture location
-  - labour standards against an independent auditor's signed attestation
-
-  Contradictions are flagged on the passport, vague wording such as "eco-friendly" or "carbon neutral" is linted against EU rules, and each product gets a trust grade from A to E.
-- **Tamper evidence:** a built-in tamper simulator lets you edit history like a dishonest insider. Integrity checks fail immediately, the affected passports turn red, and a browser-side verifier re-checks every hash and signature without trusting our server.
+  Contradictions are flagged, self-reported inputs are disclosed, vague wording is linted against EU Directive 2024/825, and every product gets a trust grade from A to E.
+- **Tamper evidence that doesn't trust us:** the built-in simulator lets you play a **malicious operator who rewrites history and re-signs everything**. Every local check still passes, but the **on-chain root no longer matches**, and both the ledger and the passport turn red. The **browser verifier** takes keys only from on-ledger registrations, checks every signature and Merkle proof, and reads the root directly from the chain through a public RPC.
 
 ## How we built it
-- **Next.js 15 + React 19 + TypeScript + Tailwind v4** for the web app and API routes.
-- **@noble/curves (Ed25519) and @noble/hashes (SHA-256)**, which are audited and dependency-free, for signatures, canonical-JSON hashing and Merkle trees. The same code runs on the server and in the browser verifier.
-- A framework-free core engine (`src/lib`) of validated actions, derived views and the verification engine, with **16 unit tests** on Node's built-in test runner.
-- Data models follow **UNTP DPP**, **GS1 EPCIS 2.0** events, **GS1 Digital Link** identifiers, **EU ESPR / Battery Regulation** passport fields, and **GLEC** transport factors.
-- **Solidity `OrbitAnchor` contract** for publishing ledger Merkle roots on a public chain, so only a 32-byte root goes on-chain and no commercial data leaks.
+- **Next.js 15, React 19, TypeScript, Tailwind v4.** UI with `motion`, `@number-flow/react`, `lucide-react` and `sonner`, in a design inspired by recent Awwwards Sites of the Month.
+- **@noble/curves (Ed25519) and @noble/hashes (SHA-256)**, which are audited and dependency-free. The same code signs in the browser, verifies on the server and re-verifies in the verifier.
+- **Solidity `OrbitAnchor`** (solc 0.8.26) stores only 32-byte Merkle roots, so no business data goes on-chain and the cost per checkpoint is constant. `verifyInclusion` checks our TypeScript Merkle proofs natively. **viem** publishes anchors automatically on boot and about 20 s after writes.
+- Data models follow **UNTP DPP**, **GS1 EPCIS 2.0 / Digital Link**, **EU ESPR & Battery Regulation** passport fields, and **GLEC** transport factors.
+- **22 unit tests**: forged, replayed, stale and impersonating requests, insider rewrites, mass balance, custody and claim logic. There's also an **on-chain integration test** that deploys the contract and checks that Solidity agrees with our Merkle proofs.
 
 ## Challenges we ran into
-- **Making recycled content provable rather than declared.** We modelled material lots with mass balance, so lots can't be over-drawn and only recyclers can mint recycled lots. Recycled content then flows forward through the supply chain.
-- **Deciding what to put on-chain.** Putting every event on a public chain is slow and leaks supplier data. We sign every event off-chain and anchor only Merkle roots.
-- **Keeping verification independent.** Canonical JSON hashing had to give byte-identical results in Node and the browser.
+- **The operator problem.** A signed database alone isn't enough, because whoever holds the signing key can rewrite history. We split the signatures: **actors sign their instructions, the sequencer signs only the order**, and **public anchors** fix history in time. The operator can't forge what an actor signed or change a root that's already on-chain.
+- **The oracle problem.** Cryptography proves who said what, not that it's true. We lean on **counter-party data** (suppliers sign lots, distances come from both parties' registered sites, receipts need the recipient), **disclose self-reported inputs**, and require **independent attestation** for what data can't prove. Details are in our [security assessment](SECURITY.md).
+- **Provable recycled content.** We modelled material lots with mass balance, so lots can't be over-drawn and only recyclers can mint recycled lots. Recycled content then flows forward through the supply chain.
+- **Byte-identical verification** across the browser, Node and Solidity: canonical JSON and a byte-level Merkle tree.
 
 ## Accomplishments that we're proud of
-- In the demo, a greenwashed hoodie is caught on three counts: it claims 70% recycled while the ledger proves 6.7%, it claims "carbon neutral, 1.2 kg" against 6.0 kg once air freight is counted, and its labour audit was rejected.
-- A battery completes a full life cycle (sold, repaired, returned, recycled) and is reborn as a **93% recycled** pack with a 65% lower footprint, with the link between the two passports provable.
-- Any edit to history is caught, including edits to an upstream material lot, which flags every product made from it.
+- **The greenwashed hoodie is caught on three counts:** it claims 70% recycled while the lots prove 6.7%, it claims "carbon neutral, 1.2 kg" against 6.0 kg once air freight is counted, and its labour audit was rejected.
+- **A closed loop you can prove:** a battery is sold, repaired, returned and recycled, then reborn as a **93% recycled** pack with a 65% lower footprint, with provable links in both directions.
+- **An insider rewrite** that fools every local signature check is still caught by the blockchain.
+
+## Impact
+Our [climate impact assessment](IMPACT.md) projects **about 0.12 Mt CO₂e avoided per year by 2030 if 5% of EU textiles and batteries use Orbit-style passports**, with a range of 0.02–0.41. It scales linearly with adoption, and repair incentives are the largest lever. The arithmetic and every source are shown. Anchoring adds well under one ten-thousandth of that in emissions.
 
 ## What we learned
-Traceability alone does not create accountability. It only helps once claims are checked against the trace and someone independent can re-check them. Standards like UNTP and EPCIS already define much of the vocabulary, so the missing piece is the verification logic on top.
+Traceability alone doesn't create accountability. Accountability comes from checking claims against the trace, separating who authors data from who orders it, and letting anyone re-check the result without trusting the operator.
 
 ## What's next for Orbit
-- Actor-held keys (wallets / DIDs) instead of demo custodial keys
-- IoT scale-weight attestations at each handover
+- Actors' keys in their own wallets or DIDs, with accredited onboarding
+- Signed IoT and scale weights at handovers, plus utility-attested energy data
 - Zero-knowledge mass-balance proofs, so suppliers can prove totals without revealing volumes
-- Anchoring Merkle roots to a public L2, and integration with the EU DPP registry
+- Anchoring to a public L2 mainnet, and integration with the EU DPP registry
 
 ## Try it
 ```
 git clone https://github.com/ayushagarwalhere/orbit && cd orbit
 npm install && npm run dev
 ```
-**3-minute demo path:** Overview → EcoCloud Hoodie passport (contradicted claims) → Strata Loop Edition (closed loop) → Ledger → *Flip a failed labour audit* (tamper detected) → Verify (browser re-checks signatures) → Console as Priya: return the tee for +20 credits → as Re:Fibre: recycle it.
+**3-minute demo path:**
+1. Overview → *See a greenwashed product get caught*
+2. Ledger → *Hide the hoodie's air-freight leg* (local checks pass, on-chain mismatch)
+3. Verify (the browser re-checks everything against the chain)
+4. Console as Priya: return the tee for +20 credits, then as Re:Fibre: recycle it

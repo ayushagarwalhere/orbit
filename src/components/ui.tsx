@@ -1,5 +1,6 @@
-import type { ClaimStatus } from "@/lib/verify.ts";
+import { CircleDashed, ShieldAlert, ShieldCheck } from "lucide-react";
 import type { EntryType, LifecycleStage, Role } from "@/lib/types.ts";
+import type { ClaimStatus } from "@/lib/verify.ts";
 
 export const fmt = (n: number, d = 1) => n.toLocaleString("en", { maximumFractionDigits: d, minimumFractionDigits: 0 });
 export const short = (h: string, n = 10) => `${h.slice(0, n)}…`;
@@ -7,28 +8,50 @@ export const date = (iso: string) => new Date(iso).toLocaleDateString("en-GB", {
 export const dateTime = (iso: string) =>
   new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC" }) + " UTC";
 
-const GRADE_STYLE: Record<string, string> = {
-  A: "bg-leaf text-white",
-  B: "bg-[#4f9b5a] text-white",
-  C: "bg-amber text-white",
-  D: "bg-[#c8541f] text-white",
-  E: "bg-rust text-white",
-};
+/** Status colour for a trust grade. */
+export const GRADE_COLOR: Record<string, string> = { A: "#5ee0a0", B: "#a6e37a", C: "#f4be4f", D: "#ff9a6b", E: "#ff7a66" };
 
-export function GradeBadge({ grade, size = "md" }: { grade: string; size?: "md" | "lg" }) {
-  const s = size === "lg" ? "h-16 w-16 text-3xl rounded-2xl" : "h-9 w-9 text-lg rounded-xl";
-  return <div className={`grid shrink-0 place-items-center font-black ${s} ${GRADE_STYLE[grade]}`}>{grade}</div>;
+export function GradeBadge({ grade, score, size = "md" }: { grade: string; score?: number; size?: "md" | "lg" }) {
+  const c = GRADE_COLOR[grade];
+  const label = `Trust grade ${grade}${score !== undefined ? `, ${score} of 100` : ""}`;
+  if (size === "lg") {
+    const pct = score ?? 0;
+    return (
+      <div className="relative grid h-36 w-36 shrink-0 place-items-center rounded-full" aria-label={label} role="img" style={{ background: `conic-gradient(${c} ${pct * 3.6}deg, #24322c 0)` }}>
+        <div className="absolute inset-[3px] rounded-full bg-surface" />
+        <span className="display relative text-[7.5rem] leading-[0.8]" style={{ color: c }}>
+          {grade}
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div
+      className="display grid h-11 w-11 shrink-0 place-items-center rounded-full text-[28px] leading-none"
+      aria-label={label}
+      role="img"
+      style={{ color: c, background: `color-mix(in oklab, ${c} 13%, transparent)`, boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${c} 35%, transparent)` }}
+    >
+      {grade}
+    </div>
+  );
 }
 
-const STATUS_STYLE: Record<ClaimStatus, string> = {
-  VERIFIED: "bg-leaf-soft text-leaf",
-  PENDING: "bg-amber-soft text-amber",
-  CONTRADICTED: "bg-rust-soft text-rust",
+const STATUS: Record<ClaimStatus, { color: string; label: string; Icon: typeof ShieldCheck }> = {
+  VERIFIED: { color: "#5ee0a0", label: "Verified", Icon: ShieldCheck },
+  PENDING: { color: "#f4be4f", label: "Pending evidence", Icon: CircleDashed },
+  CONTRADICTED: { color: "#ff7a66", label: "Contradicted", Icon: ShieldAlert },
 };
-const STATUS_LABEL: Record<ClaimStatus, string> = { VERIFIED: "✓ Verified", PENDING: "◷ Pending evidence", CONTRADICTED: "✕ Contradicted" };
+export const STATUS_COLOR = Object.fromEntries(Object.entries(STATUS).map(([k, v]) => [k, v.color])) as Record<ClaimStatus, string>;
 
 export function StatusPill({ status }: { status: ClaimStatus }) {
-  return <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLE[status]}`}>{STATUS_LABEL[status]}</span>;
+  const s = STATUS[status];
+  return (
+    <span className="chip" style={{ color: s.color, background: `color-mix(in oklab, ${s.color} 12%, transparent)`, borderColor: `color-mix(in oklab, ${s.color} 30%, transparent)` }}>
+      <s.Icon className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+      {s.label}
+    </span>
+  );
 }
 
 const STAGE_LABEL: Record<LifecycleStage, string> = {
@@ -40,25 +63,31 @@ const STAGE_LABEL: Record<LifecycleStage, string> = {
   recycled: "Recycled",
 };
 export function StagePill({ stage }: { stage: LifecycleStage }) {
-  const c = stage === "recycled" ? "bg-leaf-soft text-leaf" : stage === "in-transit" ? "bg-sky-soft text-sky" : "bg-paper text-ink-soft";
-  return <span className={`inline-flex rounded-full border border-line px-2.5 py-0.5 text-xs font-medium ${c}`}>{STAGE_LABEL[stage]}</span>;
+  const c = stage === "recycled" ? "#5ee0a0" : stage === "in-transit" ? "#7cc4ff" : "#9baea5";
+  return (
+    <span className="chip" style={{ color: c, borderColor: `color-mix(in oklab, ${c} 30%, transparent)` }}>
+      {stage === "in-transit" && <span className="live-dot h-1.5 w-1.5 rounded-full" style={{ background: c }} />}
+      {STAGE_LABEL[stage]}
+    </span>
+  );
 }
 
 export const ROLE_COLOR: Record<Role, string> = {
-  supplier: "#8a6d3b",
-  manufacturer: "#0d1f1a",
-  logistics: "#1f5fa8",
-  retailer: "#7a4fa0",
-  consumer: "#c0577c",
-  repairer: "#b26b00",
-  recycler: "#127a52",
-  auditor: "#4a5568",
-  protocol: "#127a52",
+  supplier: "#e0b77a",
+  manufacturer: "#edf2ec",
+  logistics: "#7cc4ff",
+  retailer: "#c4a1ff",
+  consumer: "#ff9ec4",
+  repairer: "#f4be4f",
+  recycler: "#5ee0a0",
+  auditor: "#b8c4bf",
+  protocol: "#c8f169",
 };
 
 export function RoleTag({ role }: { role: Role }) {
+  const c = ROLE_COLOR[role];
   return (
-    <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide" style={{ color: ROLE_COLOR[role], background: `${ROLE_COLOR[role]}14` }}>
+    <span className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em]" style={{ color: c, background: `color-mix(in oklab, ${c} 12%, transparent)` }}>
       {role}
     </span>
   );
@@ -78,16 +107,16 @@ export const ENTRY_META: Record<EntryType, { icon: string; label: string }> = {
   CLAIM_ATTESTED: { icon: "🔍", label: "Claim audited" },
   CREDIT_MINTED: { icon: "🪙", label: "Credits minted" },
   CREDIT_REDEEMED: { icon: "🎁", label: "Credits redeemed" },
-  ANCHORED: { icon: "⚓", label: "Ledger anchored" },
+  ANCHORED: { icon: "⚓", label: "Anchored on-chain" },
 };
 
-export function Stat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "leaf" | "rust" }) {
+export function Stat({ label, value, sub, tone }: { label: string; value: React.ReactNode; sub?: string; tone?: "leaf" | "rust" }) {
   const color = tone === "leaf" ? "text-leaf" : tone === "rust" ? "text-rust" : "text-ink";
   return (
-    <div className="card p-4">
+    <div className="card p-5">
       <div className="label">{label}</div>
-      <div className={`mt-1 text-2xl font-bold tracking-tight ${color}`}>{value}</div>
-      {sub && <div className="mt-0.5 text-xs text-muted">{sub}</div>}
+      <div className={`display mt-2 text-5xl tabular-nums ${color}`}>{value}</div>
+      {sub && <div className="mt-1 text-xs text-muted">{sub}</div>}
     </div>
   );
 }
@@ -95,10 +124,20 @@ export function Stat({ label, value, sub, tone }: { label: string; value: string
 export function Bar({ parts }: { parts: { value: number; color: string; label: string }[] }) {
   const total = parts.reduce((s, p) => s + p.value, 0) || 1;
   return (
-    <div className="flex h-3 w-full overflow-hidden rounded-full bg-paper">
-      {parts.map((p) => (
-        <div key={p.label} title={`${p.label}: ${fmt(p.value, 2)}`} style={{ width: `${(p.value / total) * 100}%`, background: p.color }} />
-      ))}
+    <div className="flex h-2 w-full gap-0.5 overflow-hidden rounded-full bg-raised">
+      {parts.map((p) =>
+        p.value > 0 ? <div key={p.label} className="rounded-full" title={`${p.label}: ${fmt(p.value, 2)}`} style={{ width: `${(p.value / total) * 100}%`, background: p.color }} /> : null,
+      )}
+    </div>
+  );
+}
+
+export function PageHeader({ kicker, title, children }: { kicker: string; title: React.ReactNode; children?: React.ReactNode }) {
+  return (
+    <div className="mb-8">
+      <div className="label text-accent">{kicker}</div>
+      <h1 className="display mt-3 text-5xl sm:text-6xl">{title}</h1>
+      {children && <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-ink-soft">{children}</p>}
     </div>
   );
 }

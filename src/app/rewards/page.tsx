@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ActionButton } from "@/components/act.tsx";
-import { RoleTag, Stat, dateTime, fmt } from "@/components/ui.tsx";
+import { PageHeader, RoleTag, Stat, dateTime, fmt } from "@/components/ui.tsx";
 import { REWARDS } from "@/lib/actions.ts";
 import { balances, custody } from "@/lib/domain.ts";
 import { getDb } from "@/lib/store.ts";
@@ -35,12 +35,9 @@ export default function RewardsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-black tracking-tight">Circularity rewards</h1>
-        <p className="mt-1 max-w-2xl text-ink-soft">
+      <PageHeader kicker="Circular economy incentives" title={<>Circularity <em className="text-accent">rewards</em></>}>
           Credits are minted by the protocol, not by brands. They are only issued when a matching signed event happens: a repair, a return or a verified recovery of material. That makes rewards impossible to farm without leaving an auditable trail.
-        </p>
-      </div>
+      </PageHeader>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Credits minted" value={fmt(minted, 0)} tone="leaf" />
@@ -51,7 +48,7 @@ export default function RewardsPage() {
 
       <section className="grid gap-4 md:grid-cols-2">
         <div className="card p-5">
-          <h2 className="font-bold">Consumer wallets</h2>
+          <h2 className="display text-3xl">Consumer wallets</h2>
           <div className="mt-3 space-y-4">
             {consumers.map((c) => {
               const owned = db.products.filter((p) => custody(db, p.id).holderId === c.id && custody(db, p.id).stage === "in-use");
@@ -59,7 +56,7 @@ export default function RewardsPage() {
                 <div key={c.id} className="rounded-xl border border-line p-4">
                   <div className="flex items-center justify-between">
                     <div className="font-semibold">{c.name}</div>
-                    <div className="text-xl font-black text-leaf">{bal.get(c.id) ?? 0} cr</div>
+                    <div className="display text-4xl text-accent">{bal.get(c.id) ?? 0} <span className="font-sans text-sm text-muted">cr</span></div>
                   </div>
                   {owned.length > 0 && (
                     <div className="mt-1 text-xs text-muted">
@@ -86,7 +83,7 @@ export default function RewardsPage() {
 
         <div className="space-y-4">
           <div className="card p-5">
-            <h2 className="font-bold">Leaderboard</h2>
+            <h2 className="display text-3xl">Leaderboard</h2>
             <ol className="mt-3 space-y-2">
               {board.map(([id, v], i) => {
                 const a = actor(id);
@@ -102,8 +99,8 @@ export default function RewardsPage() {
             </ol>
           </div>
           <div className="card p-5">
-            <h2 className="font-bold">Brand circularity</h2>
-            <table className="mt-3 w-full text-sm">
+            <h2 className="display text-3xl">Brand circularity</h2>
+            <table className="table mt-3 w-full text-sm">
               <thead className="text-left text-xs text-muted">
                 <tr>
                   <th className="font-medium">Brand</th>
@@ -130,7 +127,7 @@ export default function RewardsPage() {
       </section>
 
       <section className="card p-5">
-        <h2 className="font-bold">Credit history</h2>
+        <h2 className="display text-3xl">Credit history</h2>
         <ul className="mt-3 divide-y divide-line text-sm">
           {history.map((e) => {
             const minted = e.type === "CREDIT_MINTED";

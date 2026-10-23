@@ -58,14 +58,21 @@ export function WorldMap({ stops, routes }: { stops: MapStop[]; routes: [Place, 
   for (let g = Math.ceil(v.south / step) * step; g <= v.north; g += step) lats.push(g);
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="Supply chain route map">
-      <rect width={W} height={H} rx="12" fill="#eef3ef" />
+      <defs>
+        <radialGradient id="map-glow" cx="50%" cy="50%" r="60%">
+          <stop offset="0%" stopColor="#c8f169" stopOpacity="0.07" />
+          <stop offset="100%" stopColor="#c8f169" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <rect width={W} height={H} rx="14" fill="#0d1411" />
+      <rect width={W} height={H} rx="14" fill="url(#map-glow)" />
       {lngs.map((lng) => {
         const { x } = project({ lat: 0, lng });
-        return <line key={`g${lng}`} x1={x} x2={x} y1={0} y2={H} stroke="#dbe5de" strokeWidth="1" />;
+        return <line key={`g${lng}`} x1={x} x2={x} y1={0} y2={H} stroke="#ffffff" strokeOpacity="0.06" strokeWidth="0.6" strokeDasharray="1 4" />;
       })}
       {lats.map((lat) => {
         const { y } = project({ lat, lng: 0 });
-        return <line key={`t${lat}`} x1={0} x2={W} y1={y} y2={y} stroke={lat === 0 ? "#c8d6cc" : "#dbe5de"} strokeWidth="1" strokeDasharray={lat === 0 ? "4 4" : undefined} />;
+        return <line key={`t${lat}`} x1={0} x2={W} y1={y} y2={y} stroke="#ffffff" strokeOpacity={lat === 0 ? 0.14 : 0.06} strokeWidth="0.6" strokeDasharray={lat === 0 ? "4 4" : "1 4"} />;
       })}
       {routes.map(([a, b], i) => {
         const p = project(a);
@@ -73,16 +80,16 @@ export function WorldMap({ stops, routes }: { stops: MapStop[]; routes: [Place, 
         if (Math.abs(p.x - q.x) < 1 && Math.abs(p.y - q.y) < 1) return null;
         const mx = (p.x + q.x) / 2;
         const my = (p.y + q.y) / 2 - Math.min(60, Math.hypot(q.x - p.x, q.y - p.y) * 0.25);
-        return <path key={i} d={`M${p.x},${p.y} Q${mx},${my} ${q.x},${q.y}`} fill="none" stroke="#127a52" strokeWidth="1.6" strokeOpacity="0.55" strokeDasharray="5 4" />;
+        return <path key={i} className="route" style={{ animationDelay: `${i * 0.15}s` }} pathLength={1000} d={`M${p.x},${p.y} Q${mx},${my} ${q.x},${q.y}`} fill="none" stroke="#c8f169" strokeWidth="1.4" strokeOpacity="0.8" strokeLinecap="round" />;
       })}
       {[...unique.entries()].map(([key, s]) => {
         const { x, y } = project(s.place);
-        const color = s.kind === "source" ? "#8a6d3b" : s.kind === "current" ? "#b8361f" : "#0d1f1a";
+        const color = s.kind === "source" ? "#e0b77a" : s.kind === "current" ? "#c8f169" : "#edf2ec";
         return (
           <g key={key}>
-            {s.kind === "current" && <circle cx={x} cy={y} r="4" fill="none" stroke={color} strokeWidth="2" className="pulse" />}
-            <circle cx={x} cy={y} r="4.5" fill={color} stroke="white" strokeWidth="1.5" />
-            <text x={x + 7} y={y + 4} fontSize="11" fill="#0d1f1a" fontWeight="600" paintOrder="stroke" stroke="#eef3ef" strokeWidth="3">
+            {s.kind === "current" && <circle cx={x} cy={y} r="5" fill="none" stroke={color} strokeWidth="1.5" className="pulse" />}
+            <circle cx={x} cy={y} r="4" fill={color} stroke="#0d1411" strokeWidth="2" />
+            <text x={x + 8} y={y + 4} fontSize="11" fill="#edf2ec" fontWeight="500" paintOrder="stroke" stroke="#0d1411" strokeWidth="3" fontFamily="var(--font-geist)">
               {s.place.city}
             </text>
           </g>

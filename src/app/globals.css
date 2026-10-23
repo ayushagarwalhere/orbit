@@ -1,114 +1,319 @@
 @import "tailwindcss";
 
+/* "Night Ledger": forest-night surfaces, one signal-lime accent, editorial serif display.
+   Contrast ratios (on bg): text 17:1, muted 8.3:1, subtle 5.9:1, every status colour >= 7.6:1. */
 @theme {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-mono-face), ui-monospace, SFMono-Regular, monospace;
+  --font-display: var(--font-instrument), ui-serif, Georgia, serif;
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
 
-  --color-ink: #0d1f1a;
-  --color-ink-soft: #3d524b;
-  --color-muted: #6b7f78;
-  --color-paper: #f6f5f0;
-  --color-card: #ffffff;
-  --color-line: #e3e2da;
-  --color-leaf: #127a52;
-  --color-leaf-soft: #e3f3ea;
-  --color-amber: #b26b00;
-  --color-amber-soft: #fbf0dc;
-  --color-rust: #b8361f;
-  --color-rust-soft: #fbe6e1;
-  --color-sky: #1f5fa8;
-  --color-sky-soft: #e3edf8;
+  --color-bg: #0a0f0d;
+  --color-surface: #111916;
+  --color-raised: #18221e;
+  --color-line: #24322c;
+  --color-line-strong: #34473f;
+  --color-accent: #c8f169;
+  --color-accent-hover: #d6f78a;
+  --color-on-accent: #0a0f0d;
+
+  /* Legacy token names used across pages, remapped to the dark system. */
+  --color-ink: #edf2ec;
+  --color-ink-soft: #9baea5;
+  --color-muted: #7f938a;
+  --color-paper: #18221e;
+  --color-card: #111916;
+  --color-leaf: #5ee0a0;
+  --color-leaf-soft: color-mix(in oklab, #5ee0a0 12%, transparent);
+  --color-rust: #ff7a66;
+  --color-rust-soft: color-mix(in oklab, #ff7a66 13%, transparent);
+  --color-amber: #f4be4f;
+  --color-amber-soft: color-mix(in oklab, #f4be4f 12%, transparent);
+  --color-sky: #7cc4ff;
+  --color-sky-soft: color-mix(in oklab, #7cc4ff 12%, transparent);
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 html {
-  background: var(--color-paper);
+  background: var(--color-bg);
   color: var(--color-ink);
+  color-scheme: dark;
 }
 
 body {
   font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+/* Film grain over everything (decorative). */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+  opacity: 0.06;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size: 160px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
 @layer components {
   .card {
-    background: var(--color-card);
+    position: relative;
+    background: var(--color-surface);
     border: 1px solid var(--color-line);
-    border-radius: 14px;
+    border-radius: 18px;
+    transition: border-color 0.25s var(--ease-out-expo);
+  }
+
+  /* Pointer-following glow; --x/--y are set by <Spotlight>. */
+  .spotlight::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(420px circle at var(--x, 50%) var(--y, -20%), color-mix(in oklab, var(--color-accent) 9%, transparent), transparent 60%);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .spotlight:hover::before {
+    opacity: 1;
+  }
+  .spotlight:hover {
+    border-color: var(--color-line-strong);
   }
 
   .label {
-    font-size: 11px;
-    letter-spacing: 0.08em;
+    font-size: 0.6875rem;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--color-muted);
     font-weight: 600;
+  }
+
+  .display {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.03em;
+    line-height: 0.95;
   }
 
   .hash {
     font-family: var(--font-mono);
     font-size: 12px;
     color: var(--color-ink-soft);
+    font-variant-numeric: tabular-nums;
   }
 
   .btn {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    border-radius: 10px;
-    padding: 8px 14px;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 999px;
+    min-height: 40px;
+    padding: 0 18px;
     font-size: 14px;
     font-weight: 600;
-    transition: background 0.15s, opacity 0.15s;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s var(--ease-out-expo), opacity 0.2s;
     cursor: pointer;
   }
+  .btn:active:not(:disabled) {
+    transform: scale(0.98);
+  }
   .btn:disabled {
-    opacity: 0.5;
+    opacity: 0.45;
     cursor: not-allowed;
   }
   .btn-primary {
-    background: var(--color-ink);
-    color: white;
+    background: var(--color-accent);
+    color: var(--color-on-accent);
   }
   .btn-primary:hover:not(:disabled) {
-    background: #1e3a31;
+    background: var(--color-accent-hover);
   }
   .btn-ghost {
-    border: 1px solid var(--color-line);
-    background: white;
+    border: 1px solid var(--color-line-strong);
+    background: transparent;
+    color: var(--color-ink);
   }
   .btn-ghost:hover:not(:disabled) {
-    background: var(--color-paper);
+    background: var(--color-raised);
   }
   .btn-danger {
     background: var(--color-rust);
-    color: white;
+    color: var(--color-on-accent);
+  }
+  .btn.text-xs {
+    min-height: 32px;
+    padding: 4px 12px;
+    font-size: 12px;
   }
 
   .field {
     width: 100%;
+    min-height: 42px;
     border: 1px solid var(--color-line);
-    border-radius: 10px;
-    padding: 8px 10px;
+    border-radius: 12px;
+    padding: 8px 12px;
     font-size: 14px;
-    background: white;
+    background: var(--color-raised);
+    color: var(--color-ink);
+    transition: border-color 0.2s;
+  }
+  .field::placeholder {
+    color: var(--color-muted);
   }
   .field:focus {
-    outline: 2px solid var(--color-leaf);
-    outline-offset: -1px;
+    outline: none;
+    border-color: var(--color-accent);
+  }
+  select.field option {
+    background: var(--color-surface);
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    border: 1px solid transparent;
+  }
+
+  /* Data tables: hairlines, raised header, tabular numbers. */
+  .table thead th {
+    background: var(--color-raised);
+    font-size: 0.6875rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+    font-weight: 600;
+  }
+  .table tbody tr {
+    transition: background 0.15s;
+  }
+  .table tbody tr:hover {
+    background: var(--color-raised);
+  }
+  .table td {
+    font-variant-numeric: tabular-nums;
   }
 }
 
+/* Light "paper" island for printable bits like the QR code. */
+.paper {
+  background: #f3f1ea;
+  color: #0e1613;
+}
+
+/* ---------- motion ---------- */
+@keyframes aurora-a {
+  to {
+    transform: translate(8%, 6%) scale(1.15);
+  }
+}
+@keyframes aurora-b {
+  to {
+    transform: translate(-10%, -4%) scale(1.1);
+  }
+}
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
 @keyframes pulse-ring {
-  0% { r: 4; opacity: 0.8; }
-  100% { r: 14; opacity: 0; }
+  0% {
+    r: 5;
+    opacity: 0.7;
+  }
+  100% {
+    r: 16;
+    opacity: 0;
+  }
+}
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes shake {
+  20%,
+  60% {
+    transform: translateX(-4px);
+  }
+  40%,
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+.aurora-a {
+  animation: aurora-a 20s ease-in-out infinite alternate;
+}
+.aurora-b {
+  animation: aurora-b 24s ease-in-out infinite alternate;
+}
+.marquee-track {
+  animation: marquee 60s linear infinite;
+}
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+.live-dot {
+  animation: pulse-dot 1.6s ease-in-out infinite;
 }
 .pulse {
-  animation: pulse-ring 1.8s ease-out infinite;
+  animation: pulse-ring 2s ease-out infinite;
+}
+.route {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: draw 1.8s var(--ease-out-expo) forwards;
+}
+.shake {
+  animation: shake 0.3s ease-in-out 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pulse {
-    animation: none;
+  *,
+  ::before,
+  ::after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+  .route {
+    stroke-dashoffset: 0;
   }
 }

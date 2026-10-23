@@ -179,12 +179,12 @@ export function VerifyClient({ products }: { products: { id: string; name: strin
         )}
         {results && (
           <>
-            <div className={`rounded-xl px-4 py-3 font-bold ${running ? "bg-paper text-ink-soft" : failed ? "bg-rust-soft text-rust" : "bg-leaf-soft text-leaf"}`}>
+            <div className={`rounded-xl px-4 py-3 font-bold ${running ? "bg-raised text-ink-soft" : failed ? "bg-rust-soft text-rust" : "bg-leaf-soft text-leaf"}`}>
               {running ? "Verifying…" : failed ? `✕ ${failed} of ${results.length} checks failed` : `✓ All ${results.length - warned} checks passed${warned ? ` · ${warned} note${warned > 1 ? "s" : ""}` : ""}`}
             </div>
             <ul className="mt-3 max-h-[480px] space-y-1 overflow-y-auto text-sm">
               {results.map((r, i) => (
-                <li key={i} className="flex gap-2 rounded-lg px-2 py-1 hover:bg-paper">
+                <li key={i} className="flex gap-2 rounded-lg px-2 py-1 hover:bg-raised">
                   <span className={r.ok === true ? "text-leaf" : r.ok === "warn" ? "text-amber" : "font-bold text-rust"}>{r.ok === true ? "✓" : r.ok === "warn" ? "ⓘ" : "✕"}</span>
                   <div className="min-w-0">
                     <div className="font-medium">{r.label}</div>
