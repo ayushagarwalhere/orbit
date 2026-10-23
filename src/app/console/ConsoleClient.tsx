@@ -34,7 +34,7 @@ export function ConsoleClient({ data }: { data: ConsoleData }) {
   const [last, setLast] = useState<string | null>(null);
 
   async function run(action: string, body: Record<string, unknown>, msg: string) {
-    const res = await act<{ hash?: string; index?: number; id?: string }>(action, body);
+    const res = await act<{ hash?: string; index?: number; id?: string }>(action, body, actor.id);
     if (res) setLast(`${msg}${res.index !== undefined ? ` · ledger #${res.index}` : res.id ? ` · ${res.id}` : ""}`);
   }
 
@@ -78,7 +78,7 @@ export function ConsoleClient({ data }: { data: ConsoleData }) {
             </div>
           </div>
           <p className="mt-2 text-sm text-ink-soft">{ROLE_HELP[actor.role]}</p>
-          {last && <div className="mt-3 rounded-lg bg-leaf-soft px-3 py-2 text-sm font-medium text-leaf">✓ Signed & recorded: {last}</div>}
+          {last && <div className="mt-3 rounded-lg bg-leaf-soft px-3 py-2 text-sm font-medium text-leaf">✓ Signed in your browser with {actor.name}&apos;s key, verified and recorded: {last}</div>}
           {error && <div className="mt-3 rounded-lg bg-rust-soft px-3 py-2 text-sm font-medium text-rust">✕ Rejected by protocol rules: {error}</div>}
         </div>
 

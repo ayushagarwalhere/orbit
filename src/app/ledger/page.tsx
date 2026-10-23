@@ -1,100 +1,151 @@
 import Link from "next/link";
 import { ActionButton } from "@/components/act.tsx";
 import { ENTRY_META, RoleTag, dateTime, short } from "@/components/ui.tsx";
+import { chainConfig, checkAnchors } from "@/lib/chain.ts";
 import { verifyLedger } from "@/lib/ledger.ts";
-import { getDb } from "@/lib/store.ts";
+import { addressUrl } from "@/lib/networks.ts";
+import { getDb, isDemoMode } from "@/lib/store.ts";
 
 export const dynamic = "force-dynamic";
 
-export default function LedgerPage() {
+const PROBLEM_LABEL: Record<string, string> = {
+  "hash-mismatch": "content changed",
+  "broken-link": "chain broken",
+  "bad-sequencer-signature": "bad sequencer signature",
+  "bad-actor-signature": "bad actor signature",
+  "auth-mismatch": "differs from what the actor signed",
+  "unknown-actor": "unregistered actor",
+  "replayed-request": "replayed instruction",
+  "anchor-mismatch": "differs from on-chain root",
+};
+
+export default async function LedgerPage() {
   const db = getDb();
+  const cfg = chainConfig();
+  const anchors = await checkAnchors(db);
   const r = verifyLedger(db);
+  const chainBroken = anchors.some((a) => a.status === "mismatch");
   const actors = new Map(db.actors.map((a) => [a.id, a]));
   const products = new Map(db.products.map((p) => [p.id, p]));
   const claims = new Map(db.claims.map((c) => [c.id, c]));
   const linkFor = (subjectId: string) => {
     if (products.has(subjectId)) return `/passport/${subjectId}`;
     const c = claims.get(subjectId);
-    if (c) return `/passport/${c.productId}`;
-    return null;
+    return c ? `/passport/${c.productId}` : null;
   };
 
-  // A few interesting entries for the tamper demo.
-  const pick = (pred: (i: number) => boolean, label: string) => {
-    const i = db.ledger.findIndex((_, idx) => pred(idx));
-    return i >= 0 ? { index: i, label } : null;
-  };
-  const suggestions = [
-    pick((i) => db.ledger[i].type === "CLAIM_ATTESTED" && db.ledger[i].data.verdict === "REJECT", "Flip a failed labour audit to APPROVE"),
-    pick((i) => db.ledger[i].type === "SHIPPED" && db.ledger[i].data.mode === "air", "Hide an air-freight leg (distance → 1 km)"),
-    pick((i) => db.ledger[i].type === "CREDIT_MINTED", "Inflate a credit payout ×10"),
-    pick((i) => db.ledger[i].type === "BATCH_CREATED" && db.ledger[i].data.recycledKg === 0, "Relabel a virgin material lot as recycled"),
-  ].filter(Boolean) as { index: number; label: string }[];
+  const find = (pred: (i: number) => boolean) => db.ledger.findIndex((_, idx) => pred(idx));
+  const airLeg = find((i) => db.ledger[i].type === "SHIPPED" && db.ledger[i].data.mode === "air");
+  const audit = find((i) => db.ledger[i].type === "CLAIM_ATTESTED" && db.ledger[i].data.verdict === "REJECT");
+  const mint = find((i) => db.ledger[i].type === "CREDIT_MINTED");
+  const scenarios = [
+    airLeg >= 0 && { index: airLeg, mode: "rewrite", who: "Malicious operator", label: `Hide the hoodie's air-freight leg (#${airLeg}), then re-hash and re-sign all later history`, catches: "Only the blockchain catches this one" },
+    audit >= 0 && { index: audit, mode: "rewrite", who: "Malicious operator", label: `Flip the failed labour audit (#${audit}) to APPROVE and re-sign`, catches: "Caught: the auditor's own signature says REJECT" },
+    mint >= 0 && { index: mint, mode: "edit", who: "Database intruder", label: `Inflate a credit payout ×10 (#${mint})`, catches: "Caught: hash no longer matches" },
+  ].filter(Boolean) as { index: number; mode: string; who: string; label: string; catches: string }[];
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-black tracking-tight">Ledger</h1>
-        <p className="mt-1 max-w-2xl text-ink-soft">
-          An append-only log. Each entry stores the hash of the one before it and is signed with the recording actor&apos;s Ed25519 key. If anyone edits any past record, the hashes and signatures stop matching and the edit is caught.
+        <p className="mt-1 max-w-3xl text-ink-soft">
+          Append-only and hash-chained. Each entry carries the <b>actor&apos;s own signed instruction</b> (signed in their browser or wallet, never by the server), is sequenced and signed by the protocol, and is periodically committed to a public blockchain as a Merkle root.
         </p>
       </div>
 
       <section className="grid gap-4 md:grid-cols-3">
-        <div className={`card p-5 ${r.ok ? "" : "border-rust"}`}>
-          <div className="label">Integrity</div>
+        <div className={`card p-5 ${r.ok && !chainBroken ? "" : "border-rust"}`}>
+          <div className="label">Local integrity</div>
           <div className={`mt-1 text-2xl font-black ${r.ok ? "text-leaf" : "text-rust"}`}>{r.ok ? "✓ Intact" : "✕ Tampered"}</div>
           <div className="mt-1 text-sm text-muted">
-            {r.checked} entries re-hashed, {r.checked} signatures checked
+            {r.checked} entries: hashes, links, {r.checked} sequencer + actor signatures, signed-instruction bindings, replay
           </div>
           {!r.ok && (
             <ul className="mt-2 space-y-1 text-sm text-rust">
-              {r.issues.map((i, k) => (
+              {r.issues.slice(0, 5).map((i, k) => (
                 <li key={k}>
-                  #{i.index}: {i.problem} ({i.detail})
+                  #{i.index}: {PROBLEM_LABEL[i.problem]}: {i.detail}
                 </li>
               ))}
             </ul>
           )}
+          {r.ok && chainBroken && <div className="mt-2 text-sm font-semibold text-rust">Local checks pass, but the on-chain anchor disagrees: history was rewritten by someone holding the operator key.</div>}
         </div>
-        <div className="card p-5">
-          <div className="label">Current Merkle root</div>
-          <div className="mt-1 hash break-all">{r.merkleRoot}</div>
-          <div className="mt-3 label">Checkpoints</div>
-          <ul className="mt-1 space-y-1 text-xs">
-            {db.checkpoints.slice(-3).map((c) => (
-              <li key={c.index} className="hash">
-                ⚓ {c.index} entries · {short(c.merkleRoot, 14)} · {c.network}
-              </li>
-            ))}
+
+        <div className={`card p-5 md:col-span-2 ${chainBroken ? "border-rust bg-rust-soft/40" : ""}`}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="label">Public blockchain anchor</div>
+            {cfg ? (
+              <a className="hash text-leaf underline" href={addressUrl(cfg.network, cfg.address)} target="_blank">
+                OrbitAnchor on {cfg.network.name}: {short(cfg.address, 10)}
+              </a>
+            ) : (
+              <span className="rounded-full bg-amber-soft px-2 py-0.5 text-xs font-semibold text-amber">No chain configured: checkpoints are local only</span>
+            )}
+          </div>
+          <ul className="mt-3 space-y-2 text-sm">
+            {anchors.length === 0 && <li className="text-muted">No checkpoints yet.</li>}
+            {anchors
+              .slice()
+              .reverse()
+              .map((a) => (
+                <li key={`${a.checkpoint.covers}-${a.checkpoint.checkpointId}`} className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-bold ${a.status === "match" ? "bg-leaf-soft text-leaf" : a.status === "mismatch" ? "bg-rust text-white" : "bg-amber-soft text-amber"}`}
+                  >
+                    {a.status === "match" ? "✓ ON-CHAIN MATCH" : a.status === "mismatch" ? "✕ ON-CHAIN MISMATCH" : a.status === "local" ? "LOCAL ONLY" : "UNREACHABLE"}
+                  </span>
+                  <span className={a.status === "mismatch" ? "font-semibold text-rust" : "text-ink-soft"}>{a.detail}</span>
+                  {a.checkpoint.explorerTx && (
+                    <a className="hash text-leaf underline" href={a.checkpoint.explorerTx} target="_blank">
+                      tx {short(a.checkpoint.txHash ?? "", 10)} · block {a.checkpoint.blockNumber}
+                    </a>
+                  )}
+                </li>
+              ))}
           </ul>
-          <div className="mt-3">
+          <div className="mt-3 flex flex-wrap items-center gap-3">
             <ActionButton action="anchor" className="btn btn-ghost text-xs">
-              ⚓ Anchor checkpoint now
+              ⚓ Anchor current root now
             </ActionButton>
+            <span className="text-xs text-muted">Also runs automatically about 20 s after any write. Each checkpoint stores 32 bytes on-chain, no business data.</span>
           </div>
         </div>
-        <div className="card p-5">
-          <div className="label">Tamper simulator</div>
-          <p className="mt-1 text-sm text-ink-soft">Edit a past entry like a dishonest insider would. The insider can change the data but cannot forge the original signer&apos;s key.</p>
+      </section>
+
+      {isDemoMode() && (
+        <section className="card p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="font-bold">Tamper simulator</h2>
+            <span className="text-xs text-muted">Try to rewrite history. Then check this page, the affected passport, and the Verify page.</span>
+          </div>
           {db.tamper ? (
-            <div className="mt-3 space-y-2">
-              <div className="text-sm font-semibold text-rust">Entry #{db.tamper.index} has been altered.</div>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <span className="text-sm font-semibold text-rust">
+                Entry #{db.tamper.index} was altered ({db.tamper.mode === "rewrite" ? "insider rewrite with the sequencer key" : "direct database edit"}).
+              </span>
               <ActionButton action="restore" className="btn btn-primary text-xs">
-                Restore original
+                Restore original history
               </ActionButton>
             </div>
           ) : (
-            <div className="mt-3 flex flex-col gap-2">
-              {suggestions.map((s) => (
-                <ActionButton key={s.index} action="tamper" body={{ index: s.index }} className="btn btn-ghost w-full justify-start text-left text-xs">
-                  ✎ #{s.index}: {s.label}
-                </ActionButton>
+            <div className="mt-3 grid gap-2 md:grid-cols-3">
+              {scenarios.map((s) => (
+                <div key={s.label} className="flex flex-col justify-between gap-2 rounded-xl border border-line p-3">
+                  <div>
+                    <div className="label">{s.who}</div>
+                    <div className="mt-1 text-sm font-medium">{s.label}</div>
+                    <div className="mt-1 text-xs text-muted">{s.catches}</div>
+                  </div>
+                  <ActionButton action="tamper" body={{ index: s.index, mode: s.mode }} className="btn btn-ghost text-xs">
+                    ✎ Do it
+                  </ActionButton>
+                </div>
               ))}
             </div>
           )}
-        </div>
-      </section>
+        </section>
+      )}
 
       <section className="card overflow-hidden">
         <div className="overflow-x-auto">
@@ -103,7 +154,7 @@ export default function LedgerPage() {
               <tr>
                 <th className="px-4 py-2 font-medium">#</th>
                 <th className="py-2 font-medium">Event</th>
-                <th className="py-2 font-medium">Signed by</th>
+                <th className="py-2 font-medium">Authorised by</th>
                 <th className="py-2 font-medium">Subject</th>
                 <th className="py-2 font-medium">Time</th>
                 <th className="py-2 font-medium">Hash / prev</th>
@@ -121,12 +172,13 @@ export default function LedgerPage() {
                   return (
                     <tr key={e.index} className={bad ? "bg-rust-soft" : ""}>
                       <td className="px-4 py-2 hash">{e.index}</td>
-                      <td className="py-2 whitespace-nowrap">
+                      <td className="whitespace-nowrap py-2">
                         {ENTRY_META[e.type].icon} {ENTRY_META[e.type].label}
                       </td>
                       <td className="py-2">
                         <div className="flex items-center gap-1.5 whitespace-nowrap">
                           {a && <RoleTag role={a.role} />} {a?.name}
+                          {e.auth && <span className="text-[10px] text-leaf" title={`Instruction signed by ${e.actorId}: ${e.auth.signature.slice(0, 16)}…`}>✍</span>}
                         </div>
                       </td>
                       <td className="py-2 hash">
@@ -138,7 +190,7 @@ export default function LedgerPage() {
                           e.subjectId
                         )}
                       </td>
-                      <td className="py-2 whitespace-nowrap text-xs text-muted">{dateTime(e.timestamp)}</td>
+                      <td className="whitespace-nowrap py-2 text-xs text-muted">{dateTime(e.timestamp)}</td>
                       <td className="py-2">
                         <div className="hash">{short(e.hash, 12)}</div>
                         <div className="hash opacity-60">↖ {short(e.prevHash, 12)}</div>

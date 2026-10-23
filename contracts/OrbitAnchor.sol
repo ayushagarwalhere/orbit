@@ -2,11 +2,12 @@
 pragma solidity ^0.8.24;
 
 /// @title OrbitAnchor
-/// @notice Publishes Merkle roots of the Orbit ledger to a public chain. Anyone holding a
-///         passport can prove an event existed at checkpoint time with a Merkle inclusion proof
-///         (see merkleProof / verifyMerkleProof in src/lib/crypto.ts), without trusting Orbit.
-/// @dev Only roots are stored on-chain: no supplier data, volumes or prices leak publicly,
-///      and the gas cost is one storage slot per checkpoint regardless of ledger size.
+/// @notice Public timestamping of the Orbit ledger. The operator publishes the Merkle root of all
+///         ledger entry hashes. Anyone holding a passport can then prove that an event existed, and
+///         has not been altered since, with an O(log n) inclusion proof, without trusting Orbit.
+/// @dev Only 32-byte roots go on-chain: no supplier data, volumes or prices are made public, and
+///      the cost per checkpoint is constant regardless of how many events it covers.
+///      Tree: parent = sha256(left || right); an odd node is paired with itself.
 contract OrbitAnchor {
     struct Checkpoint {
         bytes32 merkleRoot;
@@ -17,10 +18,10 @@ contract OrbitAnchor {
     address public immutable operator;
     Checkpoint[] public checkpoints;
 
-    event Anchored(uint256 indexed id, bytes32 merkleRoot, uint64 ledgerLength);
+    event Anchored(uint256 indexed id, bytes32 indexed merkleRoot, uint64 ledgerLength);
 
     error NotOperator();
-    error LedgerMustGrow();
+    error EmptyLedger();
 
     constructor() {
         operator = msg.sender;
@@ -28,11 +29,9 @@ contract OrbitAnchor {
 
     function anchor(bytes32 merkleRoot, uint64 ledgerLength) external returns (uint256 id) {
         if (msg.sender != operator) revert NotOperator();
-        uint256 n = checkpoints.length;
-        // Append-only: a later checkpoint must cover at least as many entries.
-        if (n > 0 && ledgerLength < checkpoints[n - 1].ledgerLength) revert LedgerMustGrow();
+        if (ledgerLength == 0) revert EmptyLedger();
+        id = checkpoints.length;
         checkpoints.push(Checkpoint(merkleRoot, ledgerLength, uint64(block.timestamp)));
-        id = n;
         emit Anchored(id, merkleRoot, ledgerLength);
     }
 
@@ -40,24 +39,17 @@ contract OrbitAnchor {
         return checkpoints.length;
     }
 
-    /// @notice Verify a leaf (entry hash) against an anchored root. Mirrors the TS implementation:
-    ///         parent = sha256(hexLeft ++ hexRight) over lowercase hex strings.
-    function verify(uint256 id, string calldata leafHex, string[] calldata siblings, bool[] calldata siblingIsLeft) external view returns (bool) {
-        bytes memory h = bytes(leafHex);
+    /// @notice True if `leaf` (a ledger entry hash) is included in checkpoint `id`.
+    function verifyInclusion(uint256 id, bytes32 leaf, bytes32[] calldata siblings, bool[] calldata siblingIsLeft)
+        external
+        view
+        returns (bool)
+    {
+        require(siblings.length == siblingIsLeft.length, "proof length");
+        bytes32 h = leaf;
         for (uint256 i = 0; i < siblings.length; i++) {
-            bytes32 parent = siblingIsLeft[i] ? sha256(abi.encodePacked(siblings[i], h)) : sha256(abi.encodePacked(h, siblings[i]));
-            h = bytes(_toHex(parent));
+            h = siblingIsLeft[i] ? sha256(abi.encodePacked(siblings[i], h)) : sha256(abi.encodePacked(h, siblings[i]));
         }
-        return keccak256(h) == keccak256(bytes(_toHex(checkpoints[id].merkleRoot)));
-    }
-
-    function _toHex(bytes32 data) private pure returns (string memory) {
-        bytes memory alphabet = "0123456789abcdef";
-        bytes memory str = new bytes(64);
-        for (uint256 i = 0; i < 32; i++) {
-            str[i * 2] = alphabet[uint8(data[i] >> 4)];
-            str[i * 2 + 1] = alphabet[uint8(data[i] & 0x0f)];
-        }
-        return string(str);
+        return h == checkpoints[id].merkleRoot;
     }
 }

@@ -73,7 +73,7 @@ export default function RewardsPage() {
                   )}
                   <div className="mt-3 flex flex-wrap gap-2">
                     {REWARDS.map((r) => (
-                      <ActionButton key={r.id} action="redeem" body={{ actorId: c.id, rewardId: r.id }} className="btn btn-ghost text-xs">
+                      <ActionButton key={r.id} action="redeem" actorId={c.id} body={{ rewardId: r.id }} className="btn btn-ghost text-xs">
                         {r.label} · {r.cost}
                       </ActionButton>
                     ))}

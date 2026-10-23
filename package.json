@@ -10,7 +10,12 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/core.test.ts"
+    "test": "node --test tests/core.test.ts",
+    "compile:anchor": "node scripts/compile-anchor.mjs",
+    "wallet": "node --env-file-if-exists=.env.local scripts/new-wallet.mjs",
+    "deploy:anchor": "node --env-file-if-exists=.env.local scripts/deploy-anchor.mjs",
+    "keystore": "node scripts/export-keystore.mjs",
+    "test:chain": "node --test tests/chain.integration.ts"
   },
   "dependencies": {
     "@noble/curves": "1.9.7",
@@ -18,7 +23,8 @@
     "next": "15.5.28",
     "qrcode": "1.5.4",
     "react": "19.1.10",
-    "react-dom": "19.1.10"
+    "react-dom": "19.1.10",
+    "viem": "2.40.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.1.13",
@@ -26,7 +32,11 @@
     "@types/qrcode": "1.5.5",
     "@types/react": "19.1.13",
     "@types/react-dom": "19.1.9",
+    "solc": "0.8.26",
     "tailwindcss": "4.1.13",
     "typescript": "5.9.2"
+  },
+  "engines": {
+    "node": ">=22.9"
   }
 }

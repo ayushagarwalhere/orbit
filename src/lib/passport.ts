@@ -1,20 +1,41 @@
 // Exports a product as a self-verifying Digital Product Passport document.
-// Shape follows the UNTP DPP / W3C Verifiable Credential pattern; every traceability event
-// carries its hash, signature and signer key so anyone can re-verify it offline.
+// Shape follows the UNTP DPP / W3C Verifiable Credential pattern. Every traceability event carries
+// its full signed content plus a Merkle inclusion proof against a root published on-chain, and
+// the actors' public keys come from their own registration entries (also proven). A verifier needs
+// nothing from Orbit's server except this document; it reads the root from the chain itself.
+import { PROTOCOL_ID } from "./auth.ts";
+import { merkleProof } from "./crypto.ts";
 import { avoidedCo2e, carbonFootprint, custody, getActor, materialLines, passportCore, passportHash, productEntries, productMass, provenRecycledPct } from "./domain.ts";
 import { entryBody, verifyLedger } from "./ledger.ts";
-import type { Db, Product } from "./types.ts";
+import type { Checkpoint, Db, LedgerEntry, Product } from "./types.ts";
 import { trustReport } from "./verify.ts";
 
 const r = (n: number, d = 3) => Math.round(n * 10 ** d) / 10 ** d;
+
+export function latestCheckpoint(db: Db): Checkpoint | undefined {
+  return [...db.checkpoints].reverse().find((c) => c.onChain) ?? db.checkpoints[db.checkpoints.length - 1];
+}
 
 export function exportPassport(db: Db, p: Product, baseUrl: string) {
   const brand = getActor(db, p.brandId);
   const report = verifyLedger(db);
   const trust = trustReport(db, p, report);
   const cf = carbonFootprint(db, p);
-  const entries = productEntries(db, p.id);
-  const cp = db.checkpoints[db.checkpoints.length - 1];
+  const cp = latestCheckpoint(db);
+  const leaves = cp ? db.ledger.slice(0, cp.covers).map((e) => e.hash) : [];
+
+  const withProof = (e: LedgerEntry) => ({
+    ...entryBody(e),
+    hash: e.hash,
+    signature: e.signature,
+    merkleProof: cp && e.index < cp.covers ? merkleProof(leaves, e.index) : null,
+  });
+
+  // Include material lot entries too: the passport is only as good as its inputs.
+  const lotIds = new Set(p.inputs.map((i) => i.batchId));
+  const events = [...productEntries(db, p.id), ...db.ledger.filter((e) => e.type === "BATCH_CREATED" && lotIds.has(e.subjectId))].sort((a, b) => a.index - b.index);
+  const signers = new Set([PROTOCOL_ID, ...events.map((e) => e.actorId)]);
+  const registrations = db.ledger.filter((e) => e.type === "ACTOR_REGISTERED" && signers.has(e.subjectId));
 
   return {
     "@context": ["https://www.w3.org/ns/credentials/v2", "https://test.uncefact.org/vocabulary/untp/dpp/0.5.0/"],
@@ -57,6 +78,7 @@ export function exportPassport(db: Db, p: Product, baseUrl: string) {
         materials: r(cf.materials, 2),
         manufacturing: r(cf.manufacturing, 2),
         transport: r(cf.transport, 3),
+        selfReportedShare: cf.total ? r(cf.manufacturing / cf.total, 3) : 0,
       },
       conformityClaims: trust.claims.map((c) => ({
         id: c.claim.id,
@@ -65,24 +87,32 @@ export function exportPassport(db: Db, p: Product, baseUrl: string) {
         value: c.claim.value,
         status: c.status,
         evidence: c.evidence,
+        caveats: c.caveats,
         issues: c.reasons,
         attestations: c.claim.attestations,
       })),
       trust: { score: trust.score, grade: trust.grade, summary: trust.summary },
-      traceabilityEvents: entries.map((e) => ({
-        ...entryBody(e),
-        hash: e.hash,
-        signature: e.signature,
-        signerPublicKey: db.actors.find((a) => a.id === e.actorId)?.publicKey,
-      })),
+      actorRegistrations: registrations.map(withProof),
+      traceabilityEvents: events.map(withProof),
     },
     proof: {
       type: "OrbitLedgerProof",
-      cryptosuite: "ed25519-sha256-jcs",
+      cryptosuite: "ed25519-sha256-jcs+merkle-sha256",
       ledgerLength: db.ledger.length,
-      ledgerMerkleRoot: report.merkleRoot,
       ledgerIntegrity: report.ok,
-      lastCheckpoint: cp ?? null,
+      anchor: cp
+        ? {
+            onChain: cp.onChain,
+            network: cp.network,
+            chainId: cp.chainId ?? null,
+            contract: cp.contract ?? null,
+            checkpointId: cp.checkpointId ?? null,
+            covers: cp.covers,
+            merkleRoot: cp.merkleRoot,
+            txHash: cp.txHash ?? null,
+            explorerTx: cp.explorerTx ?? null,
+          }
+        : null,
     },
   };
 }

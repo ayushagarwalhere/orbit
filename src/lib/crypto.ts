@@ -1,8 +1,10 @@
 import { ed25519 } from "@noble/curves/ed25519";
 import { sha256 } from "@noble/hashes/sha2";
-import { bytesToHex, hexToBytes, utf8ToBytes } from "@noble/hashes/utils";
+import { bytesToHex, concatBytes, hexToBytes, randomBytes, utf8ToBytes } from "@noble/hashes/utils";
 
-/** Deterministic JSON: object keys sorted, no whitespace. Same input -> same hash everywhere. */
+// Pure crypto helpers. Runs identically in Node and in the browser verifier.
+
+/** Deterministic JSON: object keys sorted, undefined dropped, no whitespace (JCS-style). */
 export function canonicalize(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonicalize).join(",")}]`;
@@ -21,20 +23,18 @@ export function hashObject(value: unknown): string {
   return sha256Hex(canonicalize(value));
 }
 
-/**
- * Demo key custody: keys are derived from the actor id so the demo is reproducible.
- * In production each actor holds its own key (wallet / HSM / DID) and Orbit only stores public keys.
- */
-export function demoPrivateKey(actorId: string): Uint8Array {
-  return sha256(utf8ToBytes(`orbit-demo-key:${actorId}`));
+// ---------- Ed25519 keys ----------
+
+export function randomPrivateKey(): string {
+  return bytesToHex(randomBytes(32));
 }
 
-export function publicKeyFor(actorId: string): string {
-  return bytesToHex(ed25519.getPublicKey(demoPrivateKey(actorId)));
+export function publicKeyOf(privateKeyHex: string): string {
+  return bytesToHex(ed25519.getPublicKey(hexToBytes(privateKeyHex)));
 }
 
-export function signHash(hashHex: string, actorId: string): string {
-  return bytesToHex(ed25519.sign(hexToBytes(hashHex), demoPrivateKey(actorId)));
+export function signHash(hashHex: string, privateKeyHex: string): string {
+  return bytesToHex(ed25519.sign(hexToBytes(hashHex), hexToBytes(privateKeyHex)));
 }
 
 export function verifySignature(hashHex: string, signatureHex: string, publicKeyHex: string): boolean {
@@ -45,25 +45,32 @@ export function verifySignature(hashHex: string, signatureHex: string, publicKey
   }
 }
 
-/** Binary Merkle root over hex leaves (last leaf duplicated on odd levels, Bitcoin-style). */
+// ---------- Merkle tree ----------
+// parent = sha256(left || right) over raw 32-byte values, so the Solidity contract can verify
+// proofs with sha256(abi.encodePacked(a, b)). Odd nodes are paired with themselves.
+
+function parent(left: string, right: string): string {
+  return bytesToHex(sha256(concatBytes(hexToBytes(left), hexToBytes(right))));
+}
+
 export function merkleRoot(leaves: string[]): string {
-  if (leaves.length === 0) return sha256Hex("");
+  if (leaves.length === 0) return "0".repeat(64);
   let level = leaves.slice();
   while (level.length > 1) {
     const next: string[] = [];
-    for (let i = 0; i < level.length; i += 2) {
-      const left = level[i];
-      const right = level[i + 1] ?? left;
-      next.push(sha256Hex(left + right));
-    }
+    for (let i = 0; i < level.length; i += 2) next.push(parent(level[i], level[i + 1] ?? level[i]));
     level = next;
   }
   return level[0];
 }
 
-/** Merkle inclusion proof: sibling hashes from leaf up to root. */
-export function merkleProof(leaves: string[], index: number): { sibling: string; left: boolean }[] {
-  const proof: { sibling: string; left: boolean }[] = [];
+export interface ProofStep {
+  sibling: string;
+  left: boolean; // sibling sits on the left
+}
+
+export function merkleProof(leaves: string[], index: number): ProofStep[] {
+  const proof: ProofStep[] = [];
   let level = leaves.slice();
   let i = index;
   while (level.length > 1) {
@@ -71,15 +78,19 @@ export function merkleProof(leaves: string[], index: number): { sibling: string;
     const siblingIndex = isRight ? i - 1 : i + 1;
     proof.push({ sibling: level[siblingIndex] ?? level[i], left: isRight });
     const next: string[] = [];
-    for (let j = 0; j < level.length; j += 2) next.push(sha256Hex(level[j] + (level[j + 1] ?? level[j])));
+    for (let j = 0; j < level.length; j += 2) next.push(parent(level[j], level[j + 1] ?? level[j]));
     level = next;
     i = Math.floor(i / 2);
   }
   return proof;
 }
 
-export function verifyMerkleProof(leaf: string, proof: { sibling: string; left: boolean }[], root: string): boolean {
+export function rootFromProof(leaf: string, proof: ProofStep[]): string {
   let h = leaf;
-  for (const p of proof) h = p.left ? sha256Hex(p.sibling + h) : sha256Hex(h + p.sibling);
-  return h === root;
+  for (const p of proof) h = p.left ? parent(p.sibling, h) : parent(h, p.sibling);
+  return h;
+}
+
+export function verifyMerkleProof(leaf: string, proof: ProofStep[], root: string): boolean {
+  return rootFromProof(leaf, proof) === root;
 }

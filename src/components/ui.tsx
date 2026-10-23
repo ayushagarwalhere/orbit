@@ -65,6 +65,7 @@ export function RoleTag({ role }: { role: Role }) {
 }
 
 export const ENTRY_META: Record<EntryType, { icon: string; label: string }> = {
+  ACTOR_REGISTERED: { icon: "🔑", label: "Key registered" },
   BATCH_CREATED: { icon: "⛏", label: "Material lot created" },
   MANUFACTURED: { icon: "🏭", label: "Manufactured" },
   SHIPPED: { icon: "🚢", label: "Shipped" },

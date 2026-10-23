@@ -101,6 +101,7 @@ export interface Claim {
 }
 
 export type EntryType =
+  | "ACTOR_REGISTERED"
   | "BATCH_CREATED"
   | "MANUFACTURED"
   | "SHIPPED"
@@ -117,26 +118,47 @@ export type EntryType =
 
 export type TransportMode = "truck" | "rail" | "ship" | "air";
 
+/** What an actor actually authorised: signed in their own wallet/browser, never by the server. */
+export interface ActionRequest {
+  action: string;
+  actorId: string;
+  body: Record<string, unknown>;
+  nonce: string;
+  issuedAt: string;
+}
+
+export interface SignedRequest {
+  request: ActionRequest;
+  signature: string; // Ed25519 by the actor over sha256(canonical request)
+}
+
 /** One record in the append-only, hash-chained, signed ledger. */
 export interface LedgerEntry {
   index: number;
   type: EntryType;
-  subjectId: string; // product, batch or claim id
-  actorId: string;
+  subjectId: string; // product, batch, claim or actor id
+  actorId: string; // who acted
   timestamp: string;
   place?: Place;
   data: Record<string, unknown>;
+  auth?: SignedRequest; // the actor's own signed instruction that caused this entry
   prevHash: string;
-  hash: string; // sha256(canonical body incl. prevHash)
-  signature: string; // Ed25519 by actor over hash
+  hash: string; // sha256(canonical body incl. prevHash and auth)
+  signature: string; // Ed25519 by the sequencer (orbit-protocol) over hash: fixes order
 }
 
 export interface Checkpoint {
-  index: number; // ledger length covered
+  covers: number; // number of ledger entries in the Merkle tree (indexes 0..covers-1)
   merkleRoot: string;
   at: string;
+  onChain: boolean;
+  chainId?: number;
   network: string;
-  txRef: string;
+  contract?: string;
+  checkpointId?: number; // index in OrbitAnchor.checkpoints
+  txHash?: string;
+  blockNumber?: number;
+  explorerTx?: string;
 }
 
 export interface Db {
@@ -147,8 +169,8 @@ export interface Db {
   claims: Claim[];
   ledger: LedgerEntry[];
   checkpoints: Checkpoint[];
-  /** Demo only: original copy of an entry edited by the tamper simulator, so it can be restored. */
-  tamper?: { index: number; original: LedgerEntry };
+  /** Demo only: original ledger before the tamper simulator edited it, so it can be restored. */
+  tamper?: { index: number; mode: "edit" | "rewrite"; original: LedgerEntry[]; originalCheckpoints: Checkpoint[] };
 }
 
 export type LifecycleStage =

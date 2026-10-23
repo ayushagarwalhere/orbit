@@ -11,6 +11,8 @@ export interface ClaimResult {
   status: ClaimStatus;
   reasons: string[];
   evidence: string[];
+  /** Verified, but relies on data only the claimant reported (the "oracle problem"). */
+  caveats: string[];
   lint: LintHit[];
   tampered: boolean;
 }
@@ -20,6 +22,7 @@ const fmt = (n: number, d = 1) => n.toFixed(d);
 export function evaluateClaim(db: Db, claim: Claim, product: Product): ClaimResult {
   const reasons: string[] = [];
   const evidence: string[] = [];
+  const caveats: string[] = [];
   let status: ClaimStatus = "PENDING";
 
   const issued = db.ledger.find((e) => e.type === "CLAIM_ISSUED" && e.subjectId === claim.id);
@@ -49,6 +52,11 @@ export function evaluateClaim(db: Db, claim: Claim, product: Product): ClaimResu
       const claimed = Number(claim.value);
       const cf = carbonFootprint(db, product);
       evidence.push(`Ledger-derived footprint ${fmt(cf.total, 2)} kg CO2e (materials ${fmt(cf.materials, 2)}, factory ${fmt(cf.manufacturing, 2)}, transport ${fmt(cf.transport, 3)})`);
+      evidence.push("Materials from lots signed by independent suppliers; transport from registered locations of both parties");
+      const selfShare = cf.total > 0 ? cf.manufacturing / cf.total : 0;
+      if (selfShare > 0 && !approvals.length) {
+        caveats.push(`${fmt(selfShare * 100, 0)}% of this footprint (factory energy) is self-reported by the brand and not yet independently attested`);
+      }
       // Understating the footprint by more than 10% is a contradiction. Overstating is conservative.
       if (claimed >= cf.total * 0.9) status = "VERIFIED";
       else {
@@ -100,7 +108,8 @@ export function evaluateClaim(db: Db, claim: Claim, product: Product): ClaimResu
     status = "CONTRADICTED";
     reasons.unshift("Claim record differs from what was signed on the ledger");
   }
-  return { claim, status, reasons, evidence, lint: lintClaim(claim.statement), tampered };
+  if (status !== "VERIFIED") caveats.length = 0;
+  return { claim, status, reasons, evidence, caveats, lint: lintClaim(claim.statement), tampered };
 }
 
 export interface TrustReport {
@@ -122,11 +131,13 @@ export function trustReport(db: Db, product: Product, ledgerReport?: IntegrityRe
 
   const claims = db.claims.filter((c) => c.productId === product.id).map((c) => evaluateClaim(db, c, product));
   const verified = claims.filter((c) => c.status === "VERIFIED").length;
+  // A verified claim that leans on unattested self-reported data counts for less.
+  const verifiedWeight = claims.reduce((s, c) => s + (c.status === "VERIFIED" ? (c.caveats.length ? 0.75 : 1) : 0), 0);
   const contradicted = claims.filter((c) => c.status === "CONTRADICTED").length;
   const highLint = claims.reduce((s, c) => s + c.lint.filter((l) => l.severity === "high").length, 0);
 
   let score = 35; // base: product has a signed passport
-  if (claims.length) score += (verified / claims.length) * 45;
+  if (claims.length) score += (verifiedWeight / claims.length) * 45;
   score += Math.min(lifecycleEntries(db, product.id).length, 5) * 4; // traceability depth
   score -= contradicted * 25 + highLint * 5;
   if (badEntries || passportTampered) score = Math.min(score, 10);

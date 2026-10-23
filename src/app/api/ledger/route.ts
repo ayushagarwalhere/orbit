@@ -12,7 +12,7 @@ export async function GET() {
     return {
       integrity: { ok: r.ok, checked: r.checked, merkleRoot: r.merkleRoot, issues: r.issues },
       checkpoints: db.checkpoints,
-      publicKeys: Object.fromEntries(db.actors.map((a) => [a.id, a.publicKey])),
+      publicKeys: Object.fromEntries(r.keys), // from on-ledger registrations
       entries: db.ledger,
     };
   });

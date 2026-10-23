@@ -6,6 +6,7 @@ import { ActionButton } from "@/components/act.tsx";
 import { Bar, ENTRY_META, GradeBadge, RoleTag, StagePill, StatusPill, dateTime, fmt, short } from "@/components/ui.tsx";
 import { WorldMap, type MapStop } from "@/components/WorldMap.tsx";
 import { avoidedCo2e, carbonFootprint, custody, getActor, journey, materialLines, productEntries, productMass, provenRecycledPct } from "@/lib/domain.ts";
+import { checkAnchors } from "@/lib/chain.ts";
 import { verifyLedger } from "@/lib/ledger.ts";
 import { getDb } from "@/lib/store.ts";
 import type { Place } from "@/lib/types.ts";
@@ -34,6 +35,7 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
   const qr = await QRCode.toString(url, { type: "svg", margin: 1, color: { dark: "#0d1f1a", light: "#ffffff" } });
 
   const integrity = verifyLedger(db);
+  const [anchor] = (await checkAnchors(db, 1)).slice(-1);
   const trust = trustReport(db, p, integrity);
   const brand = getActor(db, p.brandId);
   const c = custody(db, p.id);
@@ -71,6 +73,14 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="space-y-6">
+      {anchor?.status === "mismatch" && (
+        <div className="rounded-xl border border-rust bg-rust-soft p-4 text-sm font-semibold text-rust">
+          ⚠ This ledger no longer matches the root published on {anchor.checkpoint.network}. History was rewritten after it was anchored, even though every local signature still checks out.{" "}
+          <Link href="/ledger" className="underline">
+            Inspect ledger
+          </Link>
+        </div>
+      )}
       {!trust.integrity.ok && (
         <div className="rounded-xl border border-rust bg-rust-soft p-4 text-sm font-semibold text-rust">
           ⚠ Tampering detected. {trust.integrity.passportTampered ? "The passport record no longer matches the hash signed at manufacture." : `${trust.integrity.badEntries} ledger entr${trust.integrity.badEntries > 1 ? "ies fail" : "y fails"} signature or hash checks.`}{" "}
@@ -99,6 +109,24 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
             <div className="mt-2 hash break-all">
               GS1 Digital Link: https://id.gs1.org/01/{p.gtin}/21/{p.serial}
             </div>
+            {anchor && (
+              <div className="mt-2 text-xs">
+                {anchor.status === "match" ? (
+                  <span className="font-semibold text-leaf">⚓ History anchored on {anchor.checkpoint.network} (checkpoint #{anchor.checkpoint.checkpointId}) </span>
+                ) : anchor.status === "local" ? (
+                  <span className="font-semibold text-amber">⚓ Local checkpoint only, not yet on a public chain </span>
+                ) : anchor.status === "mismatch" ? (
+                  <span className="font-semibold text-rust">✕ Differs from on-chain anchor </span>
+                ) : (
+                  <span className="font-semibold text-amber">⚓ Chain unreachable right now </span>
+                )}
+                {anchor.checkpoint.explorerTx && (
+                  <a href={anchor.checkpoint.explorerTx} target="_blank" className="hash text-leaf underline">
+                    view transaction
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-5">
@@ -140,6 +168,12 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
                   <li key={e} className={`flex gap-2 ${r.status === "CONTRADICTED" ? "font-medium text-rust" : "text-amber"}`}>
                     <span>{r.status === "CONTRADICTED" ? "✕" : "◷"}</span>
                     {e}
+                  </li>
+                ))}
+                {r.caveats.map((c) => (
+                  <li key={c} className="flex gap-2 text-amber">
+                    <span>ⓘ</span>
+                    {c}
                   </li>
                 ))}
                 {r.lint.map((l) => (
@@ -244,9 +278,9 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
             />
           </div>
           <dl className="mt-3 space-y-1 text-sm">
-            <Row k="Materials (cradle-to-gate)" v={`${fmt(cf.materials, 2)} kg`} dot="#0d1f1a" />
-            <Row k="Manufacturing & repair" v={`${fmt(cf.manufacturing, 2)} kg`} dot="#127a52" />
-            <Row k={`Transport (${cf.legs.length} leg${cf.legs.length === 1 ? "" : "s"})`} v={`${fmt(cf.transport, 3)} kg`} dot="#1f5fa8" />
+            <Row k="Materials · signed by suppliers" v={`${fmt(cf.materials, 2)} kg`} dot="#0d1f1a" />
+            <Row k="Factory & repair · self-reported" v={`${fmt(cf.manufacturing, 2)} kg`} dot="#127a52" />
+            <Row k={`Transport · ${cf.legs.length} leg${cf.legs.length === 1 ? "" : "s"}, from registered sites`} v={`${fmt(cf.transport, 3)} kg`} dot="#1f5fa8" />
           </dl>
           {cf.legs.length > 0 && (
             <ul className="mt-3 space-y-0.5 text-xs text-muted">
@@ -295,7 +329,7 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
               <div className="text-sm font-semibold">Return as {holder.name}</div>
               <div className="mt-2 flex flex-wrap gap-2">
                 {recyclers.map((r) => (
-                  <ActionButton key={r.id} action="return" body={{ productId: p.id, actorId: holder.id, toId: r.id }} className="btn btn-ghost text-xs">
+                  <ActionButton key={r.id} action="return" actorId={holder.id} body={{ productId: p.id, toId: r.id }} className="btn btn-ghost text-xs">
                     ↩ to {r.name}
                   </ActionButton>
                 ))}
@@ -304,7 +338,7 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
           )}
           {c.stage === "returned" && (
             <div className="mt-4">
-              <ActionButton action="recycle" body={{ productId: p.id, actorId: holder.id }}>
+              <ActionButton action="recycle" actorId={holder.id} body={{ productId: p.id }}>
                 ♻ Recycle as {holder.name}
               </ActionButton>
             </div>

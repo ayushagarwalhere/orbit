@@ -1,0 +1,24 @@
+# One-click deploy: Render dashboard -> New -> Blueprint -> pick this repo.
+# A single long-running instance keeps state consistent (unlike serverless instances).
+# Fill the secret values (sync: false) in the Render dashboard.
+services:
+  - type: web
+    name: orbit
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/ledger
+    envVars:
+      - key: NODE_VERSION
+        value: 22.12.0
+      - key: ORBIT_CHAIN
+        value: base-sepolia
+      - key: ORBIT_ANCHOR_ADDRESS
+        sync: false
+      - key: ORBIT_ANCHOR_PRIVATE_KEY
+        sync: false
+      - key: ORBIT_KEYSTORE
+        sync: false
+      - key: ORBIT_DEMO_MODE
+        value: "1"
