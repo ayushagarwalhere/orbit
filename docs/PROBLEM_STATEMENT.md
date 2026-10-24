@@ -51,7 +51,7 @@ None of these addresses the **oracle problem**, where false data is entered at t
 
 ## 5. Our approach
 
-Orbit gives every product a Digital Product Passport backed by a ledger of **instructions signed by each party**. Every entry can be re-derived from those instructions by replaying them through public rules, so not even the operator can alter derived data unnoticed. RFC 6962 **Merkle roots** of the ledger are anchored on a public EVM testnet by Orbit and by witnesses from their own wallets, so history is provably append-only, and only 32-byte roots go on-chain, so no commercial data is published. A **claim verification engine** checks every claim against the ledger:
+Orbit gives every product a Digital Product Passport backed by a ledger of **instructions signed by each party**. Every entry can be re-derived from those instructions by replaying them through public rules, so not even the operator can alter derived data unnoticed. RFC 6962 **Merkle roots** of the ledger are anchored on a public EVM testnet by Orbit and by witnesses from their own wallets, so history is provably append-only, and only 32-byte roots go on-chain. (The demo ledger itself is public; keeping supplier data confidential would need salted commitments, described in SECURITY.md.) A **claim verification engine** checks every claim against the ledger:
 
 - **Recycled content** against the mass balance of the input lots
 - **Carbon footprint** recomputed from materials, factory energy and every transport leg

@@ -141,7 +141,7 @@ A signed database proves who said what, but whoever runs it can rewrite history 
 - **open anchoring**, so witnesses publish from their own wallets and Orbit's wallet has no special rights
 - **roots any browser can read directly** through a public RPC
 
-Only fingerprints go on-chain (a 32-byte root, the ledger id and its length). Supplier identities, volumes and prices stay off-chain, and one transaction covers any number of events.
+Only fingerprints go on-chain (a 32-byte root, the ledger id and its length), and one transaction covers any number of events. The demo ledger itself is public, though: the passport page offers a public view (supplier names, lots and quantities hidden) and a regulator and recycler view, and [SECURITY.md](docs/SECURITY.md) describes the commitment-based design a real deployment would need.
 
 ### Quality checks
 

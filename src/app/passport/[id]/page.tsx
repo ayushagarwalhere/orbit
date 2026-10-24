@@ -22,8 +22,11 @@ const KIND_LABEL: Record<string, string> = {
   REPAIRABILITY: "Repairability",
 };
 
-export default async function PassportPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PassportPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ view?: string }> }) {
   const { id } = await params;
+  // Public view hides commercially sensitive detail (supplier identities, lot numbers and quantities),
+  // as EU passport rules allow different access levels; the full view is for regulators and recyclers.
+  const full = (await searchParams).view === "full";
   const db = getDb();
   const p = db.products.find((x) => x.id === id);
   if (!p) notFound();
@@ -227,21 +230,38 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
         </div>
       </section>
 
+      {/* Who is looking: public or regulator / recycler */}
+      <section className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-surface/60 px-4 py-3 text-sm">
+        <div className="flex rounded-full border border-line p-0.5" role="group" aria-label="Passport view">
+          <Link href={`/passport/${p.id}`} aria-current={!full ? "page" : undefined} className={`rounded-full px-3 py-1 text-xs font-semibold ${!full ? "bg-raised text-ink" : "text-muted hover:text-ink"}`}>
+            Public view
+          </Link>
+          <Link href={`/passport/${p.id}?view=full`} aria-current={full ? "page" : undefined} className={`rounded-full px-3 py-1 text-xs font-semibold ${full ? "bg-raised text-ink" : "text-muted hover:text-ink"}`}>
+            Regulator &amp; recycler view
+          </Link>
+        </div>
+        <p className="min-w-0 flex-1 text-[13px] text-ink-soft">
+          {full
+            ? "Everything on the ledger: suppliers, lots and quantities. In this demo the whole ledger is public, so this switch only changes what the page shows; in production the ledger would hold salted commitments to these fields, and only authorised viewers would get the values to check against them."
+            : "Supplier names, lot numbers and quantities are hidden, as EU passport rules allow. Every verdict on this page was still computed from them."}
+        </p>
+      </section>
+
       {/* Materials + carbon */}
       <section className="grid gap-4 md:grid-cols-[1.4fr_1fr]">
         <div className="card p-5">
           <div className="flex items-baseline justify-between">
             <h2 className="display text-3xl">Materials & provenance</h2>
-            <span className="text-sm text-muted">{fmt(mass, 3)} kg total</span>
+            <span className="text-sm text-muted">{full ? `${fmt(mass, 3)} kg total` : "by share of mass"}</span>
           </div>
           <div className="mt-3 overflow-x-auto">
             <table className="table w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-muted">
                   <th className="py-1 font-medium">Material</th>
-                  <th className="hidden font-medium sm:table-cell">Lot</th>
+                  {full && <th className="hidden font-medium sm:table-cell">Lot</th>}
                   <th className="font-medium">Origin</th>
-                  <th className="text-right font-medium">kg</th>
+                  <th className="text-right font-medium">{full ? "kg" : "Share"}</th>
                   <th className="w-20 pl-3 font-medium sm:w-28">Recycled</th>
                 </tr>
               </thead>
@@ -262,11 +282,11 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
                         </div>
                       )}
                     </td>
-                    <td className="hash hidden sm:table-cell">{l.batch.id}</td>
+                    {full && <td className="hash hidden sm:table-cell">{l.batch.id}</td>}
                     <td className="text-[13px] leading-snug text-ink-soft">
-                      {getActor(db, l.batch.producerId).name}, {l.origin.country}
+                      {full ? getActor(db, l.batch.producerId).name : getActor(db, l.batch.producerId).role === "recycler" ? "Certified recycler" : "Supplier"}, {l.origin.country}
                     </td>
-                    <td className="text-right tabular-nums">{fmt(l.massKg, 3)}</td>
+                    <td className="text-right tabular-nums">{full ? fmt(l.massKg, 3) : `${fmt((l.massKg / mass) * 100, 0)}%`}</td>
                     <td className="pl-3">
                       <Bar
                         parts={[
@@ -406,8 +426,16 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
       <section className="card p-5">
         <h2 className="display text-3xl">Signed event trail</h2>
         <p className="text-sm text-muted">Each entry is chained to the one before it by its hash. The party who recorded it signed the instruction behind it, and Orbit&apos;s sequencer signed the entry.</p>
+        {!full && entries.some((e) => e.type === "BATCH_CREATED") && (
+          <p className="mt-2 text-[13px] text-muted">
+            {entries.filter((e) => e.type === "BATCH_CREATED").length} supplier lot records are hidden in the public view.{" "}
+            <Link href={`/passport/${p.id}?view=full`} className="text-accent underline">
+              Show them
+            </Link>
+          </p>
+        )}
         <ol className="mt-4 space-y-0">
-          {entries.map((e) => {
+          {entries.filter((e) => full || e.type !== "BATCH_CREATED").map((e) => {
             const a = keyOf.get(e.actorId);
             const bad = integrity.badIndexes.has(e.index);
             return (

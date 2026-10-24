@@ -10,7 +10,7 @@ What Orbit protects, against whom, by which mechanism, which test shows it, and 
 - **P4 Timestamping.** That an event existed by a given time is publicly provable.
 - **P5 Verifiability.** Anyone can check P1–P4 against a public chain, not against Orbit's word.
 - **P6 Claim accountability.** A claim is verified only if other parties' data supports it; self-reported inputs are labelled.
-- **P7 Confidentiality.** Only Merkle roots go on-chain.
+- **P7 Confidentiality.** Only Merkle roots go on-chain. **The ledger itself is public in this demo** (see §6): the passport page has a public view that hides supplier identities, lot numbers and quantities, and a regulator and recycler view that shows everything, but that is a display choice, not cryptographic confidentiality.
 
 ## 2. How it works
 
@@ -90,6 +90,8 @@ No private keys are in the repository.
 - **Timestamps.** Sequencer time must be within 5 minutes of the actor's signed time, never go backwards, and not be after the anchoring block. Between anchors, the sequencer can still choose times inside that window.
 - **Anchor wallet.** Manual anchors can spend the wallet down to the floor, which pauses all anchoring.
 - **Rate limits are in memory**, per server instance.
+- **Commercial confidentiality.** Anyone can download the full demo ledger, including every supplier, lot mass, factory and carrier. No brand would publish that, which is why EU passport rules give the public, authorities and recyclers different access. The production design: confidential fields (supplier id, lot mass, price) go on the ledger only as salted hash commitments; the brand keeps the values and the salts and discloses them to authorised viewers, who check them against the commitments. Replay and mass balance then run on the authorised side, and the public verifier checks signatures, anchoring and the published verdicts. Not built here.
+- **Accreditation bodies are registered by the operator.** Recycled content and audits count only under a certificate signed on the ledger by an accreditation body (`accredit`, `suspend-accreditation` in `actions.ts`; tests "accreditation: …"). In the demo, Orbit registers that body's key, so the operator is still the root of that trust. In production its key would be pinned like the witnesses' or resolved from the scheme owner (e.g. Textile Exchange for GRS).
 - **Registration** to real companies (KYC, GS1 GLN) and **versioned rules** are out of scope.
 
 ## 7. Evidence
