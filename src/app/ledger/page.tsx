@@ -95,8 +95,10 @@ export default async function LedgerPage() {
                   >
                     {a.status === "match" ? "✓ ON-CHAIN MATCH" : a.status === "mismatch" ? "✕ ON-CHAIN MISMATCH" : a.status === "local" ? "LOCAL ONLY" : "UNREACHABLE"}
                   </span>
-                  {a.role === "witness" && <span className="chip border-sky/30 bg-sky-soft text-sky">Independent witness</span>}
-                  <span className={a.status === "mismatch" ? "font-semibold text-rust" : "text-ink-soft"}>{a.detail}</span>
+                  <span className={`min-w-0 flex-1 ${a.status === "mismatch" ? "font-semibold text-rust" : "text-ink-soft"}`}>
+                    {a.detail}
+                    {a.role === "witness" && <span className="chip ml-2 border-sky/30 bg-sky-soft align-middle text-sky">Witness</span>}
+                  </span>
                   {a.explorerTx ? (
                     <a className="hash text-accent hover:underline" href={a.explorerTx} target="_blank">
                       tx {short(a.local?.txHash ?? "", 10)} ↗

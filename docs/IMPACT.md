@@ -103,7 +103,7 @@ Every input is either cited (§2) or stated as an assumption (§3). The model is
 - *Assumption:* Buyers of Orbit-verified volume procure cells averaging **10% below** the median (7.4 kg CO2e/kWh lower), which is half the median-to-best gap. The Battery Regulation already requires verified footprint declarations, so we apply a **50% additionality haircut**, leaving 3.7 kg CO2e/kWh.
 - *Formula:* **Avoided = *s* × 120 GWh × 3.7 kg/kWh = *s* × 0.444 Mt CO2e/yr**
 
-**3b. Textiles (sensitivity only, not in headline).** Each 1% average footprint reduction across Orbit-tracked textiles, for example from penalising undisclosed air freight, would avoid ***s* × 1.59 Mt CO2e/yr**. In the demo, the air-freighted hoodie's ledger footprint (6.0 kg) is five times its claimed "carbon neutral" 1.2 kg. Orbit catches gaps like this, but we have no source for how often they occur across the market.
+**3b. Textiles (sensitivity only, not in headline).** Each 1% average footprint reduction across Orbit-tracked textiles, for example from penalising undisclosed air freight, would avoid ***s* × 1.59 Mt CO2e/yr**. In the demo, the hoodie was declared as sea freight, but the retailer's signed receipt 24 h later proves it flew. Its ledger footprint (6.0 kg) is five times its claimed "carbon neutral" 1.2 kg. Orbit catches gaps like this, but we have no source for how often they occur across the market.
 
 ## 4. Projection table (2030, Mt CO2e/yr)
 

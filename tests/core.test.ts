@@ -256,6 +256,15 @@ test("only independent auditors can attest; brands only claim their own products
   assert.throws(() => act("lumen", "attest", { claimId: c.id, verdict: "APPROVE", note: "self" }), /auditor/);
 });
 
+test("in-app impact model reproduces the written assessment (docs/IMPACT.md §4)", async () => {
+  const { project, DEFAULT_INPUTS } = await import("../src/lib/impact.ts");
+  const moderate = project(DEFAULT_INPUTS);
+  assert.ok(Math.abs(moderate.totalMt - 0.124) < 0.001, `moderate total ${moderate.totalMt}`);
+  assert.ok(Math.abs(project({ ...DEFAULT_INPUTS, adoption: 0.01 }).totalMt - 0.025) < 0.001);
+  assert.ok(Math.abs(project({ ...DEFAULT_INPUTS, adoption: 0.15 }).totalMt - 0.37) < 0.005);
+  assert.ok(Math.abs(moderate.cumulativeMt - 0.31) < 0.005);
+});
+
 test("greenwash lint flags vague wording only", () => {
   assert.ok(lintClaim("100% eco-friendly and carbon neutral").length >= 2);
   assert.equal(lintClaim("40% recycled polyester by mass").length, 0);

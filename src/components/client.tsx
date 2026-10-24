@@ -28,6 +28,7 @@ const NAV = [
   { href: "/ledger", label: "Ledger" },
   { href: "/console", label: "Console" },
   { href: "/rewards", label: "Rewards" },
+  { href: "/impact", label: "Impact" },
   { href: "/verify", label: "Verify" },
 ];
 
