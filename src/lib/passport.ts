@@ -84,9 +84,11 @@ export function exportPassport(db: Db, p: Product, baseUrl: string) {
         unit: "kgCO2e",
         total: r(cf.total, 2),
         materials: r(cf.materials, 2),
+        processing: r(cf.processing, 2),
         manufacturing: r(cf.manufacturing, 2),
         transport: r(cf.transport, 3),
         selfReportedShare: cf.total ? r(cf.manufacturing / cf.total, 3) : 0,
+        boundary: "cradle-to-gate materials + garment processing (published defaults) + declared factory energy + transport to retailer; use and end of life excluded",
       },
       conformityClaims: trust.claims.map((c) => ({
         id: c.claim.id,

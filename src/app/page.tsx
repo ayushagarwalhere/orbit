@@ -74,7 +74,7 @@ export default function Home() {
               {[
                 ["70% recycled", "6.7% recycled", "From the suppliers' signed lots"],
                 ["Shipped by sea", "Flown: 2,892 km in 24 h", "From the retailer's signed receipt"],
-                ["Carbon neutral, 1.2 kg", "6.0 kg CO₂e", "Recomputed for the real route"],
+                ["Carbon neutral, 1.2 kg", "13.4 kg CO₂e", "Recomputed with spinning, dyeing and the real route"],
                 ["Ethically made", "Audit rejected", "From the auditor's signed verdict"],
               ].map(([label, found, why]) => (
                 <li key={label} className="rounded-xl border border-line bg-surface/70 px-4 py-3 backdrop-blur">

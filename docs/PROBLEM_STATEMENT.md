@@ -64,7 +64,7 @@ Vague wording is linted against Directive 2024/825. Recycled lots link back to t
 
 | # | Objective | Measure | Status |
 | --- | --- | --- | --- |
-| 1 | Catch contradicted claims | Greenwashed demo product flagged on every false claim | Done: hoodie flagged on recycled content (70% vs 6.7%), carbon (1.2 vs 6.0 kg), labour |
+| 1 | Catch contradicted claims | Greenwashed demo product flagged on every false claim | Done: hoodie flagged on recycled content (70% vs 6.7%), carbon (1.2 vs 13.4 kg), labour |
 | 2 | Tamper evidence | Any edit to history detected, including upstream lots | Done |
 | 3 | Independent verification | Passport verifiable without trusting our server | Done: in-browser checks |
 | 4 | Closed loop | Recycled lots link to their source product | Done: 93% recycled battery |

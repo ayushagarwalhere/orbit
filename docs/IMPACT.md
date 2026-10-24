@@ -106,7 +106,7 @@ Inputs are cited (§2) or stated as assumptions (§3). The model is linear in *s
 - *Assumption:* Buyers of Orbit-verified volume procure cells **10% below** the median (7.4 kg CO2e/kWh), half the median-to-best gap. The Battery Regulation already requires verified footprint declarations, so a **50% additionality haircut** leaves 3.7 kg CO2e/kWh.
 - *Formula:* **Avoided = *s* × 120 GWh × 3.7 kg/kWh = *s* × 0.444 Mt CO2e/yr**
 
-**3b. Textiles (sensitivity only, not in headline).** Each 1% footprint cut across tracked textiles, for example from penalising undisclosed air freight, would avoid ***s* × 1.59 Mt CO2e/yr**. In the demo, a hoodie declared as sea freight is shown by the retailer's signed receipt to have flown: 6.0 kg on the ledger against a "carbon neutral" claim of 1.2 kg. We have no source for how often such gaps occur, so this is excluded.
+**3b. Textiles (sensitivity only, not in headline).** Each 1% footprint cut across tracked textiles, for example from penalising undisclosed air freight, would avoid ***s* × 1.59 Mt CO2e/yr**. In the demo, a hoodie declared as sea freight is shown by the retailer's signed receipt to have flown: 13.4 kg on the ledger against a "carbon neutral" claim of 1.2 kg. We have no source for how often such gaps occur, so this is excluded.
 
 ## 4. Projection table (2030, Mt CO2e/yr)
 
@@ -212,10 +212,10 @@ These come from the seeded demo world, which uses **illustrative** emission fact
 | Demo passport | What it shows | Literature comparison |
 | --- | --- | --- |
 | Orbit Tee: 40% recycled content, proven by mass balance | Recycled share comes from signed lots, not from a declaration | Global textile-to-textile recycled supply is < 1%[^te] |
-| Strata Loop battery: 93% recycled content, ≈ 65% lower footprint, ≈ 29 kg CO2e avoided per pack | Closed loop, with recovered lots linked to the ancestor passport | Recycled materials save 58–81%[^machala] |
-| EcoCloud Hoodie: claims "carbon neutral, 1.2 kg"; ledger shows 6.0 kg after air freight | Transport legs recomputed from registered locations | Directive 2024/825 bans offset-based neutrality claims[^empco] |
+| Strata Loop battery: 93% recycled content, ≈ 65% lower footprint, ≈ 28 kg CO2e avoided per pack | Closed loop, with recovered lots linked to the ancestor passport | Recycled materials save 58–81%[^machala] |
+| EcoCloud Hoodie: claims "carbon neutral, 1.2 kg"; ledger shows 13.4 kg, including spinning and dyeing and the air freight | Transport legs recomputed from registered locations | Directive 2024/825 bans offset-based neutrality claims[^empco] |
 
-**The demo's "CO2e avoided" figure is attributional, not consequential.** The dashboard's "29.9 kg CO2e avoided by recycled inputs" (passport field `avoidedEmissionsKgCO2e`) compares each product's recycled inputs with the same mass of virgin material. It describes these products; it is **not an effect caused by Orbit**. Much of it would happen anyway: recycled polyester comes mostly from PET bottles (§2.1), and buying recycled input can just move a fixed supply between brands. The §3 levers count only behaviour Orbit changes, so do not add or compare the two. For the Strata pack, ≈ 29 kg is attributional. The consequential figure is ≈ 9 kg (§3's per-pack arithmetic for its 0.5 kWh), and only for packs that would otherwise not have been collected.
+**The demo's "CO2e avoided" figure is attributional, not consequential.** The dashboard's "28.8 kg CO2e avoided by recycled inputs" (passport field `avoidedEmissionsKgCO2e`) compares each product's recycled inputs with the same mass of virgin material. It describes these products; it is **not an effect caused by Orbit**. Much of it would happen anyway: recycled polyester comes mostly from PET bottles (§2.1), and buying recycled input can just move a fixed supply between brands. The §3 levers count only behaviour Orbit changes, so do not add or compare the two. For the Strata Loop pack, ≈ 28 kg is attributional. The consequential figure is ≈ 9 kg (§3's per-pack arithmetic for its 0.5 kWh), and only for packs that would otherwise not have been collected.
 
 ## 9. Limitations
 

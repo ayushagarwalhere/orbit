@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/ayushagarwalhere/orbit/actions/workflows/ci.yml/badge.svg)](https://github.com/ayushagarwalhere/orbit/actions/workflows/ci.yml)
 
-**A hoodie says "70% recycled, carbon neutral, ethically made". Orbit's passport for it says: 6.7% recycled, 6.0 kg CO₂e, labour audit rejected. Grade E.**
+**A hoodie says "70% recycled, carbon neutral, ethically made". Orbit's passport for it says: 6.7% recycled, 13.4 kg CO₂e, labour audit rejected. Grade E.**
 
 Orbit gives every product a digital product passport. The passport doesn't repeat what the brand says. It checks each claim against what *other* parties signed: the supplier who sold the fibre, the retailer who received the parcel, the auditor who visited the factory. If those signatures contradict the label, the passport says so, and shows why.
 
@@ -16,7 +16,7 @@ Built for the **IEEE ClimateChain Global Hackathon**, track **Sustainable Supply
 | --- | --- | --- |
 | "70% recycled" | The fibre suppliers' signed lots: only 0.05 kg of the 0.75 kg used was recycled | **6.7% recycled**: contradicted |
 | Shipped by sea | The retailer signed for it **24 hours** after it left, 2,892 km away. Ships don't go that fast. | **Misdeclared: it went by air** |
-| "Carbon neutral, 1.2 kg" | Recomputed with the real transport mode | **6.0 kg CO₂e**: contradicted |
+| "Carbon neutral, 1.2 kg" | Recomputed from the signed lots, published processing factors and the real transport mode | **13.4 kg CO₂e**: contradicted |
 | "Ethically made" | An independent auditor's signed verdict | **Audit rejected** |
 
 The passport scores this **E (0/100)** and lists every point gained and lost, so the grade can be checked. An honest product in the same demo, the Orbit Tee, gets an A. A battery goes through its whole life (sold, repaired, returned, recycled), and its recovered materials become a new battery with **93% recycled content**, provable back to the original passport.
@@ -127,6 +127,26 @@ A signed database proves who said what, but whoever runs it can rewrite history 
 - **roots any browser can read directly** through a public RPC
 
 Only fingerprints go on-chain (a 32-byte root, the ledger id and its length), and one transaction covers any number of events. The demo ledger itself is public, though: the passport page offers a public view (supplier names, lots and quantities hidden) and a regulator and recycler view, and [SECURITY.md](docs/SECURITY.md) describes the commitment-based design a real deployment would need.
+
+### Emission factors and sources
+
+Published averages, defined in [`src/lib/factors.ts`](src/lib/factors.ts). A real deployment would replace them with supplier data. The passport states the boundary: cradle-to-gate materials, garment processing, the factory's declared energy, and transport to the retailer. Use and end of life are excluded.
+
+| Factor | Value | Source |
+| --- | --- | --- |
+| Organic cotton fibre | 1.5 kg CO₂e/kg (recycled cotton 0.8) | Textile Exchange/Sphera, [LCA for Cotton](https://textileexchange.org/app/uploads/2026/03/Cotton-LCA-Technical-Report.pdf) (2026), Tables 5-2, 5-7 |
+| Conventional cotton fibre | 1.8 | Textile Exchange, [LCA of Organic Cotton Fiber](https://textileexchange.org/app/uploads/2025/01/the-life-cycle-assessment-of-organic-cotton-fiber_38172.pdf) (2014), p.10 |
+| Polyester yarn | 5.5 (recycled PET fibre 3.0) | Textile Exchange/SCS, [LCA for Polyester](https://textileexchange.org/app/uploads/2026/06/Polyester-LCA-Technical-Report.pdf) (2026), Tables E-2 to E-6 |
+| Spinning (cotton) · knitting · dyeing and finishing | 4.2 · 0.4 · 5.6 kg CO₂e/kg textile, ×1/0.85 for cutting waste | Cotton Inc./thinkstep, [LCA Update of Cotton Fiber and Fabric](https://cottontoday.cottoninc.com/wp-content/uploads/2019/11/2016-LCA-Full-Report-Update.pdf) (2017), Table 4-4; Sandin et al., [Mistra Future Fashion 2019:05](https://research.chalmers.se/publication/514322/file/514322_Fulltext.pdf), p.53 |
+| Aluminium | 14.8 (recycled 0.6) | International Aluminium Institute, [2023 intensity](https://international-aluminium.org/global-aluminium-industry-greenhouse-gas-emissions-intensity-reduction-continues-with-total-emissions-below-2020-peak) and [recycling factsheet](https://aluminium.org.au/wp-content/uploads/2024/10/IAI-Factsheet-Claim-3_GHG-Saving_external.pdf) |
+| Copper | 4.0 (recycled 0.8, our estimate) | International Copper Association, [Copper Environmental Profile](https://internationalcopper.org/wp-content/uploads/2023/05/ICA-LCI-GlobalSummary-202305-F.pdf) (2023), Table 4 |
+| LFP cells | 9.4 (recycled 3.1, our estimate) | Llamas-Orozco et al., [PNAS Nexus 2(11)](https://academic.oup.com/pnasnexus/article/2/11/pgad361/7344002) (2023): 56 kg/kWh × ~0.165 kWh/kg |
+| Steel | 2.3 (scrap EAF 0.7) | worldsteel, [Sustainability Indicators](https://worldsteel.org/wider-sustainability/sustainability-indicators-2024-report/) (2025) |
+| ABS | 3.1 (recycled 1.4, our estimate) | Franklin Associates for ACC, [Cradle-to-Gate LCA of ABS](https://americanchemistry.com/content/download/12625/file/Cradle-to-Gate-Life-Cycle-Analysis-of-Acrylonitrile-Butadiene-Styrene-ABS-Resin.pdf) (2022), Table 7 |
+| Truck · rail · container ship · air (long / short haul) | 0.115 · 0.030 · 0.009 · 0.82 / 1.36 kg CO₂e per t-km (well-to-wheel) | [GLEC Framework v3.0](https://knowledgeplatform.ecta.com/wp-content/uploads/2023/09/2023_GLEC_FRAMEWORK_v3.0_September.pdf) (2023), pp.85–99 |
+| Distances | air: great circle + 95 km; road and rail: ×1.2; Europe–Asia sea legs via Gibraltar and Suez, other sea legs great circle (a lower bound) | GLEC v3.0 p.38; detour index range 1.2–1.6 from Boscoe et al., [Professional Geographer 64(2)](https://pmc.ncbi.nlm.nih.gov/articles/PMC3835347) (2012) |
+
+The recycled factors for copper, LFP and ABS are our estimates; we found no primary source. Recycled metal values are gate-to-gate, so they understate collection.
 
 ### Quality checks
 

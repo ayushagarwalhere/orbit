@@ -434,6 +434,22 @@ test("check any claim: banned, vague and checkable wording are told apart", asyn
   assert.equal(assessClaim("Comfy and warm").verdict, "unclear");
 });
 
+test("carbon model: garment processing is modelled, and distances follow GLEC rules", async () => {
+  const { routeKm, haversineKm } = await import("../src/lib/factors.ts");
+  const { db } = world();
+  const tee = carbonFootprint(db, byName(db, "Orbit Tee"));
+  // Spinning, knitting and dyeing outweigh the fibre itself for a garment.
+  assert.ok(tee.processing > tee.materials, `${tee.processing} vs ${tee.materials}`);
+  assert.equal(carbonFootprint(db, byName(db, "Strata 500 Wh E-bike Battery")).processing, 0);
+  const dhaka = { lat: 23.81, lng: 90.41 };
+  const singapore = { lat: 1.30, lng: 103.86 };
+  const munich = { lat: 48.14, lng: 11.58 };
+  assert.equal(routeKm("air", dhaka, singapore), haversineKm(dhaka, singapore) + 95);
+  assert.equal(routeKm("truck", dhaka, singapore), Math.round(haversineKm(dhaka, singapore) * 1.2));
+  // Europe to Asia by sea goes round via Gibraltar and Suez: far longer than the great circle.
+  assert.ok(routeKm("ship", munich, singapore) > haversineKm(munich, singapore) * 1.3);
+});
+
 test("greenwash lint flags vague wording only", () => {
   assert.ok(lintClaim("100% eco-friendly and carbon neutral").length >= 2);
   assert.equal(lintClaim("40% recycled polyester by mass").length, 0);

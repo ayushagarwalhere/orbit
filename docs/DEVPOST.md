@@ -12,7 +12,7 @@ Scan the hoodie's QR code and Orbit's passport tells you:
 | --- | --- | --- |
 | 70% recycled | **6.7%** | The fibre suppliers' signed lots show 0.05 kg recycled out of 0.75 kg |
 | Shipped by sea | **Flown** | The retailer signed for it 24 hours after it left, 2,892 km away |
-| Carbon neutral, 1.2 kg | **6.0 kg CO₂e** | Recomputed with the real transport mode |
+| Carbon neutral, 1.2 kg | **13.4 kg CO₂e** | Recomputed from the signed lots, published spinning and dyeing factors, and the real transport mode |
 | Ethically made | **Audit rejected** | The auditor's signed verdict |
 
 **Grade E, 0/100.** The page shows every point gained and lost, so nobody has to take the score on faith. An honest T-shirt in the same demo gets an A.

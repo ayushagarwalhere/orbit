@@ -1,7 +1,7 @@
 // Read-side queries. All state is derived from the ledger (see replay.ts); nothing here is trusted
 // storage. Lookups go through incremental indexes so each costs O(entries for that subject).
 import { hashObject } from "./crypto.ts";
-import { MATERIAL_FACTORS, MAX_KM_PER_DAY, TRANSPORT_FACTORS } from "./factors.ts";
+import { MATERIAL_FACTORS, MAX_KM_PER_DAY, TEXTILE_PROCESSING, TEXTILES, TRANSPORT_FACTORS, routeKm, transportFactor } from "./factors.ts";
 import type { Actor, Attestation, Batch, Claim, Db, LedgerEntry, LifecycleStage, Material, Place, Product, TransportMode } from "./types.ts";
 
 export class OrbitError extends Error {
@@ -306,7 +306,10 @@ export interface Leg {
   to: string;
   declaredMode: TransportMode; // what the shipper said
   mode: TransportMode; // what we account for: declared, or the cheapest mode physically consistent with the receipt
+  /** Great-circle distance between the two parties' registered sites (recorded on the ledger). */
   distanceKm: number;
+  /** Distance actually travelled for the mode counted (GLEC rules: air +95 km, road ×1.2, sea lanes). */
+  routeKm: number;
   co2eKg: number;
   transitHours?: number;
   /** consistent: receipt time fits the declared mode; contradicted: too fast for it; pending: not yet received */
@@ -315,7 +318,11 @@ export interface Leg {
 }
 
 export interface CarbonBreakdown {
+  /** Cradle-to-gate materials, from the signed lots. */
   materials: number;
+  /** Garment processing (spinning, knitting, dyeing, finishing), modelled from published defaults. */
+  processing: number;
+  /** Factory and repair energy as declared by the brand / repairer (self-reported). */
   manufacturing: number;
   transport: number;
   total: number;
@@ -356,23 +363,35 @@ export function shipmentLegs(db: Db, p: Product): Leg[] {
         note = `Declared ${declaredMode}, but the recipient's signed receipt shows ${Math.round(distanceKm).toLocaleString("en")} km in ${transitHours < 48 ? `${Math.round(transitHours)} h` : `${Math.round(transitHours / 24)} days`} (≈${Math.round(kmPerDay).toLocaleString("en")} km/day). A ${declaredMode} can't do more than ${MAX_KM_PER_DAY[declaredMode].toLocaleString("en")} km/day, so this leg is counted as ${mode}.`;
       }
     }
-    legs.push({ shippedIndex: e.index, from: e.actorId, to, declaredMode, mode, distanceKm, co2eKg: distanceKm * (mass / 1000) * TRANSPORT_FACTORS[mode], transitHours, check, note });
+    const route = routeKm(mode, getActor(db, e.actorId).place, getActor(db, to).place);
+    legs.push({ shippedIndex: e.index, from: e.actorId, to, declaredMode, mode, distanceKm, routeKm: route, co2eKg: route * (mass / 1000) * transportFactor(mode, distanceKm), transitHours, check, note });
   });
   return legs;
 }
 
 export function carbonFootprint(db: Db, p: Product): CarbonBreakdown {
+  // Garments lose ~15% of fabric in cutting, so their fibre is scaled up like the processing stages.
+  const waste = (m: Material) => (p.category === "apparel" && TEXTILES.includes(m) ? TEXTILE_PROCESSING.cuttingWaste : 1);
   const materials = materialLines(db, p).reduce((s, l) => {
     const f = MATERIAL_FACTORS[l.material];
-    return s + (l.massKg - l.provenRecycledKg) * f.virgin + l.provenRecycledKg * f.recycled;
+    return s + ((l.massKg - l.provenRecycledKg) * f.virgin + l.provenRecycledKg * f.recycled) * waste(l.material);
   }, 0);
+  // Apparel: spinning, knitting and wet processing from published defaults, scaled for cutting waste.
+  let processing = 0;
+  if (p.category === "apparel") {
+    const T = TEXTILE_PROCESSING;
+    const lines = materialLines(db, p).filter((l) => TEXTILES.includes(l.material));
+    const textileKg = lines.reduce((s, l) => s + l.massKg, 0);
+    const spinning = lines.reduce((s, l) => s + l.massKg * (T.spinning[l.material] ?? 0), 0);
+    processing = (spinning + textileKg * (T.knitting + T.wetProcessing)) * T.cuttingWaste;
+  }
   let manufacturing = 0;
   for (const e of lifecycleEntries(db, p.id)) {
     if (e.type === "MANUFACTURED" || e.type === "REPAIRED") manufacturing += Number(e.data.co2eKg ?? 0);
   }
   const legs = shipmentLegs(db, p);
   const transport = legs.reduce((s, l) => s + l.co2eKg, 0);
-  return { materials, manufacturing, transport, total: materials + manufacturing + transport, legs };
+  return { materials, processing, manufacturing, transport, total: materials + processing + manufacturing + transport, legs };
 }
 
 /** CO2e avoided by using recycled instead of virgin material. */

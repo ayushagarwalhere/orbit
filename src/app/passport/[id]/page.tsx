@@ -336,6 +336,7 @@ export default async function PassportPage({ params, searchParams }: { params: P
             <Bar
               parts={[
                 { value: cf.materials, color: "#c8f169", label: "Materials" },
+                { value: cf.processing, color: "#c4a1ff", label: "Spinning, knitting & dyeing" },
                 { value: cf.manufacturing, color: "#f4be4f", label: "Manufacturing & repair" },
                 { value: cf.transport, color: "#7cc4ff", label: "Transport" },
               ]}
@@ -343,6 +344,7 @@ export default async function PassportPage({ params, searchParams }: { params: P
           </div>
           <dl className="mt-3 space-y-1 text-sm">
             <Row k="Materials · from lots signed by suppliers & recyclers"v={`${fmt(cf.materials, 2)} kg`} dot="#c8f169" />
+            {cf.processing > 0 && <Row k="Spinning, knitting & dyeing · published defaults" v={`${fmt(cf.processing, 2)} kg`} dot="#c4a1ff" />}
             <Row k="Factory & repair · self-reported" v={`${fmt(cf.manufacturing, 2)} kg`} dot="#f4be4f" />
             <Row k={`Transport · ${cf.legs.length} leg${cf.legs.length === 1 ? "" : "s"}, from registered sites`} v={`${fmt(cf.transport, 3)} kg`} dot="#7cc4ff" />
           </dl>
@@ -350,7 +352,7 @@ export default async function PassportPage({ params, searchParams }: { params: P
             <ul className="mt-3 space-y-0.5 text-xs text-muted">
               {cf.legs.map((l, i) => (
                 <li key={i} className={l.check === "contradicted" ? "rounded-lg border border-rust/30 bg-rust-soft p-2 text-rust" : ""}>
-                  {getActor(db, l.from).place.city} → {getActor(db, l.to).place.city}: {fmt(l.distanceKm, 0)} km by{" "}
+                  {getActor(db, l.from).place.city} → {getActor(db, l.to).place.city}: {fmt(l.routeKm, 0)} km by{" "}
                   {l.check === "contradicted" ? (
                     <>
                       <s>{l.declaredMode}</s> <b>{l.mode}</b> · {l.note}
@@ -360,6 +362,9 @@ export default async function PassportPage({ params, searchParams }: { params: P
                       {l.mode} {l.check === "consistent" ? <span className="text-leaf">· ✓ arrival time fits</span> : <span className="text-amber">· awaiting receipt</span>}
                     </>
                   )}
+          <p className="mt-3 text-[11px] leading-relaxed text-muted">
+            Boundary: cradle-to-gate materials{cf.processing > 0 ? ", garment processing (published defaults)" : ""}, the factory&apos;s declared energy and transport to the retailer. Use and end of life are excluded. Distances follow GLEC rules: air +95 km, road ×1.2, Europe–Asia sea legs via Suez. Every factor and its source is listed in the README.
+          </p>
                 </li>
               ))}
             </ul>

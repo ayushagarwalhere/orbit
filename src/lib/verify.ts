@@ -61,7 +61,9 @@ export function evaluateClaim(db: Db, claim: Claim, product: Product): ClaimResu
     case "CARBON_FOOTPRINT": {
       const claimed = Number(claim.value);
       const cf = carbonFootprint(db, product);
-      evidence.push(`Ledger-derived footprint ${fmt(cf.total, 2)} kg CO2e (materials ${fmt(cf.materials, 2)}, factory ${fmt(cf.manufacturing, 2)}, transport ${fmt(cf.transport, 3)})`);
+      evidence.push(
+        `Ledger-derived footprint ${fmt(cf.total, 2)} kg CO2e (materials ${fmt(cf.materials, 2)}${cf.processing ? `, spinning/knitting/dyeing ${fmt(cf.processing, 2)} from published defaults` : ""}, factory ${fmt(cf.manufacturing, 2)}, transport ${fmt(cf.transport, 3)})`,
+      );
       evidence.push("Materials from lots signed by independent suppliers and recyclers; transport distance from both parties' registered sites");
       const checked = cf.legs.filter((l) => l.check === "consistent").length;
       if (checked) evidence.push(`${checked} transport leg${checked > 1 ? "s" : ""} cross-checked against the recipient's signed arrival time`);
