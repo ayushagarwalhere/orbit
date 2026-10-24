@@ -41,7 +41,7 @@ Returning, repairing and recycling earn **non-transferable credits**, redeemable
 ```bash
 npm install
 npm run dev     # http://localhost:3000
-npm test        # 57 tests
+npm test        # 60 tests
 ```
 
 1. **Overview**: on a wide screen, drag the globe beside the headline. It shows every city where a party signs and the routes products actually took on the ledger, with the misdeclared leg in red. Then **"See a greenwashed product get caught"**: the hoodie's passport and the "Why 0/100" breakdown. Further down, **Check any claim**: paste a line from a real label and see whether EU rules ban the wording and what signed data Orbit would test it against.
@@ -172,7 +172,7 @@ The browser verifier downloads the whole ledger. That's fine at demo scale. Prod
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| `GET` | `/api/passport/:id` | JSON-LD passport (UNTP DPP data model) with inclusion proofs and an anchor reference |
+| `GET` | `/api/passport/:id` | JSON-LD passport that validates against the official UNTP DPP 0.5.0 JSON schema (`tests/untp.test.ts`), with inclusion proofs and an anchor reference. It has no VC securing proof; integrity comes from the anchored ledger. |
 | `GET` | `/api/ledger[?from=N]` | Entries, `ledgerId`, registered keys and an integrity report |
 | `GET` | `/api/proof?m=&n=` | RFC 6962 consistency proof (optional: the verifier computes roots itself) |
 | `POST` | `/api/actions/{create-batch, manufacture, ship, receive, sell, repair, return, recycle, issue-claim, attest, redeem, register-actor}` | `{ request: {action, ledger, actorId, body, nonce, issuedAt}, signature }`, signed by the actor. Only consumers may self-register, as `guest-…`, at most 20 per 10 minutes. |
@@ -183,7 +183,7 @@ The browser verifier downloads the whole ledger. That's fine at demo scale. Prod
 
 Next.js 15 · React 19 · TypeScript · Tailwind v4 · native Ed25519/SHA-256 on the server and audited `@noble/curves` / `@noble/hashes` in the browser (byte-identical, strict RFC 8032) · `viem` · Solidity 0.8.26.
 
-Standards: UNTP Digital Product Passport (data model) · GS1 EPCIS 2.0 & Digital Link (restricted-range demo GTINs) · RFC 6962 / 9162 · EU ESPR 2024/1781 · EU Battery Regulation 2023/1542 · EU Directive 2024/825 (greenwashing) · GLEC Framework.
+Standards: UNTP Digital Product Passport 0.5.0 (exports validate against its JSON schema; not checked against the UNTP Playground's semantic tests) · GS1 EPCIS 2.0 & Digital Link (restricted-range demo GTINs) · RFC 6962 / 9162 · EU ESPR 2024/1781 · EU Battery Regulation 2023/1542 · EU Directive 2024/825 (greenwashing) · GLEC Framework.
 
 ### Project layout
 

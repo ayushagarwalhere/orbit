@@ -37,14 +37,16 @@ export function exportPassport(db: Db, p: Product, baseUrl: string) {
   const registrations = db.ledger.filter((e) => e.type === "ACTOR_REGISTERED" && signers.has(e.subjectId));
 
   return {
-    // UNTP DPP data model. Not a W3C Verifiable Credential: there is no Data Integrity signature on
-    // the document; its integrity comes from the ledger proof below, checked against the chain.
-    "@context": ["https://test.uncefact.org/vocabulary/untp/dpp/0.5.0/"],
-    type: ["DigitalProductPassport"],
+    // Validates against the UNTP DPP 0.5.0 JSON schema (which fixes this type and context). It is an
+    // unsecured credential: no VC securing proof; integrity comes from the ledger proof below.
+    "@context": ["https://www.w3.org/ns/credentials/v2", "https://test.uncefact.org/vocabulary/untp/dpp/0.5.0/"],
+    type: ["DigitalProductPassport", "VerifiableCredential"],
     id: `${baseUrl}/passport/${p.id}`,
-    issuer: { id: `did:orbit:${brand.id}`, name: brand.name, publicKey: brand.publicKey },
+    issuer: { id: `did:orbit:${brand.id}`, name: brand.name },
     validFrom: p.createdAt,
     credentialSubject: {
+      id: `https://id.gs1.org/01/${p.gtin}/21/${p.serial}`,
+      name: p.name,
       product: {
         id: `https://id.gs1.org/01/${p.gtin}/21/${p.serial}`,
         emoji: p.emoji,
@@ -62,6 +64,9 @@ export function exportPassport(db: Db, p: Product, baseUrl: string) {
       passportHash: passportHash(p),
       passportCore: passportCore(p),
       materialsProvenance: materialLines(db, p).map((l) => ({
+        name: l.label,
+        massFraction: r(l.massKg / productMass(p), 4),
+        recycledAmount: r(l.massKg > 0 ? l.provenRecycledKg / l.massKg : 0, 4),
         lot: l.batch.id,
         material: l.label,
         massKg: r(l.massKg),
