@@ -51,14 +51,14 @@ None of these addresses the **oracle problem**, where false data is entered at t
 
 ## 5. Our approach
 
-Orbit gives every product a Digital Product Passport backed by a ledger of **signed, hash-chained supply chain events**. Each actor signs its own handovers with its own key, and only a 32-byte **Merkle root** is anchored on a public EVM testnet, so no commercial data is published. A **claim verification engine** checks every claim against the ledger:
+Orbit gives every product a Digital Product Passport backed by a ledger of **instructions signed by each party**. Every entry can be re-derived from those instructions by replaying them through public rules, so not even the operator can alter derived data unnoticed. RFC 6962 **Merkle roots** of the ledger are anchored on a public EVM testnet by Orbit and by independent witnesses, so history is provably append-only, and only 32-byte roots go on-chain, so no commercial data is published. A **claim verification engine** checks every claim against the ledger:
 
 - **Recycled content** against the mass balance of the input lots
 - **Carbon footprint** recomputed from materials, factory energy and every transport leg
 - **Origin** against the signed manufacture location
 - **Labour standards** against an independent auditor's signed attestation
 
-Vague wording is linted against Directive 2024/825. Recycled lots link back to the product they came from. Deposit, repair and recovery credits are minted only when a matching signed event exists. Self-reported data is labelled as such on the passport.
+Vague wording is linted against Directive 2024/825. Recycled lots link back to the product they came from. Return rewards (funded by the brand's EPR fee in a real scheme), repair and recovery credits are minted only as a rule-derived consequence of a signed event. Self-reported data is labelled as such on the passport.
 
 ## 6. Success criteria and measurable objectives
 
