@@ -5,14 +5,14 @@ export interface ImpactInputs {
   adoption: number; // share s of the EU product flow on Orbit by 2030 (0–1)
   repairUptake: number; // share of Orbit-tracked textile items that get a life-extending repair
   repairSaving: number; // share of an item's production footprint credited per repair
-  collectionUplift: number; // extra e-bike pack collection caused by the deposit (absolute share)
+  collectionUplift: number; // extra e-bike pack collection caused by the return reward (absolute share)
   procurementGain: number; // footprint reduction of verified EV cells bought vs the median
   additionality: number; // share of the procurement effect not already caused by regulation
 }
 
 export const DEFAULT_INPUTS: ImpactInputs = {
   adoption: 0.05,
-  repairUptake: 0.1,
+  repairUptake: 0.05, // France/Austria repair bonuses suggest 5% is defensible; 10% is a pilot target (IMPACT.md §5.1)
   repairSaving: 0.1,
   collectionUplift: 0.2,
   procurementGain: 0.1,
@@ -41,13 +41,13 @@ export function project(i: ImpactInputs): { levers: Lever[]; totalMt: number; cu
   const levers: Lever[] = [
     {
       id: "recycling",
-      label: "Textiles: fibre-to-fibre recycling (deposit returns + verified recycled content)",
+      label: "Textiles: fibre-to-fibre recycling (rewarded returns + verified recycled content)",
       formula: `s × ${BASELINE.textileRecyclingMtAtFullAdoption} Mt`,
       mt: s * BASELINE.textileRecyclingMtAtFullAdoption,
     },
     {
       id: "ebike",
-      label: "E-bike batteries: extra collection from deposits",
+      label: "E-bike batteries: extra collection from return rewards",
       formula: `s × 5.1 M packs × ${Math.round(i.collectionUplift * 100)}% × 10.3 kg`,
       mt: (s * BASELINE.ebikePacksPerYear * i.collectionUplift * BASELINE.kgSavedPerExtraPack) / 1e9,
     },

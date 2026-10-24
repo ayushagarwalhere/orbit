@@ -387,10 +387,13 @@ test("only independent auditors can attest; brands only claim their own products
 test("in-app impact model reproduces the written assessment (docs/IMPACT.md §4)", async () => {
   const { project, DEFAULT_INPUTS } = await import("../src/lib/impact.ts");
   const moderate = project(DEFAULT_INPUTS);
-  assert.ok(Math.abs(moderate.totalMt - 0.124) < 0.001, `moderate total ${moderate.totalMt}`);
-  assert.ok(Math.abs(project({ ...DEFAULT_INPUTS, adoption: 0.01 }).totalMt - 0.025) < 0.001);
-  assert.ok(Math.abs(project({ ...DEFAULT_INPUTS, adoption: 0.15 }).totalMt - 0.37) < 0.005);
-  assert.ok(Math.abs(moderate.cumulativeMt - 0.31) < 0.005);
+  // Central case: 5% repair uptake, total = s x 1.69 Mt.
+  assert.ok(Math.abs(moderate.totalMt - 0.0845) < 0.001, `moderate total ${moderate.totalMt}`);
+  assert.ok(Math.abs(project({ ...DEFAULT_INPUTS, adoption: 0.01 }).totalMt - 0.0169) < 0.001);
+  assert.ok(Math.abs(project({ ...DEFAULT_INPUTS, adoption: 0.15 }).totalMt - 0.253) < 0.005);
+  assert.ok(Math.abs(moderate.cumulativeMt - 0.211) < 0.005);
+  // 10% repair uptake (the pilot target) reproduces the sensitivity row: s x 2.49 Mt.
+  assert.ok(Math.abs(project({ ...DEFAULT_INPUTS, repairUptake: 0.1 }).totalMt - 0.124) < 0.001);
 });
 
 test("greenwash lint flags vague wording only", () => {
@@ -424,6 +427,17 @@ test("native (server) and pure-JS (browser) Ed25519 + SHA-256 agree byte for byt
   } finally {
     installNativeCrypto();
   }
+});
+
+test("every trust score comes with a breakdown that adds up to it", () => {
+  const { db } = world();
+  for (const p of db.products) {
+    const t = trustReport(db, p);
+    const sum = t.breakdown.reduce((s, b) => s + b.points, 0);
+    assert.ok(Math.abs(sum - t.score) <= 0.5, `${p.name}: ${sum} vs ${t.score}`);
+  }
+  const hoodie = trustReport(db, byName(db, "EcoCloud Hoodie"));
+  assert.ok(hoodie.breakdown.some((b) => b.label.includes("contradicted") && b.points < 0));
 });
 
 // ---------- trustless passport verification (as run in the browser) ----------

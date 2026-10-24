@@ -149,6 +149,29 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
           <span className="label mr-2">Verdict</span>
           {trust.summary}
         </div>
+        <details className="relative mt-3 rounded-xl border border-line bg-raised px-4 py-3 text-sm" open>
+          <summary className="cursor-pointer font-medium">
+            Why {trust.score}/100 (grade {trust.grade})
+          </summary>
+          <table className="mt-3 w-full text-[13px]">
+            <tbody>
+              {trust.breakdown.map((b) => (
+                <tr key={b.label} className="border-t border-line/60">
+                  <td className="py-1.5 pr-3 text-ink-soft">{b.label}</td>
+                  <td className={`py-1.5 text-right font-mono tabular-nums ${b.points < 0 ? "text-rust" : b.points > 0 ? "text-leaf" : "text-muted"}`}>
+                    {b.points > 0 ? "+" : ""}
+                    {Number.isInteger(b.points) ? b.points : b.points.toFixed(1)}
+                  </td>
+                </tr>
+              ))}
+              <tr className="border-t border-line font-bold">
+                <td className="py-1.5 pr-3">Score</td>
+                <td className="py-1.5 text-right font-mono tabular-nums">{trust.score}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p className="mt-2 text-[12px] text-muted">Grades: A ≥ 85 · B ≥ 70 · C ≥ 50 · D ≥ 30 · E below. The verifier page re-derives this score in your browser.</p>
+        </details>
       </section>
 
       {/* Claims */}

@@ -6,7 +6,7 @@ import { DEFAULT_INPUTS, project, type ImpactInputs } from "@/lib/impact.ts";
 
 const SLIDERS: { key: keyof ImpactInputs; label: string; min: number; max: number; step: number; hint: string }[] = [
   { key: "adoption", label: "Share of EU textiles & batteries on Orbit by 2030", min: 0.01, max: 0.25, step: 0.01, hint: "Our scenarios: 1% conservative, 5% moderate, 15% ambitious" },
-  { key: "repairUptake", label: "Tracked textile items that get a life-extending repair", min: 0, max: 0.3, step: 0.01, hint: "Pilot target. Repair-bonus evidence (France, Austria, Thuringia) suggests about 5% is more defensible (IMPACT.md §5.1)" },
+  { key: "repairUptake", label: "Tracked textile items that get a life-extending repair", min: 0, max: 0.3, step: 0.01, hint: "Central case 5%, from repair-bonus evidence (France, Austria, Thuringia); 10% is a pilot target (IMPACT.md §5.1)" },
   { key: "repairSaving", label: "Footprint saved per repaired item", min: 0, max: 0.2, step: 0.01, hint: "WRAP: up to 20% for +9 months of life; we default to half" },
   { key: "collectionUplift", label: "Extra e-bike pack collection from return rewards", min: 0, max: 0.4, step: 0.01, hint: "US deposits show ~+40 pts on cans; we default to half" },
   { key: "procurementGain", label: "Lower footprint of verified EV cells bought", min: 0, max: 0.2, step: 0.01, hint: "Median to 5th percentile gap is ~20% (Peiseler 2024)" },
@@ -87,7 +87,8 @@ export function ImpactClient() {
         </ul>
         <p className="mt-6 text-xs text-muted">
           Excluded on purpose: the effect of greenwashing deterrence on textile demand (no robust source), reuse of returned garments, battery repair, and textiles outside the EU. All are likely positive.
-          Overlap: a mandatory passport plus EPR fees would deliver part of these effects without Orbit. Applying a 50% overlap haircut to the recycling and repair levers gives about 0.07 Mt in the moderate case (IMPACT.md §5.2).
+          Overlap: a mandatory passport plus EPR fees would deliver part of these effects without Orbit. Applying a 50% overlap haircut to the recycling and repair levers gives about{" "}
+          {(result.totalMt - 0.5 * result.levers.filter((l) => l.id === "recycling" || l.id === "repair").reduce((t, l) => t + l.mt, 0)).toFixed(3)} Mt with these inputs (IMPACT.md §5.2).
         </p>
       </div>
     </div>
