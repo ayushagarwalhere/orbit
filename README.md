@@ -1,5 +1,7 @@
 # Orbit: green claims, checked against the supply chain
 
+[![CI](https://github.com/ayushagarwalhere/orbit/actions/workflows/ci.yml/badge.svg)](https://github.com/ayushagarwalhere/orbit/actions/workflows/ci.yml)
+
 **A hoodie says "70% recycled, carbon neutral, ethically made". Orbit's passport for it says: 6.7% recycled, 6.0 kg CO₂e, labour audit rejected. Grade E.**
 
 Orbit gives every product a digital product passport. The passport doesn't repeat what the brand says. It checks each claim against what *other* parties signed: the supplier who sold the fibre, the retailer who received the parcel, the auditor who visited the factory. If those signatures contradict the label, the passport says so, and shows why.
