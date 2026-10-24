@@ -56,6 +56,37 @@ export async function anchorWalletBalance(): Promise<bigint | null> {
   return pub.getBalance({ address: privateKeyToAccount(cfg.privateKey).address });
 }
 
+export interface WalletStatus {
+  address: string;
+  balanceEth: number;
+  /** Anchors left before the balance floor pauses anchoring, at today's gas price. */
+  anchorsLeft: number;
+  paused: boolean;
+  explorer?: string;
+}
+
+/** The anchor wallet's gas headroom, so a low balance is visible before anchoring pauses. */
+export async function anchorWalletStatus(): Promise<WalletStatus | null> {
+  const cfg = chainConfig();
+  if (!cfg?.privateKey) return null;
+  try {
+    const pub = createPublicClient({ chain: viemChain(cfg.network, cfg.rpc), transport: http(cfg.rpc) });
+    const address = privateKeyToAccount(cfg.privateKey).address;
+    const [balance, gasPrice] = await Promise.all([pub.getBalance({ address }), pub.getGasPrice()]);
+    const perAnchor = 150_000n * (gasPrice > 0n ? gasPrice : 1n);
+    const spare = balance > MIN_AUTO_BALANCE_WEI ? balance - MIN_AUTO_BALANCE_WEI : 0n;
+    return {
+      address,
+      balanceEth: Number(balance) / 1e18,
+      anchorsLeft: Number(spare / perAnchor),
+      paused: balance < MIN_AUTO_BALANCE_WEI,
+      explorer: cfg.network.explorer ? `${cfg.network.explorer}/address/${address}` : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** Commit the current ledger root: on-chain when configured, otherwise as a local-only checkpoint. */
 export function anchorNow(opts: { auto?: boolean } = {}): Promise<Checkpoint> {
   const s = svc();

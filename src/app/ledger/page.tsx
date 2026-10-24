@@ -3,7 +3,7 @@ import { ActionButton } from "@/components/act.tsx";
 import { Countdown } from "@/components/client.tsx";
 import { TAMPER_TTL_MS } from "@/lib/demo.ts";
 import { ENTRY_META, PageHeader, RoleTag, dateTime, short } from "@/components/ui.tsx";
-import { chainConfig, checkAnchors } from "@/lib/chain.ts";
+import { anchorWalletStatus, chainConfig, checkAnchors } from "@/lib/chain.ts";
 import { verifyLedger } from "@/lib/ledger.ts";
 import { addressUrl } from "@/lib/networks.ts";
 import { getDb, isDemoMode } from "@/lib/store.ts";
@@ -28,7 +28,7 @@ const PROBLEM_LABEL: Record<string, string> = {
 export default async function LedgerPage() {
   const db = getDb();
   const cfg = chainConfig();
-  const anchors = await checkAnchors(db);
+  const [anchors, wallet] = await Promise.all([checkAnchors(db), anchorWalletStatus()]);
   const r = verifyLedger(db);
   const chainBroken = anchors.some((a) => a.status === "mismatch");
   const ignored = anchors.filter((a) => a.status === "ignored").length;
@@ -138,6 +138,16 @@ export default async function LedgerPage() {
             <ActionButton action="anchor" className="btn btn-ghost text-xs">
               ⚓ Anchor current root now
             </ActionButton>
+            {wallet && (
+              <a
+                href={wallet.explorer}
+                target="_blank"
+                className={`chip ${wallet.paused ? "border-rust/40 bg-rust-soft text-rust" : wallet.anchorsLeft < 25 ? "border-amber/40 bg-amber-soft text-amber" : "border-line text-ink-soft"}`}
+                title={`Anchor wallet ${wallet.address}: ${wallet.balanceEth.toFixed(6)} ETH`}
+              >
+                {wallet.paused ? "Anchoring paused: wallet needs testnet ETH" : `Gas for about ${wallet.anchorsLeft} more anchors`}
+              </a>
+            )}
             <span className="text-xs text-muted">New writes are also anchored automatically, at most once every 10 minutes. On-chain, a checkpoint holds only a 32-byte root, the ledger id and its length: no business data.</span>
           </div>
         </div>

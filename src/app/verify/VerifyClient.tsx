@@ -4,6 +4,7 @@ import { useState } from "react";
 import { readCheckpoint, readLedgerCheckpoints } from "@/lib/anchor-read.ts";
 import { OFFICIAL_ANCHORS, networkById, txUrl } from "@/lib/networks.ts";
 import { verifyPassport, type Check, type ChainReader } from "@/lib/passport-verify.ts";
+import { WitnessPanel } from "./WitnessPanel.tsx";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function chainFor(doc: any): { reader?: ChainReader; chainId?: number } {
@@ -32,6 +33,7 @@ export function VerifyClient({ products }: { products: { id: string; name: strin
   const [results, setResults] = useState<Check[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [chainId, setChainId] = useState<number | undefined>();
 
   async function run(doc: any) {
     setRunning(true);
@@ -39,6 +41,7 @@ export function VerifyClient({ products }: { products: { id: string; name: strin
     try {
       const { reader, chainId } = chainFor(doc);
       const network = chainId ? networkById(chainId) : undefined;
+      setChainId(chainId);
       setResults(await verifyPassport(doc, { trusted: chainId ? OFFICIAL_ANCHORS[chainId] : undefined, chainId, chain: reader, explorer: (tx) => txUrl(network, tx) }, setResults));
     } finally {
       setRunning(false);
@@ -123,6 +126,7 @@ export function VerifyClient({ products }: { products: { id: string; name: strin
                 </li>
               ))}
             </ul>
+            {!running && !failed && results.length > 0 && chainId && networkById(chainId) && OFFICIAL_ANCHORS[chainId] && <WitnessPanel network={networkById(chainId)!} trusted={OFFICIAL_ANCHORS[chainId]} />}
           </>
         )}
       </div>
