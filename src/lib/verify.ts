@@ -1,5 +1,5 @@
 // The accountability engine: checks every sustainability claim against what the ledger proves.
-import { accreditedAt, attestationsOf, claimHash, carbonFootprint, getActor, lifecycleEntries, materialLines, passportHash, productEntries, provenRecycledPct } from "./domain.ts";
+import { accreditedAt, attestationsOf, certificateLabel, claimHash, carbonFootprint, getActor, lifecycleEntries, materialLines, passportHash, productEntries, provenRecycledPct } from "./domain.ts";
 import { lintClaim, type LintHit } from "./greenwash.ts";
 import { verifyLedger, type IntegrityReport } from "./ledger.ts";
 import type { Claim, Db, Product } from "./types.ts";
@@ -36,7 +36,7 @@ export function evaluateClaim(db: Db, claim: Claim, product: Product): ClaimResu
   for (const a of auditors) {
     const acc = accreditedAt(db, a.auditorId, "auditor", a.at);
     if (!acc.ok) reasons.push(`Audit by ${getActor(db, a.auditorId).name} not counted: ${acc.reason}`);
-    else evidence.push(`Auditor accredited: ${acc.cert.scheme} ${acc.cert.certificate}, valid to ${acc.cert.validUntil.slice(0, 10)}`);
+    else evidence.push(`Auditor accredited: ${certificateLabel(db, acc.cert)}, valid to ${acc.cert.validUntil.slice(0, 10)}`);
   }
   const approvals = independent.filter((a) => a.verdict === "APPROVE");
   const rejections = independent.filter((a) => a.verdict === "REJECT");
@@ -62,7 +62,7 @@ export function evaluateClaim(db: Db, claim: Claim, product: Product): ClaimResu
       const claimed = Number(claim.value);
       const cf = carbonFootprint(db, product);
       evidence.push(
-        `Ledger-derived footprint ${fmt(cf.total, 2)} kg CO2e (materials ${fmt(cf.materials, 2)}${cf.processing ? `, spinning/knitting/dyeing ${fmt(cf.processing, 2)} from published defaults` : ""}, factory ${fmt(cf.manufacturing, 2)}, transport ${fmt(cf.transport, 3)})`,
+        `Ledger-derived footprint ${fmt(cf.total, 2)} kg CO2e (materials ${fmt(cf.materials, 2)}${cf.processing ? `, spinning/knitting/dyeing ${fmt(cf.processing, 2)} from published defaults` : ""}, factory ${fmt(cf.manufacturing, 2)}, transport ${fmt(cf.transport, 2)})`,
       );
       evidence.push("Materials from lots signed by independent suppliers and recyclers; transport distance from both parties' registered sites");
       const checked = cf.legs.filter((l) => l.check === "consistent").length;
@@ -172,7 +172,7 @@ export function trustReport(db: Db, product: Product, ledgerReport?: IntegrityRe
   }
   const raw = score;
   score = Math.max(0, Math.min(100, Math.round(score)));
-  if (score !== Math.round(raw)) breakdown.push({ label: raw < 0 ? `Floor: the penalties add up to ${Math.round(raw)}, but scores stop at 0` : "Ceiling: scores stop at 100", points: score - raw });
+  if (score !== Math.round(raw)) breakdown.push({ label: raw < 0 ? "Score can't go below 0" : "Score can't go above 100", points: score - raw });
   for (const b of breakdown) b.points = Math.round(b.points * 10) / 10;
   const grade = score >= 85 ? "A" : score >= 70 ? "B" : score >= 50 ? "C" : score >= 30 ? "D" : "E";
 

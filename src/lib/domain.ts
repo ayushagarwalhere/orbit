@@ -138,6 +138,13 @@ export function accreditationsOf(db: Db, actorId: string): Accreditation[] {
   return c.by.get(actorId) ?? [];
 }
 
+/** "Global Recycled Standard GRS-NL-25-0418 (demo certificate)": demo bodies are marked fictional in their registration. */
+export function certificateLabel(db: Db, a: Accreditation): string {
+  const issuer = db.actors.find((x) => x.id === a.issuerId);
+  const demo = !!issuer && /fictional/i.test(issuer.description);
+  return `${a.scheme} ${a.certificate}${demo ? " (demo certificate)" : ""}`;
+}
+
 /** The certificate that covered `actorId` for `scope` at time `at`, or why none did. */
 export function accreditedAt(db: Db, actorId: string, scope: "recycler" | "auditor", at: string): { ok: true; cert: Accreditation } | { ok: false; reason: string } {
   const t = Date.parse(at);
@@ -270,7 +277,7 @@ export function materialLines(db: Db, p: Product): MaterialLine[] {
       closedLoop: b.sourceProductIds.length > 0,
       provenRecycledKg: acc?.ok ? recycledKg : 0,
       unaccredited: acc && !acc.ok ? acc.reason : undefined,
-      certificate: acc?.ok ? `${acc.cert.scheme} ${acc.cert.certificate}` : undefined,
+      certificate: acc?.ok ? certificateLabel(db, acc.cert) : undefined,
     };
   });
 }

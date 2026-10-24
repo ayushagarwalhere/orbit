@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { ProductGlyph } from "@/components/ProductGlyph.tsx";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import QRCode from "qrcode";
@@ -102,7 +103,7 @@ export default async function PassportPage({ params, searchParams }: { params: P
           <div className="min-w-0">
             <div className="label">Digital product passport · {p.id}</div>
             <h1 className="display mt-3 text-[clamp(2.75rem,6vw,5rem)]">
-              <span className="mr-3 align-middle text-[0.8em]">{p.emoji}</span>
+              <ProductGlyph emoji={p.emoji} name={p.name} className="mr-3 align-middle text-[0.8em]" />
               {p.name}
             </h1>
             <p className="mt-3 max-w-xl text-ink-soft">
@@ -237,12 +238,12 @@ export default async function PassportPage({ params, searchParams }: { params: P
             Public view
           </Link>
           <Link href={`/passport/${p.id}?view=full`} aria-current={full ? "page" : undefined} className={`rounded-full px-3 py-1 text-xs font-semibold ${full ? "bg-raised text-ink" : "text-muted hover:text-ink"}`}>
-            Regulator &amp; recycler view
+            Regulator view (demo: no login)
           </Link>
         </div>
         <p className="min-w-0 flex-1 text-[13px] text-ink-soft">
           {full
-            ? "Everything on the ledger: suppliers, lots and quantities. In this demo the whole ledger is public, so this switch only changes what the page shows; in production the ledger would hold salted commitments to these fields, and only authorised viewers would get the values to check against them."
+            ? "Everything on the ledger: suppliers, lots and quantities. There is no login in this demo: the whole ledger is public, so this switch only changes what the page shows. In production, regulators and recyclers would sign in, and the ledger would hold salted commitments to these fields so only they get the values to check."
             : "Supplier names, lot numbers and quantities are hidden, as EU passport rules allow. Every verdict on this page was still computed from them."}
         </p>
       </section>
@@ -346,7 +347,7 @@ export default async function PassportPage({ params, searchParams }: { params: P
             <Row k="Materials · from lots signed by suppliers & recyclers"v={`${fmt(cf.materials, 2)} kg`} dot="#c8f169" />
             {cf.processing > 0 && <Row k="Spinning, knitting & dyeing · published defaults" v={`${fmt(cf.processing, 2)} kg`} dot="#c4a1ff" />}
             <Row k="Factory & repair · self-reported" v={`${fmt(cf.manufacturing, 2)} kg`} dot="#f4be4f" />
-            <Row k={`Transport · ${cf.legs.length} leg${cf.legs.length === 1 ? "" : "s"}, from registered sites`} v={`${fmt(cf.transport, 3)} kg`} dot="#7cc4ff" />
+            <Row k={`Transport · ${cf.legs.length} leg${cf.legs.length === 1 ? "" : "s"}, from registered sites`} v={`${fmt(cf.transport, 2)} kg`} dot="#7cc4ff" />
           </dl>
           {cf.legs.length > 0 && (
             <ul className="mt-3 space-y-0.5 text-xs text-muted">

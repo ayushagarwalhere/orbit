@@ -1,4 +1,5 @@
 import { Anchor, ArrowRight, ArrowUpRight, Coins, Fingerprint, Link2, Recycle, ScanLine } from "lucide-react";
+import { ProductGlyph } from "@/components/ProductGlyph.tsx";
 import Link from "next/link";
 import { Hash, MaskLines, Num, Reveal, Spotlight } from "@/components/client.tsx";
 import { ENTRY_META, GradeBadge, StagePill, dateTime, fmt } from "@/components/ui.tsx";
@@ -197,7 +198,7 @@ export default function Home() {
                       className="relative flex h-40 items-center justify-center overflow-hidden border-b border-line"
                       style={{ background: `radial-gradient(120% 120% at 20% 0%, color-mix(in oklab, ${CATEGORY_HUE[p.category]} 18%, transparent), transparent 60%)` }}
                     >
-                      <span className="text-7xl transition-transform duration-500 ease-[cubic-bezier(.16,1,.3,1)] group-hover:scale-110">{p.emoji}</span>
+                      <ProductGlyph emoji={p.emoji} name={p.name} className="text-7xl transition-transform duration-500 ease-[cubic-bezier(.16,1,.3,1)] group-hover:scale-110" />
                       <div className="absolute right-4 top-4">
                         <GradeBadge grade={trust.grade} score={trust.score} />
                       </div>

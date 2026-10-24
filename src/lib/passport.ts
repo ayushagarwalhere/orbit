@@ -86,7 +86,7 @@ export function exportPassport(db: Db, p: Product, baseUrl: string) {
         materials: r(cf.materials, 2),
         processing: r(cf.processing, 2),
         manufacturing: r(cf.manufacturing, 2),
-        transport: r(cf.transport, 3),
+        transport: r(cf.transport, 2),
         selfReportedShare: cf.total ? r(cf.manufacturing / cf.total, 3) : 0,
         boundary: "cradle-to-gate materials + garment processing (published defaults) + declared factory energy + transport to retailer; use and end of life excluded",
       },

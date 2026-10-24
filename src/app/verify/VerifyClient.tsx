@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ProductGlyph } from "@/components/ProductGlyph.tsx";
 import { OFFICIAL_ANCHORS, networkById, txUrl } from "@/lib/networks.ts";
 import dynamic from "next/dynamic";
 import type { Check, ChainReader } from "@/lib/passport-verify.ts";
@@ -74,7 +75,7 @@ export function VerifyClient({ products }: { products: { id: string; name: strin
         <div className="flex flex-wrap gap-2">
           {products.map((p) => (
             <button key={p.id} className="btn btn-ghost text-xs" onClick={() => load(p.id)}>
-              {p.emoji} {p.name}
+              <ProductGlyph emoji={p.emoji} name={p.name} /> {p.name}
             </button>
           ))}
         </div>

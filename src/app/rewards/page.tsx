@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ProductGlyph } from "@/components/ProductGlyph.tsx";
 import { ActionButton } from "@/components/act.tsx";
 import { PageHeader, RoleTag, Stat, dateTime, fmt } from "@/components/ui.tsx";
 import { REWARDS } from "@/lib/actions.ts";
@@ -79,7 +80,7 @@ export default function RewardsPage() {
                       Returnable:{" "}
                       {owned.map((p) => (
                         <Link key={p.id} href={`/passport/${p.id}`} className="mr-2 text-leaf underline">
-                          {p.emoji} {p.name} (+{p.depositCredits})
+                          <ProductGlyph emoji={p.emoji} name={p.name} /> {p.name} (+{p.depositCredits})
                         </Link>
                       ))}
                     </div>

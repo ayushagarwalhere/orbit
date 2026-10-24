@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ProductGlyph } from "@/components/ProductGlyph.tsx";
 import { useEffect, useMemo, useState } from "react";
 import { forgetGuest, guestRegistrationBody, loadGuest, newGuest, useAct, type Guest } from "@/components/act.tsx";
 import { lintClaim } from "@/lib/greenwash.ts";
@@ -201,7 +202,7 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 function ItemRow({ p, sub, children }: { p: ConsoleData["products"][number]; sub?: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line p-3">
-      <span className="text-2xl">{p.emoji}</span>
+      <ProductGlyph emoji={p.emoji} name={p.name} className="text-2xl" />
       <div className="min-w-0 flex-1">
         <Link href={`/passport/${p.id}`} className="font-semibold hover:underline">
           {p.name}
@@ -461,7 +462,7 @@ function ClaimForm({ data, actorId, busy, run }: { data: ConsoleData; actorId: s
         <select aria-label="Product" className="field" value={productId} onChange={(e) => setProductId(e.target.value)}>
           {mine.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.emoji} {p.name} ({p.id})
+              {/hoodie/i.test(p.name) ? "" : `${p.emoji} `}{p.name} ({p.id})
             </option>
           ))}
         </select>
