@@ -11,17 +11,17 @@ function chainFor(doc: any): { reader?: ChainReader; chainId?: number } {
   const network = chainId ? networkById(chainId) : undefined;
   const trusted = chainId ? OFFICIAL_ANCHORS[chainId] : undefined;
   if (!network || !trusted) return { chainId };
-  // Public RPC chosen here; contract address pinned in code. Consistency proofs come from Orbit's
-  // server, but are checked against roots read straight from the chain, so they can't be faked.
+  // Public RPC chosen here; contract address pinned in code. The ledger comes from Orbit's server,
+  // but is authenticated against roots read straight from the chain, so it can't be faked.
   return {
     chainId,
     reader: {
       checkpoint: (id) => readCheckpoint(network, trusted.contract, id),
       ledgerCheckpoints: (ledgerId) => readLedgerCheckpoints(network, trusted.contract, ledgerId),
-      consistency: async (m, n) => {
-        const r = await fetch(`/api/proof?m=${m}&n=${n}`);
-        if (!r.ok) throw new Error("no proof");
-        return (await r.json()).proof as string[];
+      ledger: async () => {
+        const r = await fetch("/api/ledger", { cache: "no-store" });
+        if (!r.ok) throw new Error("ledger unavailable");
+        return (await r.json()).entries;
       },
     },
   };
@@ -92,19 +92,18 @@ export function VerifyClient({ products }: { products: { id: string; name: strin
           <div className="space-y-2 text-sm text-muted">
             <p>Results appear here. Your browser does all the work, with trust roots pinned in its code:</p>
             <ol className="list-decimal space-y-1 pl-5">
-              <li>Takes actor keys only from their self-signed registration entries</li>
-              <li>Re-hashes every event and checks the sequencer&apos;s and the actor&apos;s signatures, bindings and signed times</li>
-              <li>Re-derives every claim verdict itself from the proven events</li>
-              <li>Reads the checkpoint from Orbit&apos;s pinned contract and checks it was submitted by Orbit&apos;s pinned operator</li>
-              <li>Proves every entry is in that on-chain root (RFC 6962)</li>
-              <li>Checks the history is append-only against every trusted checkpoint, including independent witnesses</li>
+              <li>Reads Orbit&apos;s checkpoint from the pinned contract and checks the pinned operator submitted it</li>
+              <li>Downloads the ledger and re-hashes it: its Merkle root must equal the on-chain root</li>
+              <li>Checks it matches every checkpoint by Orbit and by named witnesses</li>
+              <li>Re-checks every signature and replays every instruction through the rules</li>
+              <li>Checks the passport leaves nothing out, then re-derives every verdict and the grade</li>
             </ol>
           </div>
         )}
         {results && (
           <>
-            <div className={`rounded-xl px-4 py-3 font-bold ${running ? "bg-raised text-ink-soft" : failed ? "bg-rust-soft text-rust" : "bg-leaf-soft text-leaf"}`}>
-              {running ? "Verifying…" : failed ? `✕ ${failed} of ${results.length} checks failed` : `✓ All ${results.length - warned} checks passed${warned ? ` · ${warned} note${warned > 1 ? "s" : ""}` : ""}`}
+            <div className={`rounded-xl px-4 py-3 font-bold ${running ? "bg-raised text-ink-soft" : failed ? "bg-rust-soft text-rust" : warned ? "bg-amber-soft text-amber" : "bg-leaf-soft text-leaf"}`}>
+              {running ? "Verifying…" : failed ? `✕ ${failed} of ${results.length} checks failed` : warned ? `✓ ${results.length - warned} checks passed · ${warned} caveat${warned > 1 ? "s" : ""} below` : `✓ All ${results.length} checks passed`}
             </div>
             <ul className="mt-3 max-h-[480px] space-y-1 overflow-y-auto text-sm">
               {results.map((r, i) => (

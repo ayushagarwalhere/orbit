@@ -3,7 +3,7 @@ import { anchorNow, scheduleAnchor } from "@/lib/chain.ts";
 import { restore, tamper } from "@/lib/demo.ts";
 import { SIGNED_ACTIONS } from "@/lib/dispatch.ts";
 import { OrbitError } from "@/lib/domain.ts";
-import { isDemoMode, mutate, resetDb, submitSigned } from "@/lib/store.ts";
+import { getDb, isDemoMode, mutate, resetDb, submitSigned } from "@/lib/store.ts";
 import type { SignedRequest } from "@/lib/types.ts";
 
 export const dynamic = "force-dynamic";
@@ -25,9 +25,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
       return result;
     }
     if (action === "anchor") {
-      // Anchoring spends gas: at most one manual anchor every 30 s, whoever asks.
+      // Anchoring spends gas: a manual anchor needs 5+ new entries or 2 minutes since the last one.
+      // (Writes are auto-anchored anyway, so nothing is ever left unanchored for long.)
       const g = globalThis as unknown as { __orbitLastManualAnchor?: number };
-      if (g.__orbitLastManualAnchor && Date.now() - g.__orbitLastManualAnchor < 30_000) throw new OrbitError("Anchored moments ago; try again in a few seconds", 429);
+      const db = getDb();
+      const last = [...db.checkpoints].reverse().find((c) => c.onChain && c.ledgerId === db.ledgerId);
+      const fresh = db.ledger.length - (last ? last.covers : 0);
+      if (g.__orbitLastManualAnchor && Date.now() - g.__orbitLastManualAnchor < 120_000 && fresh < 5) throw new OrbitError("Anchored recently; new events are anchored automatically within a few minutes", 429);
       g.__orbitLastManualAnchor = Date.now();
       return anchorNow();
     }

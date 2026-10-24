@@ -1,15 +1,23 @@
-// Independent passport verification. Runs in the browser (and in tests) with nothing from Orbit's
-// server except the passport document and consistency proofs that are checked against on-chain
-// roots. Trust roots (contract, operator, witnesses) are pinned in code, never taken from the
-// document. It re-derives every claim verdict from the proven events instead of trusting the grade.
+// Independent passport verification (runs in the browser and in tests).
+//
+// Nothing is taken on trust from the passport or Orbit's server. The browser:
+//  1. reads Orbit's checkpoint from the pinned contract and checks the pinned operator submitted it;
+//  2. downloads the ledger and AUTHENTICATES it: re-hashes every entry and rebuilds the RFC 6962 root,
+//     which must equal the on-chain root;
+//  3. checks the ledger is consistent with EVERY trusted checkpoint (operator + named witnesses);
+//  4. checks the ledger is bound to one genesis/ledger id, with keys only from proven registrations;
+//  5. re-runs the full integrity check: signatures, signed times, and replay of every instruction;
+//  6. checks the passport against the authenticated ledger: every event genuine and NONE omitted;
+//  7. re-derives every claim verdict and the trust grade from the authenticated state.
 import type { OnChainCheckpoint } from "./anchor-read.ts";
-import { PROTOCOL_ID, authMismatch, verifyRequest } from "./auth.ts";
-import { hashObject, verifyConsistency, verifyInclusion, verifySignature } from "./crypto.ts";
-import { hashEntry } from "./ledger.ts";
+import { PROTOCOL_ID } from "./auth.ts";
+import { MerkleTree, hashObject } from "./crypto.ts";
+import { passportHash, productEntries } from "./domain.ts";
+import { hashEntry, verifyLedger } from "./ledger.ts";
 import { classifySubmitter, type TrustedDeployment } from "./networks.ts";
-import { emptyDb } from "./replay.ts";
-import type { Batch, Claim, Db, LedgerEntry, Material, Product } from "./types.ts";
-import { evaluateClaim } from "./verify.ts";
+import { replay } from "./replay.ts";
+import type { Db, LedgerEntry } from "./types.ts";
+import { trustReport } from "./verify.ts";
 
 export interface Check {
   label: string;
@@ -21,52 +29,11 @@ export interface Check {
 export interface ChainReader {
   checkpoint(id: number): Promise<OnChainCheckpoint>;
   ledgerCheckpoints(ledgerId: string): Promise<{ operator: string; checkpoints: OnChainCheckpoint[] }>;
-  consistency(m: number, n: number): Promise<string[]>;
+  /** The ledger as served by any node; authenticated here against on-chain roots. */
+  ledger(): Promise<LedgerEntry[]>;
 }
-
-type ProvenEntry = LedgerEntry & { merkleProof: { index: number; size: number; path: string[] } | null };
-const SKEW_MS = 5 * 60 * 1000;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-
-/** Rebuild just enough state from the passport's own (proven) events to re-run the claim rules. */
-export function dbFromPassport(doc: any): { db: Db; product: Product; claims: Claim[] } {
-  const subj = doc.credentialSubject;
-  const db = emptyDb();
-  for (const e of subj.actorRegistrations as LedgerEntry[]) {
-    db.actors.push({ id: e.subjectId, name: String(e.data.name), role: e.data.role as any, place: e.place!, publicKey: String(e.data.publicKey), description: "" });
-  }
-  const events = [...(subj.traceabilityEvents as LedgerEntry[])].sort((a, b) => a.index - b.index);
-  for (const e of events) {
-    if (e.type !== "BATCH_CREATED") continue;
-    db.batches.push({
-      id: e.subjectId,
-      material: e.data.material as Material,
-      massKg: Number(e.data.massKg),
-      recycledKg: Number(e.data.recycledKg),
-      producerId: e.actorId,
-      place: e.place!,
-      createdAt: e.timestamp,
-      sourceProductIds: (e.data.sourceProductIds as string[]) ?? [],
-    } satisfies Batch);
-  }
-  db.ledger = events;
-  const core = subj.passportCore;
-  const product: Product = { ...core, emoji: subj.product.emoji ?? "", description: subj.product.description ?? "", endOfLife: subj.product.endOfLife ?? "", createdAt: subj.product.createdAt ?? "" };
-  db.products.push(product);
-  const claims: Claim[] = (subj.conformityClaims as any[]).map((c) => ({
-    id: c.id,
-    productId: c.productId,
-    kind: c.kind,
-    statement: c.statement,
-    value: c.value,
-    issuerId: c.issuerId,
-    evidenceHash: c.evidenceHash ?? undefined,
-    createdAt: c.createdAt,
-  }));
-  db.claims.push(...claims);
-  return { db, product, claims };
-}
 
 export async function verifyPassport(doc: any, opts: { trusted?: TrustedDeployment; chainId?: number; chain?: ChainReader; explorer?: (tx: string) => string | undefined }, onProgress?: (c: Check[]) => void): Promise<Check[]> {
   const out: Check[] = [];
@@ -75,70 +42,12 @@ export async function verifyPassport(doc: any, opts: { trusted?: TrustedDeployme
     onProgress?.([...out]);
   };
   const subj = doc?.credentialSubject;
-  if (!subj) return [{ label: "Document", ok: false, detail: "Not an Orbit passport (missing credentialSubject)" }];
-  const anchor = doc.proof?.anchor;
-  const regs: ProvenEntry[] = subj.actorRegistrations ?? [];
-  const events: ProvenEntry[] = subj.traceabilityEvents ?? [];
+  const anchor = doc?.proof?.anchor;
+  if (!subj?.passportCore) return [{ label: "Document", ok: false, detail: "Not an Orbit passport" }];
 
-  // 1. Keys only from self-signed registration entries.
-  const keys = new Map<string, string>();
-  for (const e of regs) {
-    const pk = String(e.data?.publicKey);
-    const ok = hashEntry(e) === e.hash && !!e.auth && verifyRequest(e.auth, pk) && !authMismatch(e);
-    if (ok) keys.set(e.subjectId, pk);
-    push({ label: `Key of ${e.subjectId}`, ok, detail: ok ? `registered at #${e.index}, self-signed · ${pk.slice(0, 16)}…` : "registration entry is invalid" });
-  }
-  const seq = keys.get(PROTOCOL_ID);
-
-  // 2. The passport record is the one committed at manufacture.
-  const recomputed = hashObject(subj.passportCore);
-  const made = events.find((e) => e.type === "MANUFACTURED");
-  push({ label: "Passport record", ok: !!made && recomputed === subj.passportHash && made.data?.passportHash === recomputed, detail: `sha256(bill of materials…) = ${recomputed.slice(0, 16)}…, committed by MANUFACTURED #${made?.index}` });
-
-  // 3. Every event: content hash, sequencer signature, the actor's own instruction, its binding and time.
-  for (const e of events) {
-    const hashOk = hashEntry(e) === e.hash;
-    const seqOk = !!seq && verifySignature(e.hash, e.signature, seq);
-    const signer = e.auth?.request.actorId;
-    const signerKey = signer ? keys.get(signer) : undefined;
-    const actorOk = !!e.auth && !!signerKey && verifyRequest(e.auth, signerKey);
-    const mismatch = authMismatch(e);
-    const skewOk = !e.auth || Math.abs(Date.parse(e.timestamp) - Date.parse(e.auth.request.issuedAt)) <= SKEW_MS;
-    const ok = hashOk && seqOk && actorOk && !mismatch && skewOk;
-    push({
-      label: `#${e.index} ${e.type}`,
-      ok,
-      detail: !hashOk
-        ? "content does not match its hash"
-        : !seqOk
-          ? "sequencer signature invalid"
-          : !actorOk
-            ? `no valid instruction signed by ${signer ?? "anyone"}`
-            : mismatch
-              ? `differs from what ${signer} signed: ${mismatch}`
-              : !skewOk
-                ? "recorded time differs from the signed time"
-                : e.actorId === PROTOCOL_ID
-                  ? `protocol entry caused by ${signer}'s signed instruction`
-                  : `${signer} signed this instruction · ${e.auth!.signature.slice(0, 14)}…`,
-    });
-  }
-
-  // 4. Re-derive every claim verdict here, from the proven events (don't trust the server's grade).
-  try {
-    const { db, product, claims } = dbFromPassport(doc);
-    for (const c of claims) {
-      const mine = evaluateClaim(db, c, product).status;
-      const theirs = (subj.conformityClaims as any[]).find((x) => x.id === c.id)?.status;
-      push({ label: `Verdict ${c.id} (${c.kind.toLowerCase().replace("_", " ")})`, ok: mine === theirs, detail: mine === theirs ? `re-derived in your browser: ${mine}` : `server says ${theirs}, but the proven events give ${mine}` });
-    }
-  } catch (err) {
-    push({ label: "Claim verdicts", ok: false, detail: `could not re-derive: ${err instanceof Error ? err.message : String(err)}` });
-  }
-
-  // 5. Anchoring: the checkpoint must be on Orbit's pinned contract and submitted by Orbit's pinned operator.
+  // 1. Orbit's checkpoint, from the pinned contract, by the pinned operator.
   if (!anchor?.onChain || !opts.chain || !opts.trusted) {
-    push({ label: "On-chain anchor", ok: "warn", detail: anchor?.onChain ? "No pinned deployment for this network" : "Checkpoint is local only; it cannot be independently timestamped" });
+    push({ label: "Not independently verifiable", ok: false, detail: anchor?.onChain ? "No pinned Orbit deployment for this network" : "This passport has no on-chain anchor, so nothing in it can be checked against a public root" });
     return out;
   }
   if (String(anchor.contract).toLowerCase() !== opts.trusted.contract.toLowerCase()) {
@@ -146,69 +55,154 @@ export async function verifyPassport(doc: any, opts: { trusted?: TrustedDeployme
     return out;
   }
   let cp: OnChainCheckpoint;
+  let ledger: LedgerEntry[];
   try {
-    cp = await opts.chain.checkpoint(Number(anchor.checkpointId));
+    [cp, ledger] = await Promise.all([opts.chain.checkpoint(Number(anchor.checkpointId)), opts.chain.ledger()]);
   } catch (e) {
-    push({ label: "On-chain anchor", ok: "warn", detail: `Could not reach the chain: ${e instanceof Error ? e.message.split("\n")[0] : "error"}` });
+    push({ label: "Not independently verifiable", ok: false, detail: `Could not reach the chain or the ledger: ${e instanceof Error ? (e.message.split(String.fromCharCode(10))[0] ?? "") : "error"}` });
     return out;
   }
   const by = classifySubmitter(opts.trusted, cp.submitter);
-  const anchorOk = by.role === "operator" && cp.merkleRoot === anchor.merkleRoot && cp.ledgerLength === anchor.covers && cp.ledgerId === anchor.ledgerId;
-  push({
-    label: "On-chain checkpoint",
-    ok: anchorOk,
-    detail: anchorOk
-      ? `#${cp.id} by Orbit's pinned operator: ${cp.ledgerLength} entries, root ${cp.merkleRoot.slice(0, 16)}…, ${new Date(cp.timestamp * 1000).toUTCString()}`
-      : by.role !== "operator"
-        ? `checkpoint #${cp.id} was submitted by ${by.name}, not Orbit's pinned operator`
-        : `chain holds root ${cp.merkleRoot.slice(0, 12)}… for ${cp.ledgerLength} entries; passport claims ${String(anchor.merkleRoot).slice(0, 12)}… for ${anchor.covers}`,
-    link: anchor.txHash ? opts.explorer?.(anchor.txHash) : undefined,
+  if (by.role !== "operator") {
+    push({ label: "On-chain checkpoint", ok: false, detail: `Checkpoint #${cp.id} was submitted by ${by.name}, not Orbit's pinned operator` });
+    return out;
+  }
+  push({ label: "On-chain checkpoint", ok: true, detail: `#${cp.id} by Orbit's pinned operator: ${cp.ledgerLength} entries, ${new Date(cp.timestamp * 1000).toUTCString()}`, link: anchor.txHash ? opts.explorer?.(anchor.txHash) : undefined });
+
+  // 2. Authenticate the downloaded ledger against the on-chain root.
+  const tree = new MerkleTree();
+  let badHash = -1;
+  ledger.forEach((e, i) => {
+    if (badHash < 0 && (e.index !== i || hashEntry(e) !== e.hash)) badHash = i;
+    tree.append(e.hash);
   });
-  if (!anchorOk) return out;
+  const authentic = badHash < 0 && cp.ledgerLength <= ledger.length && tree.root(cp.ledgerLength) === cp.merkleRoot;
+  push({
+    label: "Ledger authenticated",
+    ok: authentic,
+    detail: authentic
+      ? `${cp.ledgerLength} entries re-hashed in your browser; their RFC 6962 root equals the on-chain root`
+      : badHash >= 0
+        ? `entry #${badHash} does not match its own hash`
+        : cp.ledgerLength > ledger.length
+          ? `the node served ${ledger.length} entries but Orbit anchored ${cp.ledgerLength}: events withheld`
+          : "the served ledger's root differs from the on-chain root: history was rewritten",
+  });
+  if (!authentic) return out;
+  const anchored = ledger.slice(0, cp.ledgerLength);
 
-  // 6. Every event and key registration is included in that on-chain root (RFC 6962, index- and size-bound).
-  const all = [...regs, ...events];
-  const proven = all.filter((e) => e.merkleProof);
-  const badProof = proven.find((e) => e.merkleProof!.size !== cp.ledgerLength || e.merkleProof!.index !== e.index || !verifyInclusion(e.hash, e.index, cp.ledgerLength, e.merkleProof!.path, cp.merkleRoot));
-  push({ label: "Merkle inclusion", ok: !badProof, detail: badProof ? `#${badProof.index} is not in the anchored tree` : `${proven.length} entries proven in the on-chain root (RFC 6962)` });
-  const pending = all.length - proven.length;
-  if (pending) push({ label: "Not yet anchored", ok: "warn", detail: `${pending} newer entr${pending === 1 ? "y is" : "ies are"} after this checkpoint` });
-
-  // 7. History has only ever been appended to: consistent with EVERY trusted checkpoint on-chain.
+  // 3. Consistent with every trusted checkpoint for this ledger (roots computed locally, no proofs needed).
+  let witnesses = 0;
+  let others = 0;
+  let ignored = 0;
+  let conflict: string | null = null;
   try {
     const { checkpoints } = await opts.chain.ledgerCheckpoints(cp.ledgerId);
-    let consistent = 0;
-    let witnesses = 0;
-    let ignored = 0;
-    let failure: string | null = null;
-    for (const other of checkpoints) {
-      if (other.id === cp.id) continue;
-      const role = classifySubmitter(opts.trusted, other.submitter).role;
-      if (role === "unidentified") {
+    for (const c of checkpoints) {
+      const role = classifySubmitter(opts.trusted, c.submitter);
+      if (role.role === "unidentified") {
         ignored++;
         continue;
       }
-      const [small, big] = other.ledgerLength <= cp.ledgerLength ? [other, cp] : [cp, other];
-      let ok = false;
-      try {
-        const proof = await opts.chain.consistency(small.ledgerLength, big.ledgerLength);
-        ok = verifyConsistency(small.ledgerLength, big.ledgerLength, small.merkleRoot, big.merkleRoot, proof);
-      } catch {
-        ok = false;
-      }
-      if (!ok && !failure) failure = `checkpoint #${other.id} (${classifySubmitter(opts.trusted, other.submitter).name}, ${other.ledgerLength} entries) is not a prefix/extension of this history`;
-      if (ok) {
-        consistent++;
-        if (role === "witness") witnesses++;
-      }
+      if (c.id === cp.id) continue;
+      others++;
+      if (role.role === "witness") witnesses++;
+      const ok = c.ledgerLength <= ledger.length && tree.root(c.ledgerLength) === c.merkleRoot;
+      if (!ok && !conflict) conflict = `checkpoint #${c.id} by ${role.name} (${c.ledgerLength} entries) does not match this ledger`;
     }
-    push({
-      label: "Append-only history",
-      ok: !failure,
-      detail: failure ?? `consistent with all ${consistent} other trusted checkpoint${consistent === 1 ? "" : "s"} (${witnesses} by independent witnesses)${ignored ? `; ${ignored} by unidentified submitters ignored` : ""}`,
-    });
-  } catch (e) {
-    push({ label: "Append-only history", ok: "warn", detail: `Could not list checkpoints: ${e instanceof Error ? e.message.split("\n")[0] : "error"}` });
+  } catch {
+    conflict = "could not list checkpoints";
   }
+  push({
+    label: "Append-only history",
+    ok: !conflict,
+    detail: conflict ?? `matches all ${others} other trusted checkpoint${others === 1 ? "" : "s"}${ignored ? `; ${ignored} by unidentified submitters ignored` : ""}`,
+  });
+  push({
+    label: "Witnessed",
+    ok: witnesses > 0 ? true : "warn",
+    detail: witnesses > 0 ? `${witnesses} checkpoint${witnesses === 1 ? "" : "s"} by named witnesses` : "No named witness has anchored this ledger yet, so a rebuilt ledger couldn't be told apart from the original",
+  });
+
+  // 4. One ledger: genesis names it, every instruction is signed for it, keys only from proven registrations.
+  const genesis = anchored[0];
+  const lid = genesis?.type === "ACTOR_REGISTERED" && genesis.subjectId === PROTOCOL_ID ? String(genesis.data.ledgerId) : "";
+  const foreign = anchored.findIndex((e) => e.auth && e.auth.request.ledger !== lid);
+  const regs = new Set<string>();
+  let dupReg = -1;
+  anchored.forEach((e, i) => {
+    if (e.type !== "ACTOR_REGISTERED") return;
+    if (regs.has(e.subjectId) || e.subjectId !== e.actorId) dupReg = dupReg < 0 ? i : dupReg;
+    regs.add(e.subjectId);
+  });
+  const bound = !!lid && lid === cp.ledgerId && lid === anchor.ledgerId && foreign < 0 && dupReg < 0;
+  push({
+    label: "Single ledger",
+    ok: bound,
+    detail: bound
+      ? `genesis names ledger ${lid.slice(0, 12)}…; every instruction was signed for it; ${regs.size} keys, each registered once`
+      : !lid
+        ? "entry #0 is not the protocol's genesis registration"
+        : foreign >= 0
+          ? `#${foreign} was signed for a different ledger`
+          : dupReg >= 0
+            ? `#${dupReg} re-registers an actor`
+            : "the passport, checkpoint and genesis name different ledgers",
+  });
+
+  // 5. Full integrity in the browser: signatures, signed times, and replay of every instruction.
+  const integrity = verifyLedger({ ledger: anchored } as unknown as Db);
+  push({
+    label: "Signatures and replay",
+    ok: integrity.ok,
+    detail: integrity.ok
+      ? `${anchored.length} instructions: actor and sequencer signatures valid, and replaying them through the rules reproduces every entry`
+      : `#${integrity.issues[0].index}: ${integrity.issues[0].problem} (${integrity.issues[0].detail})`,
+  });
+  if (!bound || !integrity.ok) return out;
+
+  // 6. The passport against the authenticated ledger: genuine, and nothing left out.
+  const { db } = replay(anchored);
+  const product = db.products.find((p) => p.id === subj.passportCore.id);
+  const events: LedgerEntry[] = subj.traceabilityEvents ?? [];
+  const lotIds = new Set(product?.inputs.map((i) => i.batchId) ?? []);
+  const relevant = product ? [...productEntries(db, product.id), ...anchored.filter((e) => e.type === "BATCH_CREATED" && lotIds.has(e.subjectId))] : [];
+  const have = new Set(events.map((e) => e.hash));
+  const missing = relevant.filter((e) => !have.has(e.hash));
+  // Re-hash what the passport shows, so edited data under a kept hash is caught too.
+  const forged = events.filter((e) => {
+    try {
+      return hashEntry(e) !== e.hash || (e.index < cp.ledgerLength && anchored[e.index]?.hash !== e.hash);
+    } catch {
+      return true;
+    }
+  });
+  const recordOk = !!product && hashObject(subj.passportCore) === passportHash(product);
+  push({
+    label: "Passport complete and genuine",
+    ok: recordOk && !missing.length && !forged.length,
+    detail: !product
+      ? "the product is not in the anchored ledger"
+      : !recordOk
+        ? "the passport record differs from the one committed at manufacture"
+        : forged.length
+          ? `#${forged[0].index} differs from the anchored ledger`
+          : missing.length
+            ? `the passport leaves out ${missing.length} anchored event${missing.length === 1 ? "" : "s"} (first: #${missing[0].index} ${missing[0].type})`
+            : `all ${relevant.length} anchored events about this product are present and genuine`,
+  });
+  if (!product) return out;
+  const pending = events.filter((e) => e.index >= cp.ledgerLength).length;
+  if (pending) push({ label: "Not yet anchored", ok: "warn", detail: `${pending} newer event${pending === 1 ? " is" : "s are"} after this checkpoint and can't be checked yet` });
+
+  // 7. Re-derive verdicts and the grade from the authenticated state.
+  const mine = trustReport(db, product);
+  for (const c of mine.claims) {
+    const theirs = (subj.conformityClaims as any[]).find((x) => x.id === c.claim.id)?.status;
+    const same = theirs === c.status;
+    push({ label: `Verdict ${c.claim.id} (${c.claim.kind.toLowerCase().replace("_", " ")})`, ok: same ? true : pending ? "warn" : false, detail: same ? `re-derived in your browser: ${c.status}` : `passport says ${theirs ?? "nothing"}, the anchored ledger gives ${c.status}` });
+  }
+  const theirGrade = subj.trust?.grade;
+  push({ label: "Trust grade", ok: theirGrade === mine.grade ? true : pending ? "warn" : false, detail: theirGrade === mine.grade ? `re-derived: ${mine.grade} (${mine.score}/100)` : `passport says ${theirGrade}, the anchored ledger gives ${mine.grade}` });
   return out;
 }

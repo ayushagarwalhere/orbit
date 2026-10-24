@@ -100,16 +100,25 @@ export function anchorNow(opts: { auto?: boolean } = {}): Promise<Checkpoint> {
   return s.inflight;
 }
 
-/** Debounced auto-anchoring: a burst of writes produces one transaction ~45 s after the last write. */
+/** Debounced auto-anchoring: a burst of writes produces one transaction, at most one per AUTO_INTERVAL_MS. */
+/** At most one automatic anchor per this interval (default 10 min), to make testnet gas last. */
+const AUTO_INTERVAL_MS = Number(process.env.ORBIT_ANCHOR_MIN_INTERVAL_MS ?? 600_000);
+const autoState = globalThis as unknown as { __orbitLastAuto?: number };
+
 export function scheduleAnchor(delayMs = 45_000) {
   const cfg = chainConfig();
   if (!cfg?.privateKey || process.env.ORBIT_AUTO_ANCHOR === "0") return;
   const s = svc();
-  if (s.timer) clearTimeout(s.timer);
+  // Keep a pending timer: it anchors whatever exists when it fires, and resetting it on each
+  // write would let a steady stream of writes postpone anchoring forever.
+  if (s.timer) return;
+  const sinceLast = Date.now() - (autoState.__orbitLastAuto ?? 0);
+  const wait = Math.max(delayMs, AUTO_INTERVAL_MS - sinceLast);
   s.timer = setTimeout(() => {
     s.timer = null;
+    autoState.__orbitLastAuto = Date.now();
     anchorNow({ auto: true }).catch((e) => console.error("[orbit] auto-anchor skipped:", e instanceof Error ? e.message : e));
-  }, delayMs);
+  }, wait);
 }
 
 /** On server start: make sure the current ledger has an on-chain checkpoint. */

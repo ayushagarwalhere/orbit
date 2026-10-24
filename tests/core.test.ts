@@ -405,19 +405,20 @@ test("native (server) and pure-JS (browser) Ed25519 + SHA-256 agree byte for byt
 const OPERATOR = "0x00000000000000000000000000000000000000aa";
 const WITNESS = "0x00000000000000000000000000000000000000bb";
 const TRUSTED = { contract: "0xcontract", operator: OPERATOR, witnesses: [{ address: WITNESS, name: "Test witness" }] };
+type Cp = { id: number; ledgerId: string; merkleRoot: string; ledgerLength: number; timestamp: number; submitter: string };
 
-/** A fake chain holding whatever checkpoints a test anchors; consistency proofs come from the real ledger. */
+/** A fake chain holding whatever checkpoints a test anchors; the "server" serves db.ledger. */
 function fakeChain(db: Db) {
-  const cps: { id: number; ledgerId: string; merkleRoot: string; ledgerLength: number; timestamp: number; submitter: string }[] = [];
-  const anchorAs = (submitter: string, covers = db.ledger.length, root = prefixRoot(db, covers)) => {
+  const cps: Cp[] = [];
+  const anchorAs = (submitter: string, covers = db.ledger.length, root = prefixRoot(db, covers), ledgerId = db.ledgerId!) => {
     const id = cps.length;
-    cps.push({ id, ledgerId: db.ledgerId!, merkleRoot: root, ledgerLength: covers, timestamp: 0, submitter });
+    cps.push({ id, ledgerId, merkleRoot: root, ledgerLength: covers, timestamp: 0, submitter });
     return id;
   };
   const reader = {
     checkpoint: async (id: number) => cps[id],
     ledgerCheckpoints: async (lid: string) => ({ operator: OPERATOR, checkpoints: cps.filter((c) => c.ledgerId === lid) }),
-    consistency: async (m: number, n: number) => ledgerTree(db).consistencyProof(m, n),
+    ledger: async () => db.ledger,
   };
   return { cps, anchorAs, reader };
 }
@@ -426,59 +427,122 @@ function anchoredPassport(db: Db, name: string, id: number, covers: number) {
   return exportPassport(db, byName(db, name), "http://localhost");
 }
 const failed = (checks: { ok: boolean | "warn"; label: string; detail: string }[]) => checks.filter((c) => c.ok === false);
+const verify = (doc: unknown, reader: ReturnType<typeof fakeChain>["reader"]) => verifyPassport(doc, { trusted: TRUSTED, chainId: 999, chain: reader });
 
-test("browser verifier: an honest passport passes every check, including re-derived verdicts", async () => {
+test("browser verifier: an honest, witnessed passport passes every check, verdicts and grade re-derived", async () => {
   const { db } = world();
   const chain = fakeChain(db);
   chain.anchorAs(OPERATOR, 40);
   chain.anchorAs(WITNESS, 55);
   const id = chain.anchorAs(OPERATOR);
-  const doc = anchoredPassport(db, "EcoCloud Hoodie", id, db.ledger.length);
-  const checks = await verifyPassport(doc, { trusted: TRUSTED, chainId: 999, chain: chain.reader });
+  const checks = await verify(anchoredPassport(db, "EcoCloud Hoodie", id, db.ledger.length), chain.reader);
   assert.deepEqual(failed(checks), []);
-  assert.ok(checks.some((c) => c.label.startsWith("Verdict") && c.detail.includes("CONTRADICTED")), "hoodie verdicts re-derived in the browser");
-  assert.ok(checks.find((c) => c.label === "Append-only history")?.detail.includes("1 by independent witnesses"));
+  assert.ok(!checks.some((c) => c.ok === "warn"), JSON.stringify(checks.filter((c) => c.ok === "warn")));
+  assert.ok(checks.some((c) => c.label.startsWith("Verdict") && c.detail.includes("CONTRADICTED")));
+  assert.ok(checks.find((c) => c.label === "Trust grade")?.detail.includes("E"));
 });
 
-test("browser verifier: a passport anchored by someone other than Orbit's operator is rejected", async () => {
+test("browser verifier: an unanchored passport is never shown as verified", async () => {
+  const { db } = world();
+  const doc = exportPassport(db, byName(db, "Orbit Tee"), "http://localhost");
+  const checks = await verifyPassport(doc, { trusted: TRUSTED, chainId: 999, chain: fakeChain(db).reader });
+  assert.ok(failed(checks).length > 0);
+});
+
+test("browser verifier: a checkpoint submitted by anyone but Orbit's operator is rejected", async () => {
   const { db } = world();
   const chain = fakeChain(db);
-  const id = chain.anchorAs("0x00000000000000000000000000000000000000ff"); // forger anchors on the open contract
-  const checks = await verifyPassport(anchoredPassport(db, "Orbit Tee", id, db.ledger.length), { trusted: TRUSTED, chainId: 999, chain: chain.reader });
-  assert.ok(failed(checks).some((c) => c.label === "On-chain checkpoint" && c.detail.includes("not Orbit")));
+  const id = chain.anchorAs("0x00000000000000000000000000000000000000ff");
+  const checks = await verify(anchoredPassport(db, "Orbit Tee", id, db.ledger.length), chain.reader);
+  assert.ok(failed(checks).some((c) => c.label === "On-chain checkpoint"));
 });
 
-test("browser verifier: history rewritten and re-anchored at a new length fails the append-only check", async () => {
+test("browser verifier: forged keys or a forged audit in the passport are caught (review B1)", async () => {
+  const { db, keys } = world();
+  const chain = fakeChain(db);
+  chain.anchorAs(WITNESS);
+  const id = chain.anchorAs(OPERATOR);
+  const doc = anchoredPassport(db, "EcoCloud Hoodie", id, db.ledger.length);
+  // Swap the REJECT audit for a forged APPROVE signed with a made-up auditor key.
+  const ev = doc.credentialSubject.traceabilityEvents;
+  const k = ev.findIndex((e) => e.type === "CLAIM_ATTESTED" && e.data.verdict === "REJECT");
+  ev[k] = { ...ev[k], data: { ...ev[k].data, verdict: "APPROVE" }, signature: signHash(ev[k].hash, randomPrivateKey()) };
+  void keys;
+  const checks = await verify(doc, chain.reader);
+  assert.ok(failed(checks).some((c) => c.label === "Passport complete and genuine"), JSON.stringify(failed(checks)));
+});
+
+test("browser verifier: a passport that leaves out an inconvenient event is caught (review B2)", async () => {
+  const { db } = world();
+  const chain = fakeChain(db);
+  chain.anchorAs(WITNESS);
+  const id = chain.anchorAs(OPERATOR);
+  const doc = anchoredPassport(db, "EcoCloud Hoodie", id, db.ledger.length);
+  doc.credentialSubject.traceabilityEvents = doc.credentialSubject.traceabilityEvents.filter((e) => !(e.type === "CLAIM_ATTESTED" && e.data.verdict === "REJECT"));
+  const checks = await verify(doc, chain.reader);
+  assert.ok(failed(checks).some((c) => c.label === "Passport complete and genuine" && c.detail.includes("leaves out")));
+});
+
+test("browser verifier: history rewritten and re-anchored fails against the witness's checkpoint", async () => {
   const { db, keys } = world();
   const chain = fakeChain(db);
   chain.anchorAs(WITNESS); // a witness saw the genuine history
   const i = db.ledger.findIndex((e) => e.type === "CLAIM_ATTESTED" && e.data.verdict === "REJECT");
-  tamper(db, i, "erase", keys[PROTOCOL_ID]); // operator erases the failed audit and regenerates history
-  act2(db, keys); // ...and appends one more entry so the lengths differ
+  tamper(db, i, "erase", keys[PROTOCOL_ID]);
+  act2(db, keys);
   const id = chain.anchorAs(OPERATOR);
-  const checks = await verifyPassport(anchoredPassport(db, "EcoCloud Hoodie", id, db.ledger.length), { trusted: TRUSTED, chainId: 999, chain: chain.reader });
+  const checks = await verify(anchoredPassport(db, "EcoCloud Hoodie", id, db.ledger.length), chain.reader);
   assert.ok(failed(checks).some((c) => c.label === "Append-only history"), JSON.stringify(failed(checks)));
+});
+
+test("browser verifier: rebuilding history under a new ledger id is caught or flagged (review B3)", async () => {
+  // (a) Reusing the actors' original signed instructions under a new genesis: they name the old ledger.
+  const { db, keys } = world();
+  const rebuilt = seedDb(keys, randomPrivateKey());
+  const hopped = { ...rebuilt, ledger: rebuilt.ledger.map((e, i) => (i === 0 ? e : { ...e, auth: db.ledger[i]?.auth ?? e.auth })) } as Db;
+  const ca = fakeChain(hopped);
+  const ida = ca.anchorAs(OPERATOR);
+  const a = await verify(anchoredPassport(hopped, "EcoCloud Hoodie", ida, hopped.ledger.length), ca.reader);
+  assert.ok(failed(a).length > 0);
+  // (b) Even fully re-signed (only possible with the actors' keys), a ledger no witness has seen is flagged.
+  const cb = fakeChain(rebuilt);
+  const idb = cb.anchorAs(OPERATOR);
+  const b = await verify(anchoredPassport(rebuilt, "EcoCloud Hoodie", idb, rebuilt.ledger.length), cb.reader);
+  assert.equal(b.find((c) => c.label === "Witnessed")?.ok, "warn");
 });
 
 test("browser verifier: junk anchors from unidentified wallets are ignored, not fatal", async () => {
   const { db } = world();
   const chain = fakeChain(db);
-  chain.anchorAs("0x00000000000000000000000000000000000000ee", db.ledger.length, "00".repeat(32)); // griefing root
+  chain.anchorAs("0x00000000000000000000000000000000000000ee", db.ledger.length, "00".repeat(32));
+  chain.anchorAs(WITNESS);
   const id = chain.anchorAs(OPERATOR);
-  const checks = await verifyPassport(anchoredPassport(db, "Orbit Tee", id, db.ledger.length), { trusted: TRUSTED, chainId: 999, chain: chain.reader });
+  const checks = await verify(anchoredPassport(db, "Orbit Tee", id, db.ledger.length), chain.reader);
   assert.deepEqual(failed(checks), []);
   assert.ok(checks.find((c) => c.label === "Append-only history")?.detail.includes("1 by unidentified submitters ignored"));
 });
 
-test("browser verifier: a passport whose claim verdict was edited is caught by re-derivation", async () => {
+test("browser verifier: an edited verdict or grade is caught by re-derivation", async () => {
   const { db } = world();
   const chain = fakeChain(db);
+  chain.anchorAs(WITNESS);
   const id = chain.anchorAs(OPERATOR);
   const doc = anchoredPassport(db, "EcoCloud Hoodie", id, db.ledger.length);
   const c = doc.credentialSubject.conformityClaims.find((x) => x.status === "CONTRADICTED")!;
   (c as { status: string }).status = "VERIFIED";
-  const checks = await verifyPassport(doc, { trusted: TRUSTED, chainId: 999, chain: chain.reader });
+  (doc.credentialSubject.trust as { grade: string }).grade = "A";
+  const checks = await verify(doc, chain.reader);
   assert.ok(failed(checks).some((x) => x.label.startsWith(`Verdict ${c.id}`)));
+  assert.ok(failed(checks).some((x) => x.label === "Trust grade"));
+});
+
+test("browser verifier: a node serving a rewritten or truncated ledger is caught", async () => {
+  const { db } = world();
+  const chain = fakeChain(db);
+  const id = chain.anchorAs(OPERATOR);
+  const doc = anchoredPassport(db, "Orbit Tee", id, db.ledger.length);
+  const short = { ...chain.reader, ledger: async () => db.ledger.slice(0, 20) };
+  assert.ok(failed(await verify(doc, short)).some((c) => c.label === "Ledger authenticated"));
 });
 
 function act2(db: Db, keys: Record<string, string>) {
