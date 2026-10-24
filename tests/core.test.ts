@@ -396,6 +396,18 @@ test("in-app impact model reproduces the written assessment (docs/IMPACT.md §4)
   assert.ok(Math.abs(project({ ...DEFAULT_INPUTS, repairUptake: 0.1 }).totalMt - 0.124) < 0.001);
 });
 
+test("check any claim: banned, vague and checkable wording are told apart", async () => {
+  const { assessClaim } = await import("../src/lib/greenwash.ts");
+  assert.equal(assessClaim("100% eco-friendly and carbon neutral").verdict, "banned");
+  assert.equal(assessClaim("Ethically made").verdict, "vague");
+  assert.equal(assessClaim("Low-carbon jacket").verdict, "vague");
+  const ok = assessClaim("Made with 40% recycled polyester by mass");
+  assert.equal(ok.verdict, "checkable");
+  assert.equal(ok.topics[0].kind, "RECYCLED_CONTENT");
+  assert.equal(assessClaim("Spare parts available for 7 years").verdict, "checkable");
+  assert.equal(assessClaim("Comfy and warm").verdict, "unclear");
+});
+
 test("greenwash lint flags vague wording only", () => {
   assert.ok(lintClaim("100% eco-friendly and carbon neutral").length >= 2);
   assert.equal(lintClaim("40% recycled polyester by mass").length, 0);

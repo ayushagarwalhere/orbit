@@ -5,6 +5,7 @@ import { ENTRY_META, GradeBadge, StagePill, dateTime, fmt } from "@/components/u
 import { latestCheckpoint } from "@/lib/passport.ts";
 import { overview } from "@/lib/stats.ts";
 import { getDb } from "@/lib/store.ts";
+import { ClaimChecker } from "./ClaimChecker.tsx";
 
 export const dynamic = "force-dynamic";
 
@@ -216,6 +217,19 @@ export default function Home() {
             );
           })}
         </div>
+      </section>
+
+      {/* Check any claim */}
+      <section>
+        <Reveal>
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+            <h2 className="display text-5xl">
+              Check <em className="text-accent">any</em> claim
+            </h2>
+            <p className="max-w-sm text-sm text-muted">Paste a line from a real label. See whether EU rules ban the wording, and what signed data Orbit would test it against.</p>
+          </div>
+        </Reveal>
+        <ClaimChecker />
       </section>
 
       {/* Pillars */}
