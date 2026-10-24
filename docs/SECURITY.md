@@ -94,6 +94,7 @@ No private keys are in the repository.
 
 - **`npm test`: 56 tests, all passing.** Also relevant: "RFC 6962: every inclusion proof verifies for every size up to 70, and forgeries fail"; "RFC 6962: every consistency proof verifies for every pair of sizes up to 50, and rewrites fail"; "native (server) and pure-JS (browser) Ed25519 + SHA-256 agree byte for byte"; "sequencer time must match the time the actor signed"; "all state is rebuilt from the ledger alone by replay, identical to the live state"; "browser verifier: an honest, witnessed passport passes every check, verdicts and grade re-derived".
 - Browser-verifier tests run against a simulated chain, not Base Sepolia.
+- **`npm run verify:live`** runs the same verifier from Node against a running node and the real chain. On 24 Oct 2026 all 45 checks passed across the 4 demo passports on Base Sepolia, including the named-witness check.
 - **`npm run test:chain`** ("OrbitAnchor v3: open anchoring, RFC 6962 inclusion and consistency proofs verified on-chain") deploys the contract to a local EVM node and checks its proofs, a second wallet anchoring, and rejection of empty ledgers.
 - The contract source is verified on Sourcify.
 - **Untested:** the 16 KB cap, the rate limits, the balance floor, and the B6 timer fix (they live in the HTTP route and the chain service, which the unit tests don't start).

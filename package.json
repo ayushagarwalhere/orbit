@@ -17,6 +17,7 @@
     "keystore": "node scripts/export-keystore.mjs",
     "test:chain": "node --test tests/chain.integration.ts",
     "witness": "node --env-file-if-exists=.env.local scripts/witness.ts",
+    "verify:live": "node scripts/verify-live.ts",
     "fund:witness": "node --env-file-if-exists=.env.local scripts/fund-witness.mjs",
     "chain:local": "npx -y hardhat@2.22.17 node"
   },
