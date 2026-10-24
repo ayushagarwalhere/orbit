@@ -212,6 +212,8 @@ export function sell(tx: Tx, input: { productId: string; actorId: string; toId: 
   return append(tx, { type: "SOLD", subjectId: p.id, actorId: seller.id, place: seller.place, data: { to: buyer.id, returnReward: p.depositCredits } });
 }
 
+export const REPAIR_CREDIT_GAP_MS = 30 * 24 * 3600 * 1000;
+
 export function repair(tx: Tx, input: { productId: string; actorId: string; note: string; co2eKg?: number }) {
   const { db } = tx;
   const p = getProduct(db, input.productId);
@@ -220,8 +222,11 @@ export function repair(tx: Tx, input: { productId: string; actorId: string; note
   const c = custody(db, p.id);
   if (c.stage !== "in-use") throw new OrbitError("Only products in use can be repaired");
   const e = append(tx, { type: "REPAIRED", subjectId: p.id, actorId: r.id, place: r.place, data: { note: input.note, owner: c.holderId, co2eKg: input.co2eKg ?? 0 } });
-  // Repairs extend product life, so the owner gets a small incentive.
-  mint(tx, { to: c.holderId, amount: 15, reason: "repair-instead-of-replace", productId: p.id, ref: e.hash });
+  // Repairs extend product life, so the owner gets a small incentive: at most once per product every
+  // 30 days, judged by ledger timestamps so replay reaches the same answer.
+  const t = Date.parse(e.timestamp);
+  const recent = db.ledger.some((x) => x.type === "CREDIT_MINTED" && x.data.reason === "repair-instead-of-replace" && x.data.productId === p.id && t - Date.parse(x.timestamp) < REPAIR_CREDIT_GAP_MS);
+  if (!recent) mint(tx, { to: c.holderId, amount: 15, reason: "repair-instead-of-replace", productId: p.id, ref: e.hash });
   return e;
 }
 

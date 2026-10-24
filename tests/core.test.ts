@@ -218,6 +218,32 @@ test("API validates every input strictly, so no request can poison the ledger", 
   assert.equal(verifyLedger(db).ok, true);
 });
 
+test("API rejects unknown fields and odd self-registration ids instead of storing them", () => {
+  const { db, keys, act } = world();
+  const n = db.ledger.length;
+  assert.throws(() => act("kutch-coop", "create-batch", { material: "organic-cotton", massKg: 1, junk: "x".repeat(5000) }), /Unknown body field/);
+  const sr = signRequest(newRequest("create-batch", "kutch-coop", { material: "organic-cotton", massKg: 1 }, db.ledgerId!), keys["kutch-coop"]);
+  assert.throws(() => applySigned(db, keys[PROTOCOL_ID], "create-batch", { ...sr, extra: 1 } as never), /Unknown envelope field/);
+  const k = randomPrivateKey();
+  const body = { actorId: "lumen-official", name: "Totally Lumen", role: "consumer", publicKey: publicKeyOf(k), place: { city: "Singapore", country: "SG", lat: 1.3, lng: 103.8 } };
+  assert.throws(() => applySigned(db, keys[PROTOCOL_ID], "register-actor", signRequest(newRequest("register-actor", "lumen-official", body, db.ledgerId!), k)), /guest-/);
+  assert.equal(db.ledger.length, n, "nothing was written");
+});
+
+test("repair credits: at most once per product every 30 days, and replay agrees", () => {
+  const { db, keys } = world();
+  const tee = byName(db, "Orbit Tee");
+  const repairAt = (ms: number) => applySigned(db, keys[PROTOCOL_ID], "repair", signRequest(newRequest("repair", "fixhub", { productId: tee.id, note: "Stitched seam" }, db.ledgerId!, new Date(ms).toISOString()), keys.fixhub), ms);
+  const credits = () => db.ledger.filter((e) => e.type === "CREDIT_MINTED" && e.data.reason === "repair-instead-of-replace" && e.data.productId === tee.id).length;
+  const t0 = Date.now();
+  repairAt(t0);
+  repairAt(t0 + 60_000);
+  assert.equal(credits(), 1, "a second repair the same day earns nothing");
+  repairAt(t0 + 31 * 24 * 3600 * 1000);
+  assert.equal(credits(), 2);
+  assert.equal(verifyLedger(db).ok, true, "replay reaches the same decisions from the ledger timestamps");
+});
+
 test("a recycler cannot sign for more material than went in", () => {
   const { db, act } = world();
   const tee = byName(db, "Orbit Tee");

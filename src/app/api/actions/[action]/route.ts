@@ -17,8 +17,24 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request, { params }: { params: Promise<{ action: string }> }) {
   const { action } = await params;
   return handle(async () => {
-    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+    const raw = await req.text();
+    if (raw.length > 16_384) throw new OrbitError("Request too large", 413);
+    let body: Record<string, unknown> = {};
+    try {
+      body = raw ? JSON.parse(raw) : {};
+    } catch {
+      throw new OrbitError("Body must be JSON", 400);
+    }
+    if (typeof body !== "object" || body === null || Array.isArray(body)) throw new OrbitError("Body must be a JSON object", 400);
 
+    if (action === "register-actor") {
+      // Open self-registration: at most 20 new guests per 10 minutes, so the ledger can't be flooded.
+      const g = globalThis as unknown as { __orbitGuestRegs?: number[] };
+      const now = Date.now();
+      g.__orbitGuestRegs = (g.__orbitGuestRegs ?? []).filter((t) => now - t < 600_000);
+      if (g.__orbitGuestRegs.length >= 20) throw new OrbitError("Too many new guests right now; try again in a few minutes", 429);
+      g.__orbitGuestRegs.push(now);
+    }
     if (SIGNED_ACTIONS.includes(action)) {
       const result = submitSigned(action, body as unknown as SignedRequest);
       scheduleAnchor();

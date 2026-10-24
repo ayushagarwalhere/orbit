@@ -122,6 +122,27 @@ const ACTIONS: Record<string, (tx: Tx, b: Body) => unknown> = {
   redeem: (tx, b) => A.redeem(tx, { actorId: id(b, "actorId")!, rewardId: oneOf(b, "rewardId", A.REWARDS.map((r) => r.id))! }),
 };
 
+/** The only fields each action accepts; anything else is rejected rather than stored on the ledger. */
+const FIELDS: Record<string, string[]> = {
+  "register-actor": ["publicKey", "ledgerId", "actorId", "role", "name", "place", "description"],
+  "create-batch": ["producerId", "material", "massKg", "recycledKg"],
+  manufacture: ["brandId", "name", "category", "emoji", "description", "inputs", "repairabilityScore", "warrantyYears", "depositCredits", "endOfLife", "co2eKg"],
+  ship: ["productId", "actorId", "toId", "mode"],
+  receive: ["productId", "actorId"],
+  sell: ["productId", "actorId", "toId"],
+  repair: ["productId", "actorId", "note", "co2eKg"],
+  return: ["productId", "actorId", "toId"],
+  recycle: ["productId", "actorId", "recovered"],
+  "issue-claim": ["productId", "issuerId", "kind", "statement", "value", "evidence"],
+  attest: ["claimId", "auditorId", "verdict", "note"],
+  redeem: ["actorId", "rewardId"],
+};
+const REQUEST_FIELDS = ["action", "ledger", "actorId", "body", "nonce", "issuedAt"];
+function onlyKnown(o: object, allowed: string[], what: string) {
+  const extra = Object.keys(o).filter((k) => !allowed.includes(k));
+  if (extra.length) bad(`Unknown ${what} field${extra.length > 1 ? "s" : ""}: ${extra.slice(0, 3).join(", ")}`);
+}
+
 /** Actions a client may submit through the API. Registration is limited to self-registering consumers. */
 export const SIGNED_ACTIONS = Object.keys(ACTIONS);
 
@@ -165,13 +186,17 @@ export function applySigned(db: Db, sequencerKey: string, action: string, sr: Si
   if (!r || typeof sr.signature !== "string" || typeof r !== "object") throw new OrbitError("Request must be signed", 401);
   if (r.action !== action) throw new OrbitError("Signed action does not match endpoint", 400);
   if (r.ledger !== db.ledgerId) throw new OrbitError("This instruction was signed for a different ledger", 409);
-  if (typeof r.actorId !== "string" || typeof r.body !== "object" || r.body === null) throw new OrbitError("Malformed request", 400);
+  if (typeof r.actorId !== "string" || typeof r.body !== "object" || r.body === null || Array.isArray(r.body)) throw new OrbitError("Malformed request", 400);
+  onlyKnown(sr, ["request", "signature"], "envelope");
+  onlyKnown(r, REQUEST_FIELDS, "request");
+  onlyKnown(r.body, FIELDS[action] ?? [], "body");
 
   let key = registeredKeys(db.ledger).get(r.actorId);
   if (action === "register-actor") {
     // Open self-registration, consumers only: the instruction must be signed by the key it registers.
     if (key) throw new OrbitError("Actor already registered", 409);
     if (r.body.role !== "consumer") throw new OrbitError("Only consumers can self-register", 403);
+    if (!/^guest-[a-z0-9]{1,32}$/.test(r.actorId)) throw new OrbitError("Self-registered ids must look like guest-xxxxxxxx", 400);
     key = typeof r.body.publicKey === "string" ? r.body.publicKey : undefined;
   }
   if (!key) throw new OrbitError(`${r.actorId} is not a registered actor`, 401);
