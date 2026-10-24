@@ -43,7 +43,7 @@ If 5% of EU textiles and batteries carried Orbit-style passports by 2030, we pro
 - **Anchoring:** RFC 6962 Merkle roots, the same scheme as Certificate Transparency, sent to our **OrbitAnchor** contract (Solidity, source verified on Sourcify). Anyone can anchor; verifiers trust only Orbit's operator and named witnesses, pinned in code.
 - **Data models** follow UNTP DPP, GS1 EPCIS 2.0 / Digital Link, EU ESPR and Battery Regulation passport fields, and GLEC transport factors.
 - **56 tests**, plus an on-chain integration test. They cover signature attacks, input hardening, replay catching operator forgeries, the erase-and-rebuild attack, passports that omit or forge events, and RFC 6962 proofs.
-- **Measured at 10,000 entries:** a signed write takes about 0.6 ms. An anchor costs about 146k gas whatever the volume, roughly $0.002–$0.02 on Base mainnet.
+- **Measured at 10,000 entries:** a signed write takes about 0.7 ms. An anchor costs about 146k gas whatever the volume, roughly $0.002–$0.02 on Base mainnet.
 
 ## Challenges we ran into
 - **The operator problem.** A signed database can be rewritten by whoever holds the key. Outside reviewers attacked our early versions twice. They found forgeable passports, unverified derived data, and passports that could leave events out. Each time we rebuilt the trust model and added a regression test.

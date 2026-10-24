@@ -52,8 +52,22 @@ export default function Home() {
           </h1>
           <Reveal delay={0.3}>
             <p className="mt-8 max-w-[52ch] text-lg leading-relaxed text-ink-soft">
-              Orbit gives every product a passport backed by actor-signed, hash-chained records, with Merkle roots anchored on a public blockchain. It then checks each sustainability claim against that record, so greenwashing gets caught automatically.
+              A hoodie says <span className="text-ink">&ldquo;70% recycled, carbon neutral, ethically made.&rdquo;</span> Orbit&apos;s passport checks each claim against what the fibre supplier, the retailer and the auditor signed. The hoodie fails all four.
             </p>
+            <ul className="mt-6 grid max-w-2xl gap-2 sm:grid-cols-2" aria-label="What the hoodie's label says versus what Orbit finds">
+              {[
+                ["70% recycled", "6.7% recycled", "suppliers' signed lots"],
+                ["Shipped by sea", "Flown: 2,892 km in 24 h", "retailer's signed receipt"],
+                ["Carbon neutral, 1.2 kg", "6.0 kg CO₂e", "recomputed from the real route"],
+                ["Ethically made", "Audit rejected", "auditor's signed verdict"],
+              ].map(([label, found, why]) => (
+                <li key={label} className="rounded-xl border border-line bg-surface/70 px-4 py-3 backdrop-blur">
+                  <div className="text-[13px] text-muted line-through decoration-rust/70">{label}</div>
+                  <div className="mt-0.5 font-semibold text-rust">{found}</div>
+                  <div className="text-[12px] text-muted">from the {why}</div>
+                </li>
+              ))}
+            </ul>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href={`/passport/${s.products[1]?.product.id ?? s.products[0]?.product.id}`} className="btn btn-primary group">
                 See a greenwashed product get caught <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />

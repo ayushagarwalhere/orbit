@@ -143,14 +143,14 @@ Only 32-byte roots go on-chain. Supplier identities, volumes and prices stay off
 
 ### Scalability
 
-Measured with `node scripts/bench.ts 10000` (Windows laptop, Node 24). Gas figures come from our Base Sepolia transactions.
+Measured with `node scripts/bench.ts 10000` on an idle Windows laptop (Node 24); a busy machine ran 3–5× slower. Gas figures come from our Base Sepolia transactions.
 
 | Operation | Cost |
 | --- | --- |
-| Signed write (verify, validate, apply rules, append) | ≈ 0.6 ms |
-| Integrity check after a write (incremental) | ≈ 1.3 ms at 10,000 entries |
-| Full audit from scratch, replay included | ≈ 0.7 ms per entry |
-| Passport export | ≈ 15 ms at 10,000 entries |
+| Signed write (verify, validate, apply rules, append) | ≈ 0.7 ms |
+| Integrity check after a write (incremental) | ≈ 1 ms at 10,000 entries |
+| Full audit from scratch, replay included | ≈ 0.9 ms per entry (9 s for 10,000) |
+| Passport export | ≈ 17 ms at 10,000 entries |
 | On-chain anchor | ≈ 146k gas, whatever the number of events; ≈ $0.002–$0.02 on Base mainnet |
 
 The browser verifier downloads the whole ledger. That's fine at demo scale. Production would use one ledger per brand or consortium (`ledgerId` already separates them on-chain), plus signed snapshots, so the download doesn't grow forever.

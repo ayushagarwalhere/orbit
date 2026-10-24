@@ -112,22 +112,22 @@ export default async function LedgerPage() {
               .slice()
               .reverse()
               .map((a) => (
-                <li key={`${a.covers}-${a.id ?? "local"}`} className="flex flex-wrap items-center gap-2">
+                <li key={`${a.covers}-${a.id ?? "local"}`} className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line/50 pb-2 last:border-0 sm:border-0 sm:pb-0">
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs font-bold ${a.status === "match" ? "bg-leaf-soft text-leaf" : a.status === "mismatch" ? "bg-rust text-on-accent" : "bg-amber-soft text-amber"}`}
                   >
                     {a.status === "match" ? "✓ ON-CHAIN MATCH" : a.status === "mismatch" ? "✕ ON-CHAIN MISMATCH" : a.status === "local" ? "LOCAL ONLY" : a.status === "ignored" ? "IGNORED" : "UNREACHABLE"}
                   </span>
-                  <span className={`min-w-0 flex-1 ${a.status === "mismatch" ? "font-semibold text-rust" : "text-ink-soft"}`}>
+                  <span className={`order-3 min-w-0 basis-full sm:order-2 sm:basis-auto sm:flex-1 ${a.status === "mismatch" ? "font-semibold text-rust" : "text-ink-soft"}`}>
                     {a.detail}
                     {a.role === "witness" && <span className="chip ml-2 border-sky/30 bg-sky-soft align-middle text-sky">Witness</span>}
                   </span>
                   {a.explorerTx ? (
-                    <a className="hash text-accent hover:underline" href={a.explorerTx} target="_blank">
+                    <a className="hash order-2 ml-auto text-accent hover:underline sm:order-3 sm:ml-0" href={a.explorerTx} target="_blank">
                       tx {short(a.local?.txHash ?? "", 10)} ↗
                     </a>
                   ) : a.onChain && cfg ? (
-                    <a className="hash text-accent hover:underline" href={addressUrl(cfg.network, a.onChain.submitter)} target="_blank">
+                    <a className="hash order-2 ml-auto text-accent hover:underline sm:order-3 sm:ml-0" href={addressUrl(cfg.network, a.onChain.submitter)} target="_blank">
                       submitter ↗
                     </a>
                   ) : null}

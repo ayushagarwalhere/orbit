@@ -239,10 +239,10 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
               <thead>
                 <tr className="text-left text-xs text-muted">
                   <th className="py-1 font-medium">Material</th>
-                  <th className="font-medium">Lot</th>
+                  <th className="hidden font-medium sm:table-cell">Lot</th>
                   <th className="font-medium">Origin</th>
                   <th className="text-right font-medium">kg</th>
-                  <th className="w-28 pl-3 font-medium">Recycled</th>
+                  <th className="w-20 pl-3 font-medium sm:w-28">Recycled</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -252,8 +252,8 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
                       {l.label}
                       {l.closedLoop && <span className="ml-1.5 rounded bg-leaf-soft px-1.5 py-0.5 text-[10px] font-bold text-leaf">CLOSED LOOP</span>}
                     </td>
-                    <td className="hash">{l.batch.id}</td>
-                    <td className="text-ink-soft">
+                    <td className="hash hidden sm:table-cell">{l.batch.id}</td>
+                    <td className="text-[13px] leading-snug text-ink-soft">
                       {getActor(db, l.batch.producerId).name}, {l.origin.country}
                     </td>
                     <td className="text-right tabular-nums">{fmt(l.massKg, 3)}</td>

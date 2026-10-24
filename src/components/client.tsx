@@ -37,7 +37,7 @@ export function NavLinks() {
   const path = usePathname();
   const active = NAV.find((n) => (n.href === "/" ? path === "/" : path.startsWith(n.href)))?.href ?? (path.startsWith("/passport") ? "/" : "");
   return (
-    <nav className="flex min-w-0 flex-1 gap-0.5 overflow-x-auto text-sm">
+    <nav className="flex min-w-0 flex-1 gap-0.5 overflow-x-auto text-sm [scrollbar-width:none] [mask-image:linear-gradient(90deg,#000_80%,transparent)] sm:[mask-image:none]">
       {NAV.map((n) => (
         <Link key={n.href} href={n.href} className={`relative rounded-full px-3.5 py-1.5 transition-colors ${active === n.href ? "text-ink" : "text-ink-soft hover:text-ink"}`}>
           {active === n.href && <motion.span layoutId="nav-pill" className="absolute inset-0 rounded-full bg-raised ring-1 ring-line-strong" transition={{ type: "spring", bounce: 0.15, duration: 0.5 }} />}
