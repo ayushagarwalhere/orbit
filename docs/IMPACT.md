@@ -80,7 +80,7 @@ Every input is either cited (§2) or stated as an assumption (§3). The model is
 
 **1b. E-bike batteries: extra collection and closed-loop recycling.**
 - *Per pack (derived):* 0.6 kWh × 74 kg CO2e/kWh × 50% materials share × 80% material recovered × 58% saving (low end) = **≈ 10 kg CO2e avoided per extra pack recycled**.
-- *Assumption:* A return reward raises collection of Orbit-tracked packs by **+20 percentage points** above the legal baseline (51% target). For comparison, US data show deposit beverage cans returned at 77% vs. 36% without a deposit, about +40 points (Reloop / Container Recycling Institute; advocacy source).[^reloop] We assume half of that uplift, partly because a reward funded by an EPR fee is a weaker incentive than getting back a deposit the buyer paid.
+- *Assumption:* A return reward raises collection of Orbit-tracked packs by **+20 percentage points** above the legal baseline (51% target). For comparison, US data show deposit beverage cans returned at 77% vs. 36% without a deposit, about +40 points (Reloop / Container Recycling Institute; advocacy source).[^reloop] We assume half of that uplift. Halving also allows for the fact that a reward funded by an EPR fee is a weaker incentive than getting back a deposit the buyer paid.
 - *Flow:* 5.1 M packs/yr. We use the sales figure as a proxy for the end-of-life flow; with ~10-year lives, the actual 2030 flow will be **lower**.
 - *Formula:* **Avoided = *s* × 5.1 M × 0.20 × 10.3 kg = *s* × 0.0105 Mt CO2e/yr**
 - E-bike batteries are small in tonnage. The lever matters more for critical-raw-material supply and the 2031 recycled-content targets than for carbon.
@@ -122,7 +122,7 @@ Every input is either cited (§2) or stated as an assumption (§3). The model is
 
 ### 4.1 Bottom-up illustration: a single pilot
 
-*An illustration of scale for one pilot, not a forecast, and not part of the headline.* It uses the same per-unit factors as §3. Suppose one mid-size apparel brand puts 100,000 garments a year on Orbit (0.5 kg each, so 50 t of textiles), and one e-bike brand puts 20,000 packs a year on it.
+*An illustration of scale for one pilot, not a forecast or part of the headline.* It uses the §3 per-unit factors: one apparel brand with 100,000 garments a year (0.5 kg each, 50 t) and one e-bike brand with 20,000 packs a year.
 
 | Pilot | Lever | Arithmetic | t CO2e/yr |
 | --- | --- | --- | --- |
@@ -131,7 +131,7 @@ Every input is either cited (§2) or stated as an assumption (§3). The model is
 | E-bike, 20,000 packs | 1b Extra collection | 20,000 × 0.20 uplift × 10.3 kg per extra pack recycled | 41.2 |
 | **Total** | | | **≈ 53** |
 
-This matches the share model: 50 t is *s* ≈ 0.0006% of EU textiles, and *s* × 1.59 Mt ≈ 9.3 t. For scale, 53 t is about the production footprint of 5,700 garments (at 9.3 kg each). Two caveats. The battery figure only appears once the packs reach end of life, about 10 years after sale (§2.2), so a pilot starting in 2027 shows almost none of it before the late 2030s. The repair figure assumes 10% uptake, which §5.1 suggests is optimistic.
+This matches the share model (50 t is *s* ≈ 0.0006% of EU textiles; *s* × 1.59 Mt ≈ 9.3 t). 53 t is about the production footprint of 5,700 garments. Caveats: the battery figure arrives only when packs reach end of life, ~10 years after sale (§2.2), so a 2027 pilot shows almost none of it before the late 2030s; the repair figure assumes 10% uptake, which §5.1 suggests is optimistic.
 
 ## 5. Sensitivity and uncertainty
 
@@ -146,17 +146,17 @@ This gives the ranges in the headline. The moderate scenario runs from **0.02 to
 
 ### 5.1 How repair responds to incentives
 
-Lever 2 is about 64% of the headline (1.59 of 2.49) and rests on an assumed 10% repair uptake. The evidence from existing repair subsidies:
+Lever 2 is about 64% of the headline (1.59 of 2.49) and rests on an assumed 10% repair uptake. Existing repair subsidies show:
 
 | Scheme | Design | Observed uptake |
 | --- | --- | --- |
-| France, *bonus réparation* for textiles and shoes (run by Refashion) | From 7 Nov 2023. €6–25 off per repair, capped at 60% of the bill, minimum bill €12. Fund of €154 M for 2023–2028, paid from brands' EPR eco-contributions[^qc] | ≈ 826,000 repairs in the first year, €6.8 M paid (≈ €8 per repair, derived). 83% were shoe repairs. About 1,530 labelled repairers[^fu] |
-| Austria, *Reparaturbonus* (electrical and electronic devices, later bicycles) | From 22 Apr 2022. 50% of the cost, up to €200[^at-bka] | 567,076 vouchers in year one[^at-bka]. ≈ 1.7 M by May 2025, when the €130 M of EU recovery funds (plus federal top-ups) ran out and the scheme was paused for evaluation[^at-orf]. That is at least ≈ €76 of subsidy per repair (derived) |
-| Thuringia, Germany (electrical devices) | Since 2021 | ≈ 30,000 approved applications, €2.3 M (≈ €77 each, derived). In a Fraunhofer IZM evaluation, **just over a third** of users said they would not have repaired without the bonus[^euwid] |
-| Saxony, Germany (electrical devices) | 50% of cost, up to €200 | > 24,500 approved applications and ≈ €2.6 M by end 2024[^hwb] |
-| Sweden, VAT on repairs of bicycles, clothes, household linen, leather goods and shoes | Cut from 25% to 12% in 2017[^sr] | We found no published evaluation of the effect on repair volumes |
+| France, *bonus réparation*, textiles and shoes (Refashion) | From 7 Nov 2023; €6–25 off per repair, ≤ 60% of the bill; €154 M for 2023–2028 from brands' EPR eco-contributions[^qc] | ≈ 826,000 repairs in year one, €6.8 M paid (≈ €8 each, derived); 83% shoe repairs[^fu] |
+| Austria, *Reparaturbonus*, electrical devices (later bicycles) | From 22 Apr 2022; 50% of cost, up to €200[^at-bka] | 567,076 vouchers in year one[^at-bka]; ≈ 1.7 M by May 2025, when the €130 M of EU recovery funds (plus federal top-ups) ran out and it paused for evaluation[^at-orf]: at least ≈ €76 per repair (derived) |
+| Thuringia, Germany, electrical devices | Since 2021 | ≈ 30,000 approved, €2.3 M. In a Fraunhofer IZM evaluation, **just over a third** of users said they would not have repaired without the bonus[^euwid] |
+| Saxony, Germany, electrical devices | 50% of cost, up to €200 | > 24,500 approved, ≈ €2.6 M by end 2024[^hwb] |
+| Sweden, repair VAT (bicycles, clothes, linen, leather goods, shoes) | Cut from 25% to 12% in 2017[^sr] | No published evaluation of repair volumes found |
 
-**What this means for the 10% assumption.** It looks **optimistic, not conservative**. France buys about 3.5 bn new textile pieces a year (2024)[^lid], so the bonus reaches about 0.02% of pieces sold per year (derived). All clothing and shoe repairs in France, subsidised or not, came to about 16 M items in 2019 (ADEME, via FashionUnited)[^fu], or ≈ 0.5% of pieces sold. The Thuringia survey suggests about two-thirds of subsidised repairs would have happened anyway, which our model would not count. A tracked population can do better than a national average: the brand can prompt the owner, and the signed repair history adds resale value. But we found no data showing 10% of items repaired *because of* an incentive. We keep 10% because the in-app calculator and its test pin it. It should be read as a pilot target to measure, with 5% as the more defensible central case.
+**So 10% looks optimistic, not conservative.** France buys about 3.5 bn new textile pieces a year[^lid], so its bonus reaches about 0.02% of pieces sold per year, and all clothing and shoe repairs (about 16 M items in 2019, ADEME via FashionUnited[^fu]) about 0.5% (both derived). Thuringia suggests two-thirds of subsidised repairs would have happened anyway, so paid repairs overstate caused ones. A tracked population can beat a national average (the brand can prompt owners, and signed repair history adds resale value), but we found no data showing 10% of items repaired *because of* an incentive. We keep 10% because the in-app calculator pins it; read it as a pilot target, with 5% as the more defensible central case.
 
 **Sensitivity to repair uptake only** (repair lever = *s* × 159 × uptake × 0.10; other levers unchanged):
 
@@ -168,16 +168,16 @@ Lever 2 is about 64% of the headline (1.59 of 2.49) and rests on an assumed 10% 
 
 ### 5.2 Additionality against a mandatory, non-Orbit passport
 
-From 18 Feb 2027 every LMT, EV and large industrial battery needs a passport[^battreg]. A textile passport is expected around 2029[^ec-textiles]. Both apply whoever supplies them. After those dates the fair counterfactual is "a compliant passport without Orbit", not "no passport".
+The battery passport is mandatory from 18 Feb 2027[^battreg] and a textile passport is expected around 2029[^ec-textiles], whoever supplies them. After those dates the fair counterfactual is "a compliant passport without Orbit", not "no passport".
 
 | Lever | Any compliant passport (plus EPR) delivers anyway | Specific to Orbit | Overlap in the headline |
 | --- | --- | --- | --- |
-| 1a Textile recycling | Fibre composition and declared recycled content for sorters; EPR fees and eco-modulation | Recycled content proven by mass balance against counter-signed lots; return reward paid only against a signed return event | No haircut applied. From ~2029 the sorting-data part overlaps; we guess a third to half of the lever (our judgement, no source) |
-| 1b E-bike collection | Chemistry and state-of-health data; legal collection targets (already in the baseline) | Return reward paid only against a signed return; recovered lots linked to the ancestor passport | Small: the regulation requires no reward. An EPR scheme could still pay one without Orbit |
-| 2 Repair | Repair information on the passport. National EPR funds (France) already pay repair bonuses without any passport | Bonus paid only against a repairer-signed `REPAIRED` event for that item; history kept for resale | **Largest.** The headline credits Orbit with the whole effect of a repair incentive, but the money is an EPR fee that a scheme like Refashion's can pay anyway. Orbit's own part is verifying each paid repair and tying it to the item. We cannot size that |
-| 3a EV procurement | Mandatory carbon-footprint declaration and later performance classes[^battreg] | Footprints recomputed from counter-signed supplier data; claims checked against counter-party data | Already haircut by 50% |
+| 1a Textile recycling | Fibre composition and declared recycled content for sorters; EPR eco-modulation | Recycled content proven by mass balance against counter-signed lots; reward only against a signed return | Not haircut. From ~2029 the sorting-data part overlaps; we guess a third to half of the lever (judgement, unsourced) |
+| 1b E-bike collection | Chemistry and state-of-health data; legal collection targets (already baseline) | Reward only against a signed return; recovered lots linked to the ancestor passport | Small: the law requires no reward, though an EPR scheme could pay one without Orbit |
+| 2 Repair | Repair information; EPR funds (France) already pay repair bonuses without any passport | Bonus only against a repairer-signed `REPAIRED` event for that item; history kept for resale | **Largest.** The headline credits Orbit with the whole effect of a repair incentive, but the money is an EPR fee a scheme like Refashion's can pay anyway. Orbit adds verification of each paid repair; we cannot size that |
+| 3a EV procurement | Mandatory carbon-footprint declaration and performance classes[^battreg] | Footprints recomputed from counter-signed supplier data; claims checked against counter-party data | Already haircut by 50% |
 
-As a rough guide, if levers 1a and 2 took the same 50% haircut as 3a, the moderate 2030 figure would fall from 0.12 to about **0.07 Mt CO2e/yr**. Before the textile passport arrives, Orbit on textiles is voluntary, so the overlap matters mainly for 2029–2030. France's repair bonus is the exception: it already exists.
+As a rough guide, the same 50% haircut on levers 1a and 2 would cut the moderate 2030 figure from 0.12 to about **0.07 Mt CO2e/yr**. For textiles the overlap mainly affects 2029–2030, except that France's repair bonus already exists.
 
 ## 6. Orbit's own footprint
 
@@ -209,6 +209,8 @@ These come from the seeded demo world, which uses **illustrative** emission fact
 | Orbit Tee: 40% recycled content, proven by mass balance | Recycled share comes from signed lots, not from a declaration | Global textile-to-textile recycled supply is < 1%[^te] |
 | Strata Loop battery: 93% recycled content, ≈ 65% lower footprint, ≈ 29 kg CO2e avoided per pack | Closed loop, with recovered lots linked to the ancestor passport | Recycled materials save 58–81% (Machala). Our conservative per-pack figure in §3 is **≈ 10 kg** because it counts only the materials share at the low-end saving. |
 | EcoCloud Hoodie: claims "carbon neutral, 1.2 kg"; ledger shows 6.0 kg after air freight | Transport legs recomputed from registered locations | Directive 2024/825 bans offset-based neutrality claims[^empco] |
+
+**The demo's "CO2e avoided" figure is attributional, not consequential.** The dashboard's "29.9 kg CO2e avoided by recycled inputs" (the passport field `avoidedEmissionsKgCO2e`) compares each demo product's recycled inputs with the same mass of virgin material. That is an attributional account of these products, **not an effect caused by Orbit**. Much of it would happen anyway: recycled polyester comes mostly from PET bottles (§2.1) that existed before Orbit, and buying recycled input can just move a fixed supply between brands. The §3 levers are consequential: they count only behaviour Orbit's incentives and checks change, against a counterfactual. Do not add or compare the two like for like. For the Strata pack, ≈ 29 kg is attributional; the consequential figure is ≈ 10 kg, and only for packs that would otherwise not have been collected.
 
 ## 9. Limitations
 
@@ -254,3 +256,11 @@ Every lever is computed from signed ledger events, so a deployment can report ac
 [^block]: The Block, *Ethereum daily transactions reach new high* (Aug 2025). https://www.theblock.co/post/365926/daily-transactions-ethereum-all-time-high
 [^ec-textiles]: European Commission, *Textiles and apparel* (ESPR textiles delegated act planned Q4 2027). https://single-market-economy.ec.europa.eu/textile-apparel_en
 [^empco]: Directive (EU) 2024/825. https://eur-lex.europa.eu/eli/dir/2024/825/oj
+[^qc]: UFC-Que Choisir, *Un bonus réparation pour le textile et les chaussures*, 11 Nov 2023 (launch 7 Nov 2023; €154 M for 2023–2028; €6–25 per repair; ≤ 60% of the bill; bill ≥ €12). https://www.quechoisir.org/actualite-reparabilite-un-bonus-reparation-pour-le-textile-et-les-chaussures-n113194
+[^fu]: FashionUnited, *Bonus Réparation : quel bilan après un an ?*, Dec 2024 (826,000 repairs; €6.8 M; 83% cobblers; > 1,530 repairers; ADEME: ~16 M clothing and shoe items repaired in 2019). https://fashionunited.fr/actualite/mode/bonus-reparation-quel-bilan-apres-un-an/2024120536644 (reporting Refashion's figures; we could not open Refashion's own release)
+[^lid]: L'Info Durable / AFP, *France : record d'achats de textiles neufs en 2024 selon l'organisme Refashion*, 17 June 2025 (3.5 bn pieces). https://www.linfodurable.fr/conso/france-record-dachats-de-textiles-neufs-en-2024-selon-lorganisme-refashion-51456
+[^at-bka]: Austrian Federal Chancellery, *"Reparaturbonus" feiert ersten Geburtstag*, 28 Apr 2023 (567,076 vouchers to 17 Apr 2023; 50% up to €200). https://www.bundeskanzleramt.gv.at/eu-aufbauplan/aktuelles/reparaturbonus-feiert-ersten-geburtstag.html
+[^at-orf]: ORF, *Mittel ausgeschöpft: Reparaturbonus wird ausgesetzt*, 26 May 2025 (≈ 1.7 M vouchers; €130 M RRF funds plus federal funds). https://orf.at/stories/3394954/
+[^euwid]: EUWID Recycling, *Thüringen: Über Bonusprogramm Gerätereparaturen bereits mit 2,3 Mio € gefördert*, 7 May 2024 (citing Fraunhofer IZM). https://www.euwid-recycling.de/news/politik/thueringen-ueber-bonusprogramm-geraetereparaturen-bereits-mit-23-mio-eur-gefoerdert-070524/
+[^hwb]: Handwerksblatt, *Reparaturbonus in Sachsen ist zurück*, 2 Oct 2025. https://www.handwerksblatt.de/themen-specials/reparieren-statt-wegwerfen/reparaturbonus-in-sachsen-ist-zurueck
+[^sr]: Sveriges Radio, *Tax break for repairs comes into effect – but some prices unaffected* (2017). https://www.sverigesradio.se/artikel/6600336. We could not open the page directly; details are from search excerpts.
