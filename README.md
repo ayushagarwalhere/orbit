@@ -47,7 +47,7 @@ Returning, repairing and recycling earn **non-transferable credits**, redeemable
 ```bash
 npm install
 npm run dev     # http://localhost:3000
-npm test        # 60 tests
+npm test        # 61 tests
 ```
 
 1. **Overview**: on a wide screen, drag the globe beside the headline. It shows every city where a party signs and the routes products actually took on the ledger, with the misdeclared leg in red. Then **"See a greenwashed product get caught"**: the hoodie's passport and the "Why 0/100" breakdown. Further down, **Check any claim**: paste a line from a real label and see whether EU rules ban the wording and what signed data Orbit would test it against.
@@ -221,7 +221,7 @@ docs/             problem, impact, security, Devpost, witness guide, user-testin
 
 - **Demo keys.** In demo mode the server holds the role-play actors' keys. Guest consumers keep their own; in production every key would stay with its owner.
 - **Demo witness.** The only witness so far is our own second wallet.
-- **Self-reported data.** Factory energy is self-reported and labelled as such. Emission factors are illustrative.
+- **Self-reported data.** Factory energy is self-reported and labelled as such. Emission factors are published averages (sourced in the table above), and garment processing uses industry defaults rather than each factory's own data.
 - **Physical facts.** A recycler can overstate its yield up to the input mass, and a shipper can record a shipment early. Signed scale weights and carrier pickup signatures would fix this.
 
 Full list: [SECURITY.md](docs/SECURITY.md).

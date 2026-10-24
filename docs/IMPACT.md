@@ -207,7 +207,7 @@ On an L2 rollup it is lower still. A year of hourly anchoring emits about the pr
 
 ## 8. Illustrations from the Orbit demo
 
-These come from the seeded demo world, which uses **illustrative** emission factors (`src/lib/factors.ts`). They show the mechanics, not certified accounting.
+These come from the seeded demo world, which uses published average emission factors with sources (`src/lib/factors.ts`, README table). They show the mechanics, not certified accounting.
 
 | Demo passport | What it shows | Literature comparison |
 | --- | --- | --- |

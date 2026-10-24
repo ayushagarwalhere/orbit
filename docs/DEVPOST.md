@@ -42,7 +42,7 @@ If 5% of EU textiles and batteries carried Orbit-style passports by 2030, we pro
 - **Replay:** the append-only ledger is the only stored state. All state is rebuilt by replaying the signed instructions through the same rules the API uses.
 - **Anchoring:** RFC 6962 Merkle roots, the same scheme as Certificate Transparency, sent to our **OrbitAnchor** contract (Solidity, source verified on Sourcify). Anyone can anchor; verifiers trust only Orbit's operator and named witnesses, pinned in code.
 - **Standards:** passport exports validate against the official UNTP DPP 0.5.0 JSON schema (a test runs it in CI). Data models also follow GS1 EPCIS 2.0 / Digital Link, EU ESPR and Battery Regulation passport fields, and GLEC transport factors.
-- **60 tests**, plus an on-chain integration test. They cover signature attacks, input hardening, replay catching operator forgeries, the erase-and-rebuild attack, passports that omit or forge events, and RFC 6962 proofs.
+- **61 tests**, plus an on-chain integration test. They cover signature attacks, input hardening, replay catching operator forgeries, the erase-and-rebuild attack, passports that omit or forge events, and RFC 6962 proofs.
 - **Measured at 10,000 entries:** a signed write takes about 0.7 ms. An anchor costs about 146k gas whatever the volume, roughly $0.002–$0.02 on Base mainnet.
 
 ## Challenges we ran into

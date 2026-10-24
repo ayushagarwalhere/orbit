@@ -51,7 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   Every product, <em className="text-accent">verified.</em>
                 </div>
                 <p className="mt-3 max-w-md text-sm text-muted">
-                  Built for the IEEE ClimateChain Global Hackathon, Sustainable Supply Chains track. Demo data, illustrative emission factors.
+                  Built for the IEEE ClimateChain Global Hackathon, Sustainable Supply Chains track. Demo data; emission factors are sourced published averages.
                 </p>
               </div>
               <div className="flex gap-5 text-sm text-ink-soft">
