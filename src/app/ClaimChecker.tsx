@@ -37,7 +37,7 @@ export function ClaimChecker() {
               key={x}
               type="button"
               aria-pressed={x === text}
-              className={`chip cursor-pointer hover:border-line-strong ${x === text ? "border-accent/50 text-accent" : "text-ink-soft"}`}
+              className={`cursor-pointer rounded-full border px-3 py-1 text-[12px] transition-colors hover:border-line-strong ${x === text ? "border-accent/60 bg-accent/10 text-accent" : "border-line text-ink-soft"}`}
               onClick={() => setText(x)}
             >
               {x}
