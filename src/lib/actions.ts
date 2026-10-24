@@ -316,6 +316,44 @@ export function issueClaim(tx: Tx, input: { productId: string; issuerId: string;
   return claim;
 }
 
+// ---------- accreditation: who may certify recycled content and audit claims ----------
+
+export type AccreditationScope = "recycler" | "auditor";
+
+/** An accreditation body certifies a recycler (e.g. Global Recycled Standard) or an auditor (e.g. SA8000). */
+export function accredit(tx: Tx, input: { accreditorId: string; subjectId: string; scope: AccreditationScope; scheme: string; certificate: string; validFrom: string; validUntil: string }) {
+  const { db } = tx;
+  const body = getActor(db, input.accreditorId);
+  requireRole(body, "accreditor");
+  const subject = getActor(db, input.subjectId);
+  if (subject.role !== input.scope) throw new OrbitError(`${subject.name} is not a ${input.scope}`);
+  const from = Date.parse(input.validFrom);
+  const until = Date.parse(input.validUntil);
+  if (!Number.isFinite(from) || !Number.isFinite(until) || until <= from) throw new OrbitError("validUntil must be after validFrom");
+  if (db.ledger.some((e) => e.type === "ACCREDITED" && e.data.certificate === input.certificate)) throw new OrbitError("Certificate number already issued", 409);
+  return append(tx, {
+    type: "ACCREDITED",
+    subjectId: subject.id,
+    actorId: body.id,
+    place: body.place,
+    data: { scope: input.scope, scheme: input.scheme, certificate: input.certificate, validFrom: new Date(from).toISOString(), validUntil: new Date(until).toISOString() },
+  });
+}
+
+/** The issuing body suspends a certificate from a date (which may be in the past, e.g. after fraud is found). */
+export function suspendAccreditation(tx: Tx, input: { accreditorId: string; certificate: string; from: string; reason: string }) {
+  const { db } = tx;
+  const body = getActor(db, input.accreditorId);
+  requireRole(body, "accreditor");
+  const cert = db.ledger.find((e) => e.type === "ACCREDITED" && e.data.certificate === input.certificate);
+  if (!cert) throw new OrbitError("Unknown certificate", 404);
+  if (cert.actorId !== body.id) throw new OrbitError("Only the body that issued a certificate can suspend it", 403);
+  const from = Date.parse(input.from);
+  if (!Number.isFinite(from)) throw new OrbitError("from must be a date");
+  if (db.ledger.some((e) => e.type === "ACCREDITATION_SUSPENDED" && e.data.certificate === input.certificate)) throw new OrbitError("Certificate already suspended", 409);
+  return append(tx, { type: "ACCREDITATION_SUSPENDED", subjectId: cert.subjectId, actorId: body.id, place: body.place, data: { certificate: input.certificate, from: new Date(from).toISOString(), reason: input.reason } });
+}
+
 export function attestClaim(tx: Tx, input: { claimId: string; auditorId: string; verdict: "APPROVE" | "REJECT"; note: string }) {
   const { db } = tx;
   const claim = getClaim(db, input.claimId);

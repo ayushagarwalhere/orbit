@@ -12,9 +12,10 @@ export interface ConsoleData {
   batches: { id: string; material: string; label: string; remainingKg: number; recycledPct: number; producerId: string }[];
   claims: { id: string; productId: string; productName: string; kind: ClaimKind; statement: string; status: string; attestedBy: string[] }[];
   materials: { id: string; label: string }[];
+  certificates: { certificate: string; scheme: string; scope: string; subjectId: string; subjectName: string; issuerId: string; validFrom: string; validUntil: string; suspendedFrom?: string }[];
 }
 
-const ROLE_ORDER: Role[] = ["supplier", "manufacturer", "logistics", "retailer", "consumer", "repairer", "recycler", "auditor"];
+const ROLE_ORDER: Role[] = ["supplier", "manufacturer", "logistics", "retailer", "consumer", "repairer", "recycler", "auditor", "accreditor"];
 const ROLE_HELP: Record<Role, string> = {
   supplier: "Register raw material lots. Only recyclers can create recycled lots, so recycled content cannot be invented upstream.",
   manufacturer: "Build products from material lots (mass balance enforced), ship them, and publish sustainability claims.",
@@ -23,7 +24,8 @@ const ROLE_HELP: Record<Role, string> = {
   consumer: "Return products at end of life to earn their return reward as credits.",
   repairer: "Log repairs on products in use. Owners earn 15 credits for repairing instead of replacing, at most once per product every 30 days.",
   recycler: "Recycle returned products into new traceable recycled lots and earn 20 credits per kg recovered.",
-  auditor: "Independently approve or reject claims. A rejection overrides the brand's claim.",
+  auditor: "Independently approve or reject claims. A rejection overrides the brand's claim. Audits count only while your accreditation is valid.",
+  accreditor: "Certify recyclers and auditors. Recycled content counts only from lots made while the recycler was certified, and audits only from accredited auditors. Suspend a certificate to see what depends on it.",
   protocol: "",
 };
 
@@ -128,6 +130,7 @@ export function ConsoleClient({ data }: { data: ConsoleData }) {
 
         {actor.role === "manufacturer" && <ClaimForm data={data} actorId={actor.id} busy={busy} run={run} />}
         {actor.role === "auditor" && <AuditPanel data={data} actorId={actor.id} busy={busy} run={run} />}
+        {actor.role === "accreditor" && <AccreditorPanel data={data} actorId={actor.id} busy={busy} run={run} />}
 
         {actor.role === "consumer" && (
           <div className="card p-5 text-sm">
@@ -487,6 +490,44 @@ function ClaimForm({ data, actorId, busy, run }: { data: ConsoleData; actorId: s
           📣 Publish claim
         </button>
       </div>
+    </Panel>
+  );
+}
+
+function AccreditorPanel({ data, actorId, busy, run }: { data: ConsoleData; actorId: string; busy: boolean; run: Run }) {
+  const mine = data.certificates.filter((c) => c.issuerId === actorId);
+  const [from, setFrom] = useState<Record<string, string>>({});
+  const [reason, setReason] = useState<Record<string, string>>({});
+  return (
+    <Panel title={`Certificates you issued (${mine.length})`}>
+      {mine.length === 0 && <div className="text-sm text-muted">No certificates yet.</div>}
+      {mine.map((c) => (
+        <div key={c.certificate} className="rounded-xl border border-line p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-sm font-semibold">
+              {c.subjectName} · {c.scheme}
+            </div>
+            <span className={`text-xs ${c.suspendedFrom ? "font-semibold text-rust" : "text-leaf"}`}>{c.suspendedFrom ? `suspended from ${c.suspendedFrom.slice(0, 10)}` : `valid to ${c.validUntil.slice(0, 10)}`}</span>
+          </div>
+          <div className="mt-0.5 font-mono text-xs text-muted">
+            {c.certificate} · {c.scope} · from {c.validFrom.slice(0, 10)}
+          </div>
+          {!c.suspendedFrom && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              <input aria-label="Suspend from date" type="date" className="field w-auto text-xs" value={from[c.certificate] ?? "2026-01-01"} onChange={(e) => setFrom({ ...from, [c.certificate]: e.target.value })} />
+              <input aria-label="Reason for suspension" className="field flex-1 text-xs" placeholder="Reason, e.g. input records falsified" value={reason[c.certificate] ?? ""} onChange={(e) => setReason({ ...reason, [c.certificate]: e.target.value })} />
+              <button
+                className="btn btn-danger text-xs"
+                disabled={busy || !reason[c.certificate]}
+                onClick={() => run("suspend-accreditation", { accreditorId: actorId, certificate: c.certificate, from: `${from[c.certificate] ?? "2026-01-01"}T00:00:00Z`, reason: reason[c.certificate] }, `Suspended ${c.certificate}: claims that relied on it are re-checked`)}
+              >
+                Suspend
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+      <p className="text-xs text-muted">Suspending a certificate from a past date is how a scheme reacts to fraud found later. Open the affected passports to see their claims re-checked.</p>
     </Panel>
   );
 }

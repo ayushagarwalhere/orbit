@@ -251,6 +251,16 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
                     <td className="py-2 font-medium">
                       {l.label}
                       {l.closedLoop && <span className="ml-1.5 rounded bg-leaf-soft px-1.5 py-0.5 text-[10px] font-bold text-leaf">CLOSED LOOP</span>}
+                      {l.certificate && (
+                        <div className="text-[11px] font-normal text-leaf" title="Certificate signed on the ledger by an accreditation body">
+                          ✓ {l.certificate}
+                        </div>
+                      )}
+                      {l.unaccredited && (
+                        <div className="text-[11px] font-normal text-rust" title={l.unaccredited}>
+                          ✕ recycled share not counted: no valid certificate
+                        </div>
+                      )}
                     </td>
                     <td className="hash hidden sm:table-cell">{l.batch.id}</td>
                     <td className="text-[13px] leading-snug text-ink-soft">
@@ -260,7 +270,8 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
                     <td className="pl-3">
                       <Bar
                         parts={[
-                          { value: l.recycledKg, color: "#5ee0a0", label: "recycled" },
+                          { value: l.provenRecycledKg, color: "#5ee0a0", label: "recycled (certified)" },
+                          { value: l.recycledKg - l.provenRecycledKg, color: "#ff7a66", label: "recycled, not counted" },
                           { value: l.massKg - l.recycledKg, color: "#34473f", label: "virgin" },
                         ]}
                       />

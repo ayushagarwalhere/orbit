@@ -37,6 +37,8 @@ export const ACTOR_FIELD: Record<string, string> = {
   manufacture: "brandId",
   "issue-claim": "issuerId",
   attest: "auditorId",
+  accredit: "accreditorId",
+  "suspend-accreditation": "accreditorId",
 };
 
 /** Entry types each action is allowed to produce on behalf of the signer. */
@@ -53,6 +55,8 @@ const ALLOWED: Record<string, string[]> = {
   "issue-claim": ["CLAIM_ISSUED"],
   attest: ["CLAIM_ATTESTED"],
   redeem: ["CREDIT_REDEEMED"],
+  accredit: ["ACCREDITED"],
+  "suspend-accreditation": ["ACCREDITATION_SUSPENDED"],
 };
 
 /** Body fields that must match what the ledger entry recorded. */

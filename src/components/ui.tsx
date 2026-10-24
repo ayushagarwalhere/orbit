@@ -81,6 +81,7 @@ export const ROLE_COLOR: Record<Role, string> = {
   repairer: "#f4be4f",
   recycler: "#5ee0a0",
   auditor: "#b8c4bf",
+  accreditor: "#9fd8cb",
   protocol: "#c8f169",
 };
 
@@ -108,6 +109,8 @@ export const ENTRY_META: Record<EntryType, { icon: string; label: string }> = {
   CREDIT_MINTED: { icon: "🪙", label: "Credits minted" },
   CREDIT_REDEEMED: { icon: "🎁", label: "Credits redeemed" },
   ANCHORED: { icon: "⚓", label: "Anchored on-chain" },
+  ACCREDITED: { icon: "📜", label: "Certificate issued" },
+  ACCREDITATION_SUSPENDED: { icon: "⛔", label: "Certificate suspended" },
 };
 
 export function Stat({ label, value, sub, tone }: { label: string; value: React.ReactNode; sub?: string; tone?: "leaf" | "rust" }) {

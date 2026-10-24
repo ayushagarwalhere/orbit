@@ -9,7 +9,7 @@ import { LAND_BITS, LAND_COLS, LAND_ROWS } from "@/lib/land-mask.ts";
 
 type V3 = [number, number, number];
 const RAD = Math.PI / 180;
-const ROLE_LABEL: Record<string, string> = { supplier: "Supplier", manufacturer: "Brand", logistics: "Carrier", retailer: "Retailer", consumer: "Consumer", repairer: "Repairer", recycler: "Recycler", auditor: "Auditor" };
+const ROLE_LABEL: Record<string, string> = { supplier: "Supplier", manufacturer: "Brand", logistics: "Carrier", retailer: "Retailer", consumer: "Consumer", repairer: "Repairer", recycler: "Recycler", auditor: "Auditor", accreditor: "Accreditation body" };
 const COLORS = { material: "200,241,105", shipment: "124,196,255", flagged: "255,122,102", loop: "94,224,160" } as const;
 
 function toVec(lat: number, lng: number): V3 {

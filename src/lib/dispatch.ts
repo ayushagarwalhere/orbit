@@ -47,7 +47,7 @@ function oneOf<T extends string>(b: Body, k: string, options: readonly T[], opt 
 
 const MATERIALS = Object.keys(MATERIAL_FACTORS) as Material[];
 const MODES = ["ship", "rail", "truck", "air"] as const satisfies readonly TransportMode[];
-const ROLES = ["supplier", "manufacturer", "logistics", "retailer", "consumer", "repairer", "recycler", "auditor", "protocol"] as const satisfies readonly Role[];
+const ROLES = ["supplier", "manufacturer", "logistics", "retailer", "consumer", "repairer", "recycler", "auditor", "accreditor", "protocol"] as const satisfies readonly Role[];
 const KINDS = ["RECYCLED_CONTENT", "CARBON_FOOTPRINT", "ORIGIN", "ETHICAL_LABOR", "REPAIRABILITY"] as const satisfies readonly ClaimKind[];
 const CATEGORIES = ["apparel", "battery", "electronics", "packaging"] as const;
 
@@ -120,6 +120,17 @@ const ACTIONS: Record<string, (tx: Tx, b: Body) => unknown> = {
   },
   attest: (tx, b) => A.attestClaim(tx, { claimId: id(b, "claimId")!, auditorId: id(b, "auditorId")!, verdict: oneOf(b, "verdict", ["APPROVE", "REJECT"] as const)!, note: str(b, "note", 200)! }),
   redeem: (tx, b) => A.redeem(tx, { actorId: id(b, "actorId")!, rewardId: oneOf(b, "rewardId", A.REWARDS.map((r) => r.id))! }),
+  accredit: (tx, b) =>
+    A.accredit(tx, {
+      accreditorId: id(b, "accreditorId")!,
+      subjectId: id(b, "subjectId")!,
+      scope: oneOf(b, "scope", ["recycler", "auditor"] as const)!,
+      scheme: str(b, "scheme", 80)!,
+      certificate: str(b, "certificate", 40)!,
+      validFrom: str(b, "validFrom", 30)!,
+      validUntil: str(b, "validUntil", 30)!,
+    }),
+  "suspend-accreditation": (tx, b) => A.suspendAccreditation(tx, { accreditorId: id(b, "accreditorId")!, certificate: str(b, "certificate", 40)!, from: str(b, "from", 30)!, reason: str(b, "reason", 200)! }),
 };
 
 /** The only fields each action accepts; anything else is rejected rather than stored on the ledger. */
@@ -136,6 +147,8 @@ const FIELDS: Record<string, string[]> = {
   "issue-claim": ["productId", "issuerId", "kind", "statement", "value", "evidence"],
   attest: ["claimId", "auditorId", "verdict", "note"],
   redeem: ["actorId", "rewardId"],
+  accredit: ["accreditorId", "subjectId", "scope", "scheme", "certificate", "validFrom", "validUntil"],
+  "suspend-accreditation": ["accreditorId", "certificate", "from", "reason"],
 };
 const REQUEST_FIELDS = ["action", "ledger", "actorId", "body", "nonce", "issuedAt"];
 function onlyKnown(o: object, allowed: string[], what: string) {

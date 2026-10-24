@@ -11,6 +11,7 @@ export type Role =
   | "repairer"
   | "recycler"
   | "auditor"
+  | "accreditor"
   | "protocol";
 
 export interface Place {
@@ -113,7 +114,9 @@ export type EntryType =
   | "CLAIM_ATTESTED"
   | "CREDIT_MINTED"
   | "CREDIT_REDEEMED"
-  | "ANCHORED";
+  | "ANCHORED"
+  | "ACCREDITED"
+  | "ACCREDITATION_SUSPENDED";
 
 export type TransportMode = "truck" | "rail" | "ship" | "air";
 

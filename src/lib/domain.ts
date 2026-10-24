@@ -101,6 +101,60 @@ export function productEntries(db: Db, productId: string): LedgerEntry[] {
 }
 
 /** Audits of a claim, read from the ledger (never from a mutable record). */
+export interface Accreditation {
+  certificate: string;
+  scheme: string;
+  scope: "recycler" | "auditor";
+  validFrom: string;
+  validUntil: string;
+  issuerId: string;
+  suspendedFrom?: string;
+  suspendedReason?: string;
+}
+
+/** Certificates issued to an actor, with any suspension applied (rebuilt only when the ledger grows). */
+const accCache = new WeakMap<Db, { n: number; by: Map<string, Accreditation[]> }>();
+export function accreditationsOf(db: Db, actorId: string): Accreditation[] {
+  let c = accCache.get(db);
+  if (!c || c.n !== db.ledger.length) {
+    const by = new Map<string, Accreditation[]>();
+    const byCert = new Map<string, Accreditation>();
+    for (const e of db.ledger) {
+      if (e.type === "ACCREDITED") {
+        const a: Accreditation = { certificate: String(e.data.certificate), scheme: String(e.data.scheme), scope: e.data.scope === "auditor" ? "auditor" : "recycler", validFrom: String(e.data.validFrom), validUntil: String(e.data.validUntil), issuerId: e.actorId };
+        by.set(e.subjectId, [...(by.get(e.subjectId) ?? []), a]);
+        byCert.set(a.certificate, a);
+      } else if (e.type === "ACCREDITATION_SUSPENDED") {
+        const a = byCert.get(String(e.data.certificate));
+        if (a && a.issuerId === e.actorId) {
+          a.suspendedFrom = String(e.data.from);
+          a.suspendedReason = String(e.data.reason);
+        }
+      }
+    }
+    c = { n: db.ledger.length, by };
+    accCache.set(db, c);
+  }
+  return c.by.get(actorId) ?? [];
+}
+
+/** The certificate that covered `actorId` for `scope` at time `at`, or why none did. */
+export function accreditedAt(db: Db, actorId: string, scope: "recycler" | "auditor", at: string): { ok: true; cert: Accreditation } | { ok: false; reason: string } {
+  const t = Date.parse(at);
+  const certs = accreditationsOf(db, actorId).filter((a) => a.scope === scope);
+  const name = db.actors.find((a) => a.id === actorId)?.name ?? actorId;
+  if (!certs.length) return { ok: false, reason: `${name} holds no ${scope === "recycler" ? "recycling" : "auditing"} accreditation on the ledger` };
+  for (const a of certs) {
+    if (t < Date.parse(a.validFrom) || t > Date.parse(a.validUntil)) continue;
+    if (a.suspendedFrom && t >= Date.parse(a.suspendedFrom)) continue;
+    return { ok: true, cert: a };
+  }
+  const susp = certs.find((a) => a.suspendedFrom && t >= Date.parse(a.suspendedFrom));
+  if (susp) return { ok: false, reason: `${name}'s ${susp.scheme} certificate ${susp.certificate} was suspended from ${susp.suspendedFrom!.slice(0, 10)} (${susp.suspendedReason})` };
+  const c0 = certs[0];
+  return { ok: false, reason: `${name}'s ${c0.scheme} certificate ${c0.certificate} was not valid on ${at.slice(0, 10)} (valid ${c0.validFrom.slice(0, 10)} to ${c0.validUntil.slice(0, 10)})` };
+}
+
 export function attestationsOf(db: Db, claimId: string): Attestation[] {
   return (idx(db).attestations.get(claimId) ?? []).map((e) => ({
     auditorId: e.actorId,
@@ -193,19 +247,30 @@ export interface MaterialLine {
   recycledKg: number;
   origin: Place;
   closedLoop: boolean; // recovered from an earlier Orbit product
+  /** Recycled kg that counts: only from a recycler accredited when the lot was created. */
+  provenRecycledKg: number;
+  /** Why recycled kg in this line doesn't count, if it doesn't. */
+  unaccredited?: string;
+  certificate?: string;
 }
 
 export function materialLines(db: Db, p: Product): MaterialLine[] {
   return p.inputs.map((i) => {
     const b = getBatch(db, i.batchId);
+    const recycledKg = b.massKg > 0 ? (i.massKg * b.recycledKg) / b.massKg : 0;
+    // Recycled content counts only if the recycler held a valid accreditation when it made the lot.
+    const acc = recycledKg > 0 ? accreditedAt(db, b.producerId, "recycler", b.createdAt) : undefined;
     return {
       batch: b,
       material: b.material,
       label: MATERIAL_FACTORS[b.material].label,
       massKg: i.massKg,
-      recycledKg: b.massKg > 0 ? (i.massKg * b.recycledKg) / b.massKg : 0,
+      recycledKg,
       origin: b.place,
       closedLoop: b.sourceProductIds.length > 0,
+      provenRecycledKg: acc?.ok ? recycledKg : 0,
+      unaccredited: acc && !acc.ok ? acc.reason : undefined,
+      certificate: acc?.ok ? `${acc.cert.scheme} ${acc.cert.certificate}` : undefined,
     };
   });
 }
@@ -219,7 +284,7 @@ export function provenRecycledPct(db: Db, p: Product): number {
   const lines = materialLines(db, p);
   const mass = lines.reduce((s, l) => s + l.massKg, 0);
   if (mass === 0) return 0;
-  return (lines.reduce((s, l) => s + l.recycledKg, 0) / mass) * 100;
+  return (lines.reduce((s, l) => s + l.provenRecycledKg, 0) / mass) * 100;
 }
 
 /** How much of each batch has been committed to products already (indexed, extended as products are added). */
@@ -299,7 +364,7 @@ export function shipmentLegs(db: Db, p: Product): Leg[] {
 export function carbonFootprint(db: Db, p: Product): CarbonBreakdown {
   const materials = materialLines(db, p).reduce((s, l) => {
     const f = MATERIAL_FACTORS[l.material];
-    return s + (l.massKg - l.recycledKg) * f.virgin + l.recycledKg * f.recycled;
+    return s + (l.massKg - l.provenRecycledKg) * f.virgin + l.provenRecycledKg * f.recycled;
   }, 0);
   let manufacturing = 0;
   for (const e of lifecycleEntries(db, p.id)) {
@@ -314,7 +379,7 @@ export function carbonFootprint(db: Db, p: Product): CarbonBreakdown {
 export function avoidedCo2e(db: Db, p: Product): number {
   return materialLines(db, p).reduce((s, l) => {
     const f = MATERIAL_FACTORS[l.material];
-    return s + l.recycledKg * (f.virgin - f.recycled);
+    return s + l.provenRecycledKg * (f.virgin - f.recycled);
   }, 0);
 }
 

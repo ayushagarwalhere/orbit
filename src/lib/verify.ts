@@ -1,5 +1,5 @@
 // The accountability engine: checks every sustainability claim against what the ledger proves.
-import { attestationsOf, claimHash, carbonFootprint, getActor, lifecycleEntries, materialLines, passportHash, productEntries, provenRecycledPct } from "./domain.ts";
+import { accreditedAt, attestationsOf, claimHash, carbonFootprint, getActor, lifecycleEntries, materialLines, passportHash, productEntries, provenRecycledPct } from "./domain.ts";
 import { lintClaim, type LintHit } from "./greenwash.ts";
 import { verifyLedger, type IntegrityReport } from "./ledger.ts";
 import type { Claim, Db, Product } from "./types.ts";
@@ -27,10 +27,17 @@ export function evaluateClaim(db: Db, claim: Claim, product: Product): ClaimResu
 
   const issued = db.ledger.find((e) => e.type === "CLAIM_ISSUED" && e.subjectId === claim.id);
   const tampered = !issued || issued.data.claimHash !== claimHash(claim);
-  const independent = attestationsOf(db, claim.id).filter((a) => {
+  const auditors = attestationsOf(db, claim.id).filter((a) => {
     const aud = db.actors.find((x) => x.id === a.auditorId);
     return aud && aud.role === "auditor" && aud.id !== claim.issuerId;
   });
+  // An audit counts only if the auditor was accredited (by an accreditation body, on the ledger) when they signed it.
+  const independent = auditors.filter((a) => accreditedAt(db, a.auditorId, "auditor", a.at).ok);
+  for (const a of auditors) {
+    const acc = accreditedAt(db, a.auditorId, "auditor", a.at);
+    if (!acc.ok) reasons.push(`Audit by ${getActor(db, a.auditorId).name} not counted: ${acc.reason}`);
+    else evidence.push(`Auditor accredited: ${acc.cert.scheme} ${acc.cert.certificate}, valid to ${acc.cert.validUntil.slice(0, 10)}`);
+  }
   const approvals = independent.filter((a) => a.verdict === "APPROVE");
   const rejections = independent.filter((a) => a.verdict === "REJECT");
 
@@ -38,8 +45,11 @@ export function evaluateClaim(db: Db, claim: Claim, product: Product): ClaimResu
     case "RECYCLED_CONTENT": {
       const claimed = Number(claim.value);
       const proven = provenRecycledPct(db, product);
-      const closed = materialLines(db, product).filter((l) => l.closedLoop);
+      const lines = materialLines(db, product);
+      const closed = lines.filter((l) => l.closedLoop);
       evidence.push(`Batch lineage proves ${fmt(proven)}% recycled content by mass`);
+      for (const cert of new Set(lines.map((l) => l.certificate).filter(Boolean))) evidence.push(`Recycled lots from an accredited recycler: ${cert}`);
+      for (const l of lines.filter((x) => x.unaccredited)) reasons.push(`${l.batch.id}'s ${fmt(l.recycledKg, 3)} kg recycled ${l.label.toLowerCase()} not counted: ${l.unaccredited}`);
       if (closed.length) evidence.push(`${closed.length} input lot(s) recovered from earlier Orbit products (closed loop)`);
       if (claimed <= proven + 0.5) status = "VERIFIED";
       else {

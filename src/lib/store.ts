@@ -43,7 +43,17 @@ function loadKeystore(): Keystore {
   if (process.env.ORBIT_KEYSTORE) return JSON.parse(process.env.ORBIT_KEYSTORE) as Keystore;
   const file = path.join(dataDir(), "keystore.json");
   try {
-    return JSON.parse(fs.readFileSync(file, "utf8")) as Keystore;
+    const keys = JSON.parse(fs.readFileSync(file, "utf8")) as Keystore;
+    const missing = ACTOR_IDS.filter((id) => !keys[id]);
+    if (missing.length) {
+      Object.assign(keys, generateKeystore(missing));
+      try {
+        fs.writeFileSync(file, JSON.stringify(keys, null, 2), { mode: 0o600 });
+      } catch {
+        // read-only FS: keep the new keys in memory
+      }
+    }
+    return keys;
   } catch {
     const keys = generateKeystore(ACTOR_IDS);
     try {

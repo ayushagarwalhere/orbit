@@ -29,6 +29,7 @@ export const ACTORS: ActorSeed[] = [
   actor("refibre", "Re:Fibre Recyclers", "recycler", "Rotterdam", "NL", 51.9244, 4.4777, "Fibre-to-fibre textile and PET recycler."),
   actor("circuloop", "CircuLoop Metals", "recycler", "Antwerp", "BE", 51.1757, 4.3417, "Battery and metals recovery plant."),
   actor("clearsight", "ClearSight Assurance", "auditor", "Geneva", "CH", 46.2044, 6.1432, "Independent social and environmental auditor."),
+  actor("terracert", "TerraCert Accreditation", "accreditor", "Bonn", "DE", 50.7374, 7.0982, "Accreditation body (fictional, for the demo): certifies recyclers and auditors."),
 ];
 
 const d = (s: string) => new Date(`2026-${s}Z`).toISOString();
@@ -63,6 +64,12 @@ export function seedDb(keys: Keystore, ledgerId: string): Db {
       ...(a.id === PROTOCOL_ID ? { ledgerId } : {}),
     });
   }
+
+  // --- accreditation: an accreditation body certifies the recyclers and the auditor ---
+  // (Scheme names are real standards; the body and certificate numbers are fictional demo data.)
+  as("terracert", "accredit", d("01-02T09:00:00"), { accreditorId: "terracert", subjectId: "refibre", scope: "recycler", scheme: "Global Recycled Standard", certificate: "GRS-NL-25-0418", validFrom: "2025-06-01T00:00:00Z", validUntil: "2027-05-31T23:59:59Z" });
+  as("terracert", "accredit", d("01-02T09:01:00"), { accreditorId: "terracert", subjectId: "circuloop", scope: "recycler", scheme: "Recycled Claim Standard (metals)", certificate: "RCS-BE-25-0091", validFrom: "2025-09-01T00:00:00Z", validUntil: "2027-08-31T23:59:59Z" });
+  as("terracert", "accredit", d("01-02T09:02:00"), { accreditorId: "terracert", subjectId: "clearsight", scope: "auditor", scheme: "SA8000 certification body", certificate: "SA-CB-24-0033", validFrom: "2024-11-01T00:00:00Z", validUntil: "2027-10-31T23:59:59Z" });
 
   // --- raw material lots ---
   const cotton = as("kutch-coop", "create-batch", d("01-03T08:00:00"), { producerId: "kutch-coop", material: "organic-cotton", massKg: 500 });

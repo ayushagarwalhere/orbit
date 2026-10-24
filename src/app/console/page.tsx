@@ -1,5 +1,5 @@
 import { modelRecovery } from "@/lib/actions.ts";
-import { attestationsOf, balances, batchConsumed, custody } from "@/lib/domain.ts";
+import { accreditationsOf, attestationsOf, balances, batchConsumed, custody } from "@/lib/domain.ts";
 import { MATERIAL_FACTORS } from "@/lib/factors.ts";
 import { verifyLedger } from "@/lib/ledger.ts";
 import { getDb } from "@/lib/store.ts";
@@ -14,7 +14,11 @@ export default function ConsolePage() {
   const bal = balances(db);
   const integrity = verifyLedger(db);
   const reports = new Map(db.products.map((p) => [p.id, trustReport(db, p, integrity)]));
+  const certificates = db.actors.flatMap((a) =>
+    accreditationsOf(db, a.id).map((c) => ({ certificate: c.certificate, scheme: c.scheme, scope: c.scope, subjectId: a.id, subjectName: a.name, issuerId: c.issuerId, validFrom: c.validFrom, validUntil: c.validUntil, suspendedFrom: c.suspendedFrom })),
+  );
   const data: ConsoleData = {
+    certificates,
     actors: db.actors.filter((a) => a.role !== "protocol").map((a) => ({ id: a.id, name: a.name, role: a.role, city: a.place.city, balance: bal.get(a.id) ?? 0 })),
     products: db.products.map((p) => {
       const c = custody(db, p.id);

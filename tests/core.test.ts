@@ -244,6 +244,32 @@ test("repair credits: at most once per product every 30 days, and replay agrees"
   assert.equal(verifyLedger(db).ok, true, "replay reaches the same decisions from the ledger timestamps");
 });
 
+test("accreditation: suspending a recycler's certificate removes its recycled content from claims", () => {
+  const { db, act } = world();
+  const tee = byName(db, "Orbit Tee");
+  const status = () => trustReport(db, tee).claims.find((c) => c.claim.kind === "RECYCLED_CONTENT")!;
+  assert.equal(status().status, "VERIFIED");
+  assert.ok(status().evidence.some((e) => e.includes("Global Recycled Standard GRS-NL-25-0418")));
+  assert.throws(() => act("refibre", "accredit", { subjectId: "refibre", scope: "recycler", scheme: "Self-made", certificate: "X-1", validFrom: "2026-01-01T00:00:00Z", validUntil: "2027-01-01T00:00:00Z" }), /accreditor/);
+  assert.throws(() => act("clearsight", "suspend-accreditation", { certificate: "GRS-NL-25-0418", from: "2026-01-01T00:00:00Z", reason: "x" }), /accreditor/);
+  act("terracert", "suspend-accreditation", { certificate: "GRS-NL-25-0418", from: "2026-01-01T00:00:00Z", reason: "input records falsified" });
+  const after = status();
+  assert.equal(after.status, "CONTRADICTED");
+  assert.ok(after.reasons.some((r) => r.includes("suspended from 2026-01-01")), JSON.stringify(after.reasons));
+  assert.equal(provenRecycledPct(db, tee), 0);
+  assert.equal(verifyLedger(db).ok, true, "replay reaches the same verdict");
+});
+
+test("accreditation: audits count only while the auditor is accredited", () => {
+  const { db, act } = world();
+  const tee = byName(db, "Orbit Tee");
+  const labour = () => trustReport(db, tee).claims.find((c) => c.claim.kind === "ETHICAL_LABOR")!;
+  assert.equal(labour().status, "VERIFIED");
+  act("terracert", "suspend-accreditation", { certificate: "SA-CB-24-0033", from: "2026-01-01T00:00:00Z", reason: "accreditation withdrawn" });
+  assert.equal(labour().status, "PENDING");
+  assert.ok(labour().reasons.some((r) => r.includes("not counted")));
+});
+
 test("a recycler cannot sign for more material than went in", () => {
   const { db, act } = world();
   const tee = byName(db, "Orbit Tee");
