@@ -19,13 +19,13 @@ npm install
 ```
 npm run witness -- --file path/to/ledger.jsonl --check-only
 ```
-Or, against a running node:
+Or, against a running node (in Windows PowerShell, first run `$env:ORBIT_URL="https://<the node>"`, then the npm command):
 ```
 ORBIT_URL=https://<the node> npm run witness -- --check-only
 ```
 You should see something like:
 ```
-[witness] ledger.jsonl: ledger 4c6b0e7363f0…, 82 entries
+[witness] path/to/ledger.jsonl: ledger 4c6b0e7363f0…, 82 entries
   ✓ hashes, signatures, signed times and replay of every instruction: all OK
   ✓ on-chain checkpoint #0 by Orbit operator: 65 entries match
   ...
@@ -37,7 +37,7 @@ Your computer has re-hashed every entry, checked every signature, re-run every r
 ```
 npm run wallet -- --witness
 ```
-This creates a new test wallet, saves its key to `.env.local` (which never leaves your machine), and prints its address. Get a little test ETH for it from a [Base Sepolia faucet](https://docs.base.org/base-chain/tools/network-faucets), or send the address to the Orbit team and we'll send you some. Then run:
+This creates a new test wallet (or reuses the one already there), saves its key to `.env.local` (which never leaves your machine), and prints its address. Get a little test ETH for it from a [Base Sepolia faucet](https://docs.base.org/base-chain/tools/network-faucets), or send the address to the Orbit team and we'll send you some. Then run:
 ```
 npm run witness -- --file path/to/ledger.jsonl
 ```

@@ -5,7 +5,7 @@ import { getDb } from "@/lib/store.ts";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/passport/:id — machine-readable, self-verifying Digital Product Passport.
+// GET /api/passport/:id — machine-readable Digital Product Passport, checkable against the chain.
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   return handle(() => {

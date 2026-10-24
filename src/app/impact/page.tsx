@@ -22,7 +22,7 @@ export default function ImpactPage() {
   return (
     <div className="space-y-10">
       <PageHeader kicker="Climate impact" title={<>What it <em className="text-accent">avoids</em></>}>
-        Orbit cuts emissions by making circular behaviour pay (return rewards, repair bonuses, recovery credits) and by making low-carbon claims checkable, so procurement can reward them. Below: what this demo&apos;s ledger measured, and a projection model you can adjust. Same formulas and sources as our{" "}
+        Orbit aims to cut emissions by making circular behaviour pay (return rewards, repair bonuses, recovery credits) and by making low-carbon claims checkable, so procurement can reward them. Below: what this demo&apos;s ledger measured, and a projection model you can adjust. Same formulas and sources as our{" "}
         <a href={DOC} target="_blank" className="text-accent underline">
           written assessment
         </a>
@@ -34,7 +34,7 @@ export default function ImpactPage() {
         <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
           <Stat label="CO₂e avoided (attributional)" value={`${fmt(s.avoidedKg, 1)} kg`} sub="recycled vs virgin inputs of these products; not an effect caused by Orbit" tone="leaf" />
           <Stat label="Material recovered" value={`${fmt(s.recoveredKg, 2)} kg`} sub="into new traceable lots" />
-          <Stat label="Repairs rewarded" value={String(repairs)} sub="life extended, not replaced" />
+          <Stat label="Repairs recorded" value={String(repairs)} sub="life extended, not replaced" />
           <Stat label="Returns" value={String(returns)} sub="return reward paid" />
           <Stat label="Understatement caught" value={`${fmt(understated, 1)} kg`} sub={`CO₂e hidden by contradicted claims · ${misdeclared} misdeclared leg${misdeclared === 1 ? "" : "s"}`} tone="rust" />
         </div>

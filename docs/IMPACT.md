@@ -78,7 +78,7 @@ Inputs are cited (§2) or stated as assumptions (§3). The model is linear in *s
 **How Orbit drives it.** Orbit pays a return reward only against a signed return event, and recovery credits per kg only when a recycler signs the lot. In a real scheme the brand's EPR fee funds the reward; the buyer pays nothing extra at sale. Mass-balance proof gives recycled output a verifiable claim. That matters because, per IVL, each kg recycled must **actually displace** at least **0.44 kg** of virgin production for a net climate gain.[^ivl-2023]
 
 **1a. Textiles: fibre-to-fibre recycling.**
-- *Evidence:* IVL's consequential LCA (Sandin et al. 2025) finds that raising EU textile-to-textile recycling from ~1% to **10%** cuts climate impact by **0.5%** on average, **about 0.44 Mt CO2e/yr**, with a 92% probability of a net reduction.[^ivl-2025][^ec-ivl] An earlier IVL scenario (1% → 26% by 2035) gives about **1.3%**.[^textile-etp] Both imply roughly 0.05 Mt CO2e/yr per percentage point of fibre-to-fibre recycling.
+- *Evidence:* IVL's consequential LCA (Sandin et al. 2025) finds that raising EU textile-to-textile recycling to **10%** by 2035, from ~1% (a global figure), cuts climate impact by **0.5%** on average, **about 0.44 Mt CO2e/yr**, with a 92% probability of a net reduction.[^ivl-2025][^ec-ivl] An earlier IVL scenario (1% → 26% by 2035) gives about **1.3%**.[^textile-etp] Both imply roughly 0.05 Mt CO2e/yr per percentage point of fibre-to-fibre recycling.
 - *Assumption:* Orbit products reach the IVL 10% scenario. The rest of the market stays at ~1%.
 - *Formula:* **Avoided = *s* × 0.44 Mt CO2e/yr**
 
@@ -102,7 +102,7 @@ Inputs are cited (§2) or stated as assumptions (§3). The model is linear in *s
 **How Orbit drives it.** Claims are checked against the ledger and graded A–E. Footprints are recomputed from materials, energy and transport legs, so buyers can rank suppliers on checkable figures. Directive 2024/825 removes the option of hiding behind vague labels.
 
 **3a. EV batteries (counted).**
-- *Evidence:* NMC811 cell footprints span 59–115 kg CO2e/kWh (5th–95th percentile) around a median of 74;[^peiseler] the median is 15 kg/kWh (≈ 20%) above the 5th percentile.
+- *Evidence:* NMC811 cell footprints span 59–115 kg CO2e/kWh (5th–95th percentile) around a median of 74;[^peiseler] the 5th percentile is 15 kg/kWh (≈ 20%) below the median.
 - *Assumption:* Buyers of Orbit-verified volume procure cells **10% below** the median (7.4 kg CO2e/kWh), half the median-to-best gap. The Battery Regulation already requires verified footprint declarations, so a **50% additionality haircut** leaves 3.7 kg CO2e/kWh.
 - *Formula:* **Avoided = *s* × 120 GWh × 3.7 kg/kWh = *s* × 0.444 Mt CO2e/yr**
 
@@ -130,7 +130,7 @@ Inputs are cited (§2) or stated as assumptions (§3). The model is linear in *s
 | Pilot | Lever | Arithmetic | t CO2e/yr |
 | --- | --- | --- | --- |
 | Apparel, 100,000 garments | 2 Repair | 100,000 × 5% repaired × 0.93 kg per credited repair | 4.65 |
-| | 1a Fibre-to-fibre recycling | 50 t × 0.051 kg CO2e per kg tracked (= 0.44 Mt ÷ 8.56 Mt, §3) | 2.6 |
+| | 1a Fibre-to-fibre recycling | 50 t × 0.051 kg CO2e per kg tracked (= 0.44 Mt ÷ 8.56 Mt, §2.1, §3) | 2.6 |
 | E-bike, 20,000 packs | 1b Extra collection | 20,000 × 0.20 uplift × 10.3 kg per extra pack recycled | 41.2 |
 | **Total** | | | **≈ 48** |
 
@@ -145,7 +145,7 @@ This matches the share model (50 t is *s* ≈ 0.0006% of EU textiles; *s* × 0.7
 | 2 Repair | × 0.25 (2.5% repaired, 5% credited) | × 4 (10% repaired, 20% credited) | Repair uptake under incentives is the largest unknown; rebound is poorly measured. |
 | 3a EV procurement | 0 | × 2 (no additionality haircut) | Regulation may deliver the same shift without Orbit. |
 
-Repair multipliers are relative to the central case (5% repaired, 10% credited): both factors are halved in the low case and doubled in the high case, which is the 10% pilot target with WRAP's full 20%. We kept this spread when the central case moved from 10% to 5%, rather than the old absolute bounds, whose 20% repaired has no support in §5.1.
+Repair multipliers are relative to the central case (5% repaired, 10% credited): both factors are halved in the low case and doubled in the high case, which is the 10% pilot target with WRAP's full 20%.
 
 Combining all low or all high cases gives the headline ranges: **0.01 to 0.25 Mt CO2e/yr** in the moderate scenario. Repair drives most of the spread, so a pilot should measure it first.
 
@@ -155,7 +155,7 @@ Lever 2 is 47% of the headline (0.795 of 1.69) and rests on an assumed 5% repair
 
 | Scheme | Design | Observed uptake |
 | --- | --- | --- |
-| France, *bonus réparation*, textiles and shoes (Refashion) | From 7 Nov 2023; €6–25 off per repair, ≤ 60% of the bill; €154 M for 2023–2028 from brands' EPR eco-contributions[^qc] | ≈ 826,000 repairs in year one, €6.8 M paid (≈ €8 each, derived); 83% shoe repairs[^fu] |
+| France, *bonus réparation*, textiles and shoes (Refashion) | From 7 Nov 2023; €6–25 off per repair, ≤ 60% of the bill; €154 M for 2023–2028 from brands' EPR eco-contributions[^qc] | ≈ 826,000 repairs in year one, €6.8 M paid (≈ €8 each, derived); 83% by cobblers[^fu] |
 | Austria, *Reparaturbonus*, electrical devices (later bicycles) | From 22 Apr 2022; 50% of cost, up to €200[^at-bka] | 567,076 vouchers in year one[^at-bka]; ≈ 1.7 M by May 2025, when €130 M of EU recovery funds (plus federal top-ups) ran out and it paused[^at-orf]: at least ≈ €76 per repair (derived) |
 | Thuringia, Germany, electrical devices | Since 2021 | ≈ 30,000 approved, €2.3 M. Per Fraunhofer IZM, **just over a third** of users would not have repaired without the bonus[^euwid] |
 | Saxony, Germany, electrical devices | 50% of cost, up to €200 | > 24,500 approved, ≈ €2.6 M by end 2024[^hwb] |
@@ -167,7 +167,7 @@ Lever 2 is 47% of the headline (0.795 of 1.69) and rests on an assumed 5% repair
 
 | Repair uptake | Total | *s* = 1% | *s* = 5% | *s* = 15% |
 | --- | --- | --- | --- | --- |
-| 2.5% (low case) | *s* × 1.29 | 0.013 | 0.065 | 0.19 |
+| 2.5% (low-case uptake) | *s* × 1.29 | 0.013 | 0.065 | 0.19 |
 | 5% (headline) | *s* × 1.69 | 0.017 | 0.084 | 0.25 |
 | 10% (pilot target) | *s* × 2.48 | 0.025 | 0.12 | 0.37 |
 | 20% | *s* × 4.07 | 0.041 | 0.20 | 0.61 |
@@ -194,9 +194,9 @@ Orbit signs events off-chain (Ed25519, microseconds of CPU per signature) and an
 | Ethereum PoS network electricity | ≈ 2,601 MWh/yr and ≈ 870 t CO2e/yr (CCRI). The Cambridge CCAF estimates ≈ 7.87 GWh/yr, about 3× higher | ethereum.org (CCRI)[^eth]; CCAF via Forklog[^ccaf] |
 | Ethereum transactions | ≈ 1.5–2.0 M per day (7-day average hit 1.74 M in Aug 2025), so ≈ 550–730 M per year | The Block[^block] |
 | Network energy averaged per transaction | ≈ 3.6–4.7 Wh (CCRI) or ≈ 11–14 Wh (CCAF); ≈ 1.2–1.6 g CO2e (CCRI basis) | derived. An **upper bound**: an extra transaction adds almost nothing to PoS energy use, and CCAF discards per-transaction metrics[^ccaf] |
-| **Orbit anchoring hourly on L1 for a year** | 8,760 transactions ≈ **31–125 kWh** and ≈ **10–14 kg CO2e** (≈ 30–40 kg on the CCAF basis) | derived |
+| **Orbit anchoring hourly on L1 for a year** | 8,760 transactions ≈ **31–125 kWh** and ≈ **10–14 kg CO2e** (≈ 31–42 kg on the CCAF basis) | derived |
 
-On an L2 rollup it is lower still. A year of hourly anchoring emits about the production footprint of **a few garments** (≈ 9 kg CO2e each) and is **more than 100,000× smaller** than the conservative scenario's avoided emissions (40 kg vs. 17,000 t). Web hosting and storage are ordinary and not measured.
+On an L2 rollup it is lower still. A year of hourly anchoring emits about the production footprint of **a few garments** (≈ 9 kg CO2e each) and is **more than 100,000× smaller** than the conservative scenario's avoided emissions (≤ 42 kg vs. 17,000 t). Web hosting and storage are ordinary and not measured.
 
 ## 7. What the projections leave out (upside not credited)
 
@@ -215,7 +215,7 @@ These come from the seeded demo world, which uses **illustrative** emission fact
 | Strata Loop battery: 93% recycled content, ≈ 65% lower footprint, ≈ 29 kg CO2e avoided per pack | Closed loop, with recovered lots linked to the ancestor passport | Recycled materials save 58–81%[^machala] |
 | EcoCloud Hoodie: claims "carbon neutral, 1.2 kg"; ledger shows 6.0 kg after air freight | Transport legs recomputed from registered locations | Directive 2024/825 bans offset-based neutrality claims[^empco] |
 
-**The demo's "CO2e avoided" figure is attributional, not consequential.** The dashboard's "29.9 kg CO2e avoided by recycled inputs" (passport field `avoidedEmissionsKgCO2e`) compares each product's recycled inputs with the same mass of virgin material. It describes these products; it is **not an effect caused by Orbit**. Much of it would happen anyway: recycled polyester comes mostly from PET bottles (§2.1), and buying recycled input can just move a fixed supply between brands. The §3 levers count only behaviour Orbit changes, so do not add or compare the two. For the Strata pack, ≈ 29 kg is attributional. The consequential figure is ≈ 10 kg (§3, materials share at the low-end saving), and only for packs that would otherwise not have been collected.
+**The demo's "CO2e avoided" figure is attributional, not consequential.** The dashboard's "29.9 kg CO2e avoided by recycled inputs" (passport field `avoidedEmissionsKgCO2e`) compares each product's recycled inputs with the same mass of virgin material. It describes these products; it is **not an effect caused by Orbit**. Much of it would happen anyway: recycled polyester comes mostly from PET bottles (§2.1), and buying recycled input can just move a fixed supply between brands. The §3 levers count only behaviour Orbit changes, so do not add or compare the two. For the Strata pack, ≈ 29 kg is attributional. The consequential figure is ≈ 9 kg (§3's per-pack arithmetic for its 0.5 kWh), and only for packs that would otherwise not have been collected.
 
 ## 9. Limitations
 

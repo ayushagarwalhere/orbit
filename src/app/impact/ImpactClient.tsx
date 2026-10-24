@@ -6,7 +6,7 @@ import { DEFAULT_INPUTS, project, type ImpactInputs } from "@/lib/impact.ts";
 
 const SLIDERS: { key: keyof ImpactInputs; label: string; min: number; max: number; step: number; hint: string }[] = [
   { key: "adoption", label: "Share of EU textiles & batteries on Orbit by 2030", min: 0.01, max: 0.25, step: 0.01, hint: "Our scenarios: 1% conservative, 5% moderate, 15% ambitious" },
-  { key: "repairUptake", label: "Tracked textile items that get a life-extending repair", min: 0, max: 0.3, step: 0.01, hint: "Central case 5%, from repair-bonus evidence (France, Austria, Thuringia); 10% is a pilot target (IMPACT.md §5.1)" },
+  { key: "repairUptake", label: "Tracked textile items that get a life-extending repair", min: 0, max: 0.3, step: 0.01, hint: "Central case 5%. Repair-bonus data (France, Austria, Thuringia) suggests even that is a stretch; 10% is a pilot target (IMPACT.md §5.1)" },
   { key: "repairSaving", label: "Footprint saved per repaired item", min: 0, max: 0.2, step: 0.01, hint: "WRAP: up to 20% for +9 months of life; we default to half" },
   { key: "collectionUplift", label: "Extra e-bike pack collection from return rewards", min: 0, max: 0.4, step: 0.01, hint: "US deposits show ~+40 pts on cans; we default to half" },
   { key: "procurementGain", label: "Lower footprint of verified EV cells bought", min: 0, max: 0.2, step: 0.01, hint: "Median to 5th percentile gap is ~20% (Peiseler 2024)" },
@@ -68,8 +68,8 @@ export function ImpactClient() {
           <span className="pb-2 text-lg text-ink-soft">Mt CO₂e / yr</span>
         </div>
         <div className="mt-2 text-sm text-ink-soft">
-          ≈ <b className="text-ink">{(result.cumulativeMt).toFixed(2)} Mt</b> cumulative 2027–2030 (linear ramp) · equal to the annual footprint of about{" "}
-          <b className="text-ink">{Math.round((result.totalMt * 1e9) / 355).toLocaleString("en")}</b> EU residents&apos; textile consumption (355 kg each, EEA)
+          ≈ <b className="text-ink">{(result.cumulativeMt).toFixed(2)} Mt</b> cumulative 2027–2030 (linear ramp) · the yearly figure equals the textile footprint of about{" "}
+          <b className="text-ink">{Math.round((result.totalMt * 1e9) / 355).toLocaleString("en")}</b> EU residents (355 kg each a year, EEA)
         </div>
         <ul className="mt-6 space-y-4">
           {result.levers.map((l) => (

@@ -52,7 +52,7 @@ export function evaluateClaim(db: Db, claim: Claim, product: Product): ClaimResu
       const claimed = Number(claim.value);
       const cf = carbonFootprint(db, product);
       evidence.push(`Ledger-derived footprint ${fmt(cf.total, 2)} kg CO2e (materials ${fmt(cf.materials, 2)}, factory ${fmt(cf.manufacturing, 2)}, transport ${fmt(cf.transport, 3)})`);
-      evidence.push("Materials from lots signed by independent suppliers; transport distance from both parties' registered sites");
+      evidence.push("Materials from lots signed by independent suppliers and recyclers; transport distance from both parties' registered sites");
       const checked = cf.legs.filter((l) => l.check === "consistent").length;
       if (checked) evidence.push(`${checked} transport leg${checked > 1 ? "s" : ""} cross-checked against the recipient's signed arrival time`);
       // A mode the recipient's own receipt disproves is a misstatement in itself, whatever the total.
@@ -149,10 +149,10 @@ export function trustReport(db: Db, product: Product, ledgerReport?: IntegrityRe
   const breakdown: { label: string; points: number }[] = [{ label: "Signed passport on the ledger", points: 35 }];
   if (claims.length) breakdown.push({ label: `Claims backed by signed evidence: ${verified} of ${claims.length}${verifiedWeight < verified ? " (partly self-reported data counts ¾)" : ""}`, points: (verifiedWeight / claims.length) * 45 });
   else breakdown.push({ label: "No claims to verify", points: 0 });
-  breakdown.push({ label: `Lifecycle traced: ${depth} of 5 stages counted`, points: depth * 4 });
+  breakdown.push({ label: `Lifecycle traced: +4 per signed event, up to 5 (${depth} counted)`, points: depth * 4 });
   if (contradicted) breakdown.push({ label: `${contradicted} claim${contradicted > 1 ? "s" : ""} contradicted by the data (−25 each)`, points: -contradicted * 25 });
   if (misdeclaredLegs) breakdown.push({ label: `${misdeclaredLegs} transport leg${misdeclaredLegs > 1 ? "s" : ""} misdeclared (−15 each)`, points: -misdeclaredLegs * 15 });
-  if (highLint) breakdown.push({ label: `${highLint} vague or banned wording issue${highLint > 1 ? "s" : ""} under EU 2024/825 (−5 each)`, points: -highLint * 5 });
+  if (highLint) breakdown.push({ label: `${highLint} phrase${highLint > 1 ? "s" : ""} of a kind banned under EU 2024/825, like "eco-friendly" or "carbon neutral" (−5 each)`, points: -highLint * 5 });
   let score = breakdown.reduce((t, b) => t + b.points, 0);
   if (badEntries || passportTampered) {
     breakdown.push({ label: "Tampering detected: score capped at 10", points: Math.min(score, 10) - score });

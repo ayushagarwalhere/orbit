@@ -21,8 +21,8 @@ const ROLE_HELP: Record<Role, string> = {
   logistics: "Receive shipments addressed to you and forward them. Distance and emissions are computed from signed locations.",
   retailer: "Receive stock and sell to consumers. The sale makes the buyer eligible for the return reward.",
   consumer: "Return products at end of life to earn their return reward as credits.",
-  repairer: "Log repairs on products in use. Owners earn credits for repairing instead of replacing.",
-  recycler: "Recycle returned products into new traceable recycled lots and earn recovery credits.",
+  repairer: "Log repairs on products in use. Owners earn 15 credits for repairing instead of replacing, at most once per product every 30 days.",
+  recycler: "Recycle returned products into new traceable recycled lots and earn 20 credits per kg recovered.",
   auditor: "Independently approve or reject claims. A rejection overrides the brand's claim.",
   protocol: "",
 };
@@ -410,7 +410,7 @@ function ManufactureForm({ data, actorId, busy, run }: { data: ConsoleData; acto
           <input className="field mt-1" type="number" value={deposit} onChange={(e) => setDeposit(e.target.value)} />
         </label>
         <label className="text-xs">
-          Factory emissions (kg CO2e, metered)
+          Factory emissions (kg CO2e, self-reported)
           <input className="field mt-1" type="number" step="0.1" value={co2e} onChange={(e) => setCo2e(e.target.value)} />
         </label>
       </div>

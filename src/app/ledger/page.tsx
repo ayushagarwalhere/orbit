@@ -88,7 +88,7 @@ export default async function LedgerPage() {
               ))}
             </ul>
           )}
-          {r.ok && chainBroken && <div className="mt-2 text-sm font-semibold text-rust">Local checks pass, but the on-chain anchor disagrees: history was rewritten by someone holding the operator key.</div>}
+          {r.ok && chainBroken && <div className="mt-2 text-sm font-semibold text-rust">Local checks pass, but the on-chain anchor disagrees: history was rewritten by someone holding the sequencer key.</div>}
         </div>
 
         <div className={`card p-5 md:col-span-2 ${chainBroken ? "border-rust bg-rust-soft/40" : ""}`}>
@@ -138,7 +138,7 @@ export default async function LedgerPage() {
             <ActionButton action="anchor" className="btn btn-ghost text-xs">
               ⚓ Anchor current root now
             </ActionButton>
-            <span className="text-xs text-muted">Also runs automatically about 45 s after the last write. Each checkpoint stores 32 bytes on-chain, no business data.</span>
+            <span className="text-xs text-muted">New writes are also anchored automatically, at most once every 10 minutes. On-chain, a checkpoint holds only a 32-byte root, the ledger id and its length: no business data.</span>
           </div>
         </div>
       </section>
@@ -147,7 +147,7 @@ export default async function LedgerPage() {
         <section className="card p-5">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="display text-3xl">Tamper simulator</h2>
-            <span className="text-xs text-muted">Try to rewrite history. Then check this page, the affected passport, and the Verify page.</span>
+            <span className="text-xs text-muted">Try to rewrite history, then check this page, the affected passport and the Verify page. Simulations run in memory only and undo themselves after 90 s.</span>
           </div>
           {db.tamper ? (
             <div className="mt-3 flex flex-wrap items-center gap-3">

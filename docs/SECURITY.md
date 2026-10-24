@@ -35,7 +35,7 @@ The browser no longer uses inclusion or consistency proofs from the server. Pass
 | Adversary and attempt | What stops it | Where | Test |
 | --- | --- | --- | --- |
 | Outsider calls the API | A valid signature from a registered key (`401`). | `dispatch.ts` | "API rejects requests not signed by the actor's own key" |
-| Hostile input: bad types, out-of-range values, extra fields, large bodies (B4) | Strict validation; unknown fields rejected; bodies over 16 KB rejected. Nothing is written. | `dispatch.ts`, `app/api/actions/[action]/route.ts` | "API validates every input strictly, so no request can poison the ledger"; "API rejects unknown fields and odd self-registration ids instead of storing them" |
+| Hostile input: bad types, out-of-range values, extra fields, large bodies (B4) | Strict validation; unknown fields rejected; bodies over 16 KB rejected. Nothing is written. | `dispatch.ts`, route (`src/app/api/actions/[action]/route.ts`) | "API validates every input strictly, so no request can poison the ledger"; "API rejects unknown fields and odd self-registration ids instead of storing them" |
 | Self-registering as a privileged role or look-alike id (B4) | Consumers only; id must match `guest-[a-z0-9]{1,32}`; signed by the key it registers; 20 successful registrations per 10 minutes (failed attempts don't count, so they can't lock others out). | `dispatch.ts`, route | "a guest consumer can self-register with a key that never leaves their browser, and only as a consumer" |
 | Actor impersonates another | The signer is the actor; naming another gets `403`. | `dispatch.ts` | "API rejects impersonation, replay and stale requests" |
 | Replay of a captured instruction | Nonce, freshness, ledger binding; reuse is flagged on replay. | `dispatch.ts`, `ledger.ts` | "API rejects impersonation, replay and stale requests"; "a signed instruction cannot be replayed into another ledger (e.g. after a reset)" |
@@ -54,6 +54,7 @@ The browser no longer uses inclusion or consistency proofs from the server. Pass
 | Repair credit farming (B5) | One repair credit per product per 30 days, by ledger time, so replay agrees. | `actions.ts` | "repair credits: at most once per product every 30 days, and replay agrees" |
 | Steady writes postpone anchoring (B6) | A pending auto-anchor timer is no longer reset by new writes. A new ledger (boot or reset) is anchored within seconds. | `chain.ts` | none |
 | Draining the anchor wallet | Auto-anchor at most every 10 min (`ORBIT_ANCHOR_MIN_INTERVAL_MS`); manual anchor refused within 2 min unless 5+ new entries; no-op if nothing changed; balance floor. | `chain.ts`, route | none |
+| Visitor misuses the shared demo's tamper and reset controls | Demo mode only (`403` otherwise). A tamper simulation stays in memory, never reaches disk, pauses writes and blocks anchoring, and auto-restores after 90 s. Reset at most once per 2 min. | `demo.ts`, `store.ts`, route | "tamper simulations stay in memory: disk keeps the genuine ledger and writes pause" |
 | Shipper misdeclares mode | Both parties' signed times rule it out; the leg is counted with the lowest-emission feasible mode. | `domain.ts` | "a misdeclared transport mode is exposed by the recipient's signed arrival time" |
 | Recycler over-claims, supplier invents recycled content, brand over-draws a lot or greenwashes | Recovery ≤ input mass; only recyclers create recycled lots; mass balance; claims checked against other parties' data; auditor rejection overrides. | `actions.ts`, `verify.ts` | "a recycler cannot sign for more material than went in"; "suppliers cannot invent recycled content"; "mass balance prevents overselling a material lot"; "honest product earns an A, greenwashed product is caught" |
 
@@ -67,7 +68,7 @@ Still possible: a recycler inflating yield up to the input mass; a shipper recor
 
 | Key | Holder | Exposure |
 | --- | --- | --- |
-| Actor keys | **Production:** each actor. **Demo:** generated on first run and served to the role-play console. | Demo mode is on unless `NODE_ENV=production`, or with `ORBIT_DEMO_MODE=1`. While on, **the server holds the role-play actors' keys and can sign as them.** |
+| Actor keys | **Production:** each actor. **Demo:** generated on first run and served to the role-play console. | Demo mode is on unless `NODE_ENV=production`; `ORBIT_DEMO_MODE=1` forces it on and `ORBIT_DEMO_MODE=0` off. While on, **the server holds the role-play actors' keys and can sign as them.** |
 | Guest key | Generated and kept in the visitor's browser. | Server sees only the public key. |
 | Sequencer key | Server only. | Can order, delay, refuse and re-sign. Cannot forge instructions, alter derived data unnoticed, or rewrite history anchored under the same ledger id. |
 | Anchor EVM key | Server env, testnet. | The pinned operator address. |
@@ -97,4 +98,4 @@ No private keys are in the repository.
 - **`npm run verify:live`** runs the same verifier from Node against a running node and the real chain. On 24 Oct 2026 all 45 checks passed across the 4 demo passports on Base Sepolia, including the named-witness check.
 - **`npm run test:chain`** ("OrbitAnchor v3: open anchoring, RFC 6962 inclusion and consistency proofs verified on-chain") deploys the contract to a local EVM node and checks its proofs, a second wallet anchoring, and rejection of empty ledgers.
 - The contract source is verified on Sourcify.
-- **Untested:** the 16 KB cap, the rate limits, the balance floor, and the B6 timer fix (they live in the HTTP route and the chain service, which the unit tests don't start).
+- **Untested:** the 16 KB cap, the rate limits (guest registrations, manual anchors, demo resets), the 90 s tamper auto-restore, the balance floor, and the B6 timer fix (they live in the HTTP route, the chain service and timers, which the unit tests don't exercise).

@@ -52,7 +52,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
       const db = getDb();
       const last = [...db.checkpoints].reverse().find((c) => c.onChain && c.ledgerId === db.ledgerId);
       const fresh = db.ledger.length - (last ? last.covers : 0);
-      if (g.__orbitLastManualAnchor && Date.now() - g.__orbitLastManualAnchor < 120_000 && fresh < 5) throw new OrbitError("Anchored recently; new events are anchored automatically within a few minutes", 429);
+      if (g.__orbitLastManualAnchor && Date.now() - g.__orbitLastManualAnchor < 120_000 && fresh < 5) throw new OrbitError("Anchored less than 2 minutes ago; new events are anchored automatically within 10 minutes", 429);
       g.__orbitLastManualAnchor = Date.now();
       return anchorNow();
     }

@@ -1,8 +1,7 @@
-// Exports a product as a self-verifying Digital Product Passport document.
-// Shape follows the UNTP DPP / W3C Verifiable Credential pattern. Every traceability event carries
-// its full signed content plus a Merkle inclusion proof against a root published on-chain, and
-// the actors' public keys come from their own registration entries (also proven). A verifier needs
-// nothing from Orbit's server except this document; it reads the root from the chain itself.
+// Exports a product as a Digital Product Passport document (UNTP DPP data model). Every event
+// carries its full signed content plus an RFC 6962 inclusion proof against an anchored root. The
+// browser verifier doesn't take the document's word for anything: it downloads the ledger, checks
+// it against the on-chain root, and compares the passport with it (see passport-verify.ts).
 import { PROTOCOL_ID } from "./auth.ts";
 import { attestationsOf, avoidedCo2e, carbonFootprint, custody, getActor, materialLines, passportCore, passportHash, productEntries, productMass, provenRecycledPct } from "./domain.ts";
 import { entryBody, ledgerTree, verifyLedger } from "./ledger.ts";

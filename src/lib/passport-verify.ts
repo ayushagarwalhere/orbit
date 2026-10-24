@@ -93,6 +93,7 @@ export async function verifyPassport(doc: any, opts: { trusted?: TrustedDeployme
 
   // 3. Consistent with every trusted checkpoint for this ledger (roots computed locally, no proofs needed).
   let witnesses = 0;
+  const witnessNames = new Set<string>();
   let others = 0;
   let ignored = 0;
   let conflict: string | null = null;
@@ -106,7 +107,10 @@ export async function verifyPassport(doc: any, opts: { trusted?: TrustedDeployme
       }
       if (c.id === cp.id) continue;
       others++;
-      if (role.role === "witness") witnesses++;
+      if (role.role === "witness") {
+        witnesses++;
+        witnessNames.add(role.name);
+      }
       const ok = c.ledgerLength <= ledger.length && tree.root(c.ledgerLength) === c.merkleRoot;
       if (!ok && !conflict) conflict = `checkpoint #${c.id} by ${role.name} (${c.ledgerLength} entries) does not match this ledger`;
     }
@@ -121,7 +125,7 @@ export async function verifyPassport(doc: any, opts: { trusted?: TrustedDeployme
   push({
     label: "Witnessed",
     ok: witnesses > 0 ? true : "warn",
-    detail: witnesses > 0 ? `${witnesses} checkpoint${witnesses === 1 ? "" : "s"} by named witnesses` : "No named witness has anchored this ledger yet, so a rebuilt ledger couldn't be told apart from the original",
+    detail: witnesses > 0 ? `${witnesses} checkpoint${witnesses === 1 ? "" : "s"} by named witnesses: ${[...witnessNames].join(", ")}` : "No named witness has anchored this ledger yet, so a rebuilt ledger couldn't be told apart from the original",
   });
 
   // 4. One ledger: genesis names it, every instruction is signed for it, keys only from proven registrations.

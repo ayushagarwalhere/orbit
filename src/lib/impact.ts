@@ -12,7 +12,7 @@ export interface ImpactInputs {
 
 export const DEFAULT_INPUTS: ImpactInputs = {
   adoption: 0.05,
-  repairUptake: 0.05, // France/Austria repair bonuses suggest 5% is defensible; 10% is a pilot target (IMPACT.md §5.1)
+  repairUptake: 0.05, // central case; repair-bonus data suggests even 5% is a stretch; 10% is a pilot target (IMPACT.md §5.1)
   repairSaving: 0.1,
   collectionUplift: 0.2,
   procurementGain: 0.1,

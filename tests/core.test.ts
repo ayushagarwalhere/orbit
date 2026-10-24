@@ -392,7 +392,7 @@ test("in-app impact model reproduces the written assessment (docs/IMPACT.md §4)
   assert.ok(Math.abs(project({ ...DEFAULT_INPUTS, adoption: 0.01 }).totalMt - 0.0169) < 0.001);
   assert.ok(Math.abs(project({ ...DEFAULT_INPUTS, adoption: 0.15 }).totalMt - 0.253) < 0.005);
   assert.ok(Math.abs(moderate.cumulativeMt - 0.211) < 0.005);
-  // 10% repair uptake (the pilot target) reproduces the sensitivity row: s x 2.49 Mt.
+  // 10% repair uptake (the pilot target) reproduces the sensitivity row: s x 2.48 Mt (0.124 at 5%).
   assert.ok(Math.abs(project({ ...DEFAULT_INPUTS, repairUptake: 0.1 }).totalMt - 0.124) < 0.001);
 });
 

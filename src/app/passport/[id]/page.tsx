@@ -311,7 +311,7 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
             />
           </div>
           <dl className="mt-3 space-y-1 text-sm">
-            <Row k="Materials · signed by suppliers" v={`${fmt(cf.materials, 2)} kg`} dot="#c8f169" />
+            <Row k="Materials · from lots signed by suppliers & recyclers"v={`${fmt(cf.materials, 2)} kg`} dot="#c8f169" />
             <Row k="Factory & repair · self-reported" v={`${fmt(cf.manufacturing, 2)} kg`} dot="#f4be4f" />
             <Row k={`Transport · ${cf.legs.length} leg${cf.legs.length === 1 ? "" : "s"}, from registered sites`} v={`${fmt(cf.transport, 3)} kg`} dot="#7cc4ff" />
           </dl>
@@ -394,7 +394,7 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
       {/* Timeline */}
       <section className="card p-5">
         <h2 className="display text-3xl">Signed event trail</h2>
-        <p className="text-sm text-muted">Each entry is hashed with the previous one and signed by the actor who recorded it.</p>
+        <p className="text-sm text-muted">Each entry is chained to the one before it by its hash. The party who recorded it signed the instruction behind it, and Orbit&apos;s sequencer signed the entry.</p>
         <ol className="mt-4 space-y-0">
           {entries.map((e) => {
             const a = keyOf.get(e.actorId);

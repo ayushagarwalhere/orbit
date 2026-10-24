@@ -34,14 +34,7 @@ Ask permission before taking notes or recording. Don't record names unless they 
 - "If you could change one thing, what would it be?"
 
 ## Record each session
-
-| # | Profile | Date | Task 1: named the contradiction? | Task 2: understood the score? | Task 4: finished the return? | Trust 1–5 | Most confusing moment | Best quote (exact words) | What we changed because of it |
-|---|---|---|---|---|---|---|---|---|---|
-| 1 | | | | | | | | | |
-| 2 | | | | | | | | | |
-| 3 | | | | | | | | | |
-| 4 | | | | | | | | | |
-| 5 | | | | | | | | | |
+For each tester, write down: their profile, whether they named a contradiction (task 1), understood the score (task 2) and finished the return (task 4), their trust rating, their most confusing moment, and their best quote **in their exact words**. Add results to this file only after the sessions have happened.
 
 ## Afterwards
 - Pick the **3 quotes** that best show what worked or what didn't. Include at least one critical quote.

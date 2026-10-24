@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 const PILLARS = [
   { title: "Lifecycle tracking", body: "Every handover is an instruction signed by that party's own key, hash-chained to the one before it.", Icon: Link2 },
-  { title: "Digital product passports", body: "Scan a QR code for materials, origin, footprint and custody. Exports as a self-verifying credential.", Icon: ScanLine },
+  { title: "Digital product passports", body: "Scan a QR code for materials, origin, footprint and custody. Exports as a machine-readable passport anyone can check against the public chain.", Icon: ScanLine },
   { title: "Recycling traceability", body: "Recovered material becomes new lots linked to their source product. Recycled content is proven by mass balance.", Icon: Recycle },
   { title: "Circular incentives", body: "Return rewards, repair bonuses and recovery credits are minted only against a matching signed event.", Icon: Coins },
 ];
@@ -99,7 +99,7 @@ export default function Home() {
                 <span className="pb-3 text-xl text-ink-soft">kg CO₂e</span>
               </div>
               <p className="mt-4 max-w-md text-sm text-ink-soft">
-                {fmt(s.recoveredKg, 2)} kg of material recovered and fed back into new products, each lot traceable to the passport it came from.
+                {fmt(s.recoveredKg, 2)} kg of material recovered into new recycled lots, each traceable to the passport it came from.
               </p>
             </div>
           </Spotlight>
@@ -160,7 +160,7 @@ export default function Home() {
             <h2 className="display text-5xl">
               Product <em className="text-accent">passports</em>
             </h2>
-            <p className="max-w-sm text-sm text-muted">Trust grade = share of claims backed by independent evidence, minus contradictions and banned wording.</p>
+            <p className="max-w-sm text-sm text-muted">Trust grade: points for claims backed by signed evidence and a traced lifecycle, minus contradicted claims, misdeclared transport and banned wording.</p>
           </div>
         </Reveal>
         <div className="grid gap-4 md:grid-cols-2">

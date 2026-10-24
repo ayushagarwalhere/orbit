@@ -9,7 +9,7 @@ export default function VerifyPage() {
   return (
     <div className="space-y-6">
       <PageHeader kicker="Don't trust, verify" title={<>Independent <em className="text-accent">verifier</em></>}>
-          You don&apos;t have to trust Orbit&apos;s server. Load any passport and your browser re-checks every hash, every signature and every Merkle proof, then compares the root against the blockchain directly. Edit the JSON to watch it fail.
+          You don&apos;t have to trust Orbit&apos;s server. Load any passport and your browser downloads the whole ledger, re-hashes it, and checks that its root equals the one published on the blockchain. It then re-checks every signature and works out every verdict and the grade again by itself. Edit the JSON to watch it fail.
       </PageHeader>
       <VerifyClient products={db.products.map((p) => ({ id: p.id, name: p.name, emoji: p.emoji }))} />
     </div>

@@ -37,7 +37,7 @@ export default function RewardsPage() {
   return (
     <div className="space-y-6">
       <PageHeader kicker="Circular economy incentives" title={<>Circularity <em className="text-accent">rewards</em></>}>
-          Credits are minted by the protocol, not by brands, and only against a matching signed event: a repair, a return or a verified recovery of material. Each mint references the hash of the event that triggered it and sits inside the Merkle root anchored on-chain, so the total supply is publicly auditable.
+          Credits are minted by the protocol, not by brands, and only against a matching signed event: a repair, a return or a recycler&apos;s signed record of recovered material. Each mint references the hash of the event that triggered it and sits inside the Merkle root anchored on-chain, so the total supply is publicly auditable.
       </PageHeader>
 
       <div className="card grid gap-4 p-5 text-sm md:grid-cols-3">
