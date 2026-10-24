@@ -2,7 +2,7 @@
 //   node scripts/bench.ts 10000
 import "../src/lib/crypto-node.ts";
 import { PROTOCOL_ID, newRequest, signRequest } from "../src/lib/auth.ts";
-import { merkleProof, merkleRoot } from "../src/lib/crypto.ts";
+import { MerkleTree, merkleRoot } from "../src/lib/crypto.ts";
 import { applySigned } from "../src/lib/dispatch.ts";
 import { generateKeystore } from "../src/lib/keys.ts";
 import { verifyLedger } from "../src/lib/ledger.ts";
@@ -32,7 +32,7 @@ const leaves = db.ledger.map((e) => e.hash);
 const t3 = performance.now();
 merkleRoot(leaves);
 const tRoot = performance.now() - t3;
-const proof = merkleProof(leaves, Math.floor(leaves.length / 2));
+const proof = new MerkleTree(leaves).inclusionProof(Math.floor(leaves.length / 2));
 
 const ms = (x: number) => `${x.toFixed(1)} ms`;
 console.log(`entries                         ${db.ledger.length}`);

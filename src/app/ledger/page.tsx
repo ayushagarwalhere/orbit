@@ -31,6 +31,9 @@ export default async function LedgerPage() {
   const anchors = await checkAnchors(db);
   const r = verifyLedger(db);
   const chainBroken = anchors.some((a) => a.status === "mismatch");
+  const ignored = anchors.filter((a) => a.status === "ignored").length;
+  // Mismatches first, then the most recent trusted checkpoints.
+  const shown = [...anchors.filter((a) => a.status !== "ignored")].sort((x, y) => (x.status === "mismatch" ? 1 : 0) - (y.status === "mismatch" ? 1 : 0)).slice(-6);
   const actors = new Map(db.actors.map((a) => [a.id, a]));
   const products = new Map(db.products.map((p) => [p.id, p]));
   const claims = new Map(db.claims.map((c) => [c.id, c]));
@@ -99,9 +102,13 @@ export default async function LedgerPage() {
               <span className="rounded-full bg-amber-soft px-2 py-0.5 text-xs font-semibold text-amber">No chain configured: checkpoints are local only</span>
             )}
           </div>
+          <div className="mt-2 text-xs text-muted">
+            All {anchors.length} checkpoint{anchors.length === 1 ? "" : "s"} for this ledger re-checked against the chain
+            {ignored ? ` · ${ignored} by unidentified submitters ignored (anyone can anchor; only the operator and named witnesses count)` : ""}
+          </div>
           <ul className="mt-3 space-y-2 text-sm">
             {anchors.length === 0 && <li className="text-muted">No checkpoints yet.</li>}
-            {anchors
+            {shown
               .slice()
               .reverse()
               .map((a) => (
@@ -109,7 +116,7 @@ export default async function LedgerPage() {
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs font-bold ${a.status === "match" ? "bg-leaf-soft text-leaf" : a.status === "mismatch" ? "bg-rust text-on-accent" : "bg-amber-soft text-amber"}`}
                   >
-                    {a.status === "match" ? "✓ ON-CHAIN MATCH" : a.status === "mismatch" ? "✕ ON-CHAIN MISMATCH" : a.status === "local" ? "LOCAL ONLY" : "UNREACHABLE"}
+                    {a.status === "match" ? "✓ ON-CHAIN MATCH" : a.status === "mismatch" ? "✕ ON-CHAIN MISMATCH" : a.status === "local" ? "LOCAL ONLY" : a.status === "ignored" ? "IGNORED" : "UNREACHABLE"}
                   </span>
                   <span className={`min-w-0 flex-1 ${a.status === "mismatch" ? "font-semibold text-rust" : "text-ink-soft"}`}>
                     {a.detail}

@@ -30,8 +30,8 @@ export async function readCheckpoint(n: Network, address: string, id: number, rp
   return { id, ledgerId: ledgerId.slice(2), merkleRoot: root.slice(2), ledgerLength: Number(len), timestamp: Number(ts), submitter };
 }
 
-/** The most recent checkpoints anyone has published for one ledger, newest last. */
-export async function readLedgerCheckpoints(n: Network, address: string, ledgerId: string, limit = 6, rpcOverride?: string): Promise<{ operator: string; checkpoints: OnChainCheckpoint[] }> {
+/** Every checkpoint anyone has published for one ledger (oldest first), read in pages of 200. */
+export async function readLedgerCheckpoints(n: Network, address: string, ledgerId: string, rpcOverride?: string): Promise<{ operator: string; checkpoints: OnChainCheckpoint[] }> {
   const c = client(n, rpcOverride);
   const addr = address as `0x${string}`;
   const lid = `0x${ledgerId}` as `0x${string}`;
@@ -39,18 +39,12 @@ export async function readLedgerCheckpoints(n: Network, address: string, ledgerI
     c.readContract({ address: addr, abi: ANCHOR_ABI, functionName: "countFor", args: [lid] }),
     c.readContract({ address: addr, abi: ANCHOR_ABI, functionName: "operator" }),
   ]);
-  const n0 = Math.max(0, Number(total) - limit);
-  const out = await Promise.all(
-    Array.from({ length: Number(total) - n0 }, (_, k) =>
-      c.readContract({ address: addr, abi: ANCHOR_ABI, functionName: "checkpointFor", args: [lid, BigInt(n0 + k)] }).then(([id, cp]) => ({
-        id: Number(id),
-        ledgerId: cp.ledgerId.slice(2),
-        merkleRoot: cp.merkleRoot.slice(2),
-        ledgerLength: Number(cp.ledgerLength),
-        timestamp: Number(cp.timestamp),
-        submitter: cp.submitter,
-      })),
-    ),
-  );
+  const out: OnChainCheckpoint[] = [];
+  for (let from = 0; from < Number(total); from += 200) {
+    const [ids, cps] = await c.readContract({ address: addr, abi: ANCHOR_ABI, functionName: "checkpointsFor", args: [lid, BigInt(from), 200n] });
+    cps.forEach((cp, i) =>
+      out.push({ id: Number(ids[i]), ledgerId: cp.ledgerId.slice(2), merkleRoot: cp.merkleRoot.slice(2), ledgerLength: Number(cp.ledgerLength), timestamp: Number(cp.timestamp), submitter: cp.submitter }),
+    );
+  }
   return { operator, checkpoints: out };
 }

@@ -1,5 +1,5 @@
 import { PROTOCOL_ID, authMismatch, requestHash, verifyRequest } from "./auth.ts";
-import { IncrementalMerkle, hashObject, merkleRoot, signHash, verifySignature } from "./crypto.ts";
+import { MerkleTree, hashObject, signHash, verifySignature } from "./crypto.ts";
 import { newReplayState, replayInto, type ReplayState } from "./replay.ts";
 import type { Db, EntryType, LedgerEntry, Place, SignedRequest } from "./types.ts";
 
@@ -114,26 +114,28 @@ export function registeredKeys(ledger: LedgerEntry[]): Map<string, string> {
 }
 
 /**
- * Root over entries 0..covers-1. Cached by the last entry's hash: thanks to the hash chain that hash
- * commits to the whole prefix, so a cached root can never be served for different history.
+ * The RFC 6962 tree over a ledger's entry hashes, kept up to date incrementally. Any edit to history
+ * (a different head, a shorter ledger, a demo simulation) rebuilds it.
  */
-const prefixCache = new Map<string, string>();
-export function prefixRoot(db: Db, covers: number): string {
-  if (covers <= 0) return merkleRoot([]);
-  const key = `${covers}:${db.ledger[covers - 1]?.hash}`;
-  let root = prefixCache.get(key);
-  if (!root) {
-    root = merkleRoot(db.ledger.slice(0, covers).map((e) => e.hash));
-    if (prefixCache.size > 512) prefixCache.clear();
-    prefixCache.set(key, root);
+const trees = new WeakMap<LedgerEntry[], { tree: MerkleTree; head?: string; key: string }>();
+export function ledgerTree(db: Db): MerkleTree {
+  const key = db.tamper ? `${db.tamper.mode}${db.tamper.index}${db.tamper.at}` : "";
+  let c = trees.get(db.ledger);
+  const n = c?.tree.size ?? 0;
+  if (!c || c.key !== key || n > db.ledger.length || (n > 0 && db.ledger[n - 1].hash !== c.head)) {
+    c = { tree: new MerkleTree(), key };
+    trees.set(db.ledger, c);
   }
-  return root;
+  for (let i = c.tree.size; i < db.ledger.length; i++) c.tree.append(db.ledger[i].hash);
+  c.head = db.ledger.at(-1)?.hash;
+  return c.tree;
 }
 
-/**
- * Full independent check: every hash, every link, the sequencer's signature, the actor's
- * signed instruction (and that the entry matches it), replay, and optional anchored roots.
- */
+/** Root over entries 0..covers-1 (O(log² n) from the cached tree). */
+export function prefixRoot(db: Db, covers: number): string {
+  return ledgerTree(db).root(Math.max(0, Math.min(covers, db.ledger.length)));
+}
+
 /**
  * Incremental verification state. The ledger is append-only, so once entries 0..n-1 are verified
  * only new entries need checking: O(new entries) per call instead of O(ledger). Any edit to
@@ -148,14 +150,13 @@ interface VerifyState {
   lastRequest: string | null;
   issues: IntegrityReport["issues"];
   bad: Set<number>;
-  tree: IncrementalMerkle;
   replay: ReplayState;
 }
 
 const states = new WeakMap<Db, VerifyState>();
 
 function freshState(tamperKey: string): VerifyState {
-  return { n: 0, head: undefined, tamperKey, keys: new Map(), seenRequests: new Set(), lastRequest: null, issues: [], bad: new Set(), tree: new IncrementalMerkle(), replay: newReplayState() };
+  return { n: 0, head: undefined, tamperKey, keys: new Map(), seenRequests: new Set(), lastRequest: null, issues: [], bad: new Set(), replay: newReplayState() };
 }
 
 function checkEntry(s: VerifyState, ledger: LedgerEntry[], i: number) {
@@ -205,10 +206,7 @@ export function verifyLedger(db: Db, anchors: AnchorRef[] = []): IntegrityReport
     s = freshState(tamperKey);
     states.set(db, s);
   }
-  for (let i = s.n; i < ledger.length; i++) {
-    checkEntry(s, ledger, i);
-    s.tree.append(ledger[i].hash);
-  }
+  for (let i = s.n; i < ledger.length; i++) checkEntry(s, ledger, i);
   s.n = ledger.length;
   s.head = ledger.at(-1)?.hash;
   // Re-run every instruction through the rules and compare the derived entries (incremental).
@@ -234,7 +232,7 @@ export function verifyLedger(db: Db, anchors: AnchorRef[] = []): IntegrityReport
       bad.add(at);
     }
   }
-  return { ok: issues.length === 0, checked: ledger.length, issues, badIndexes: bad, merkleRoot: s.tree.root(), keys: s.keys };
+  return { ok: issues.length === 0, checked: ledger.length, issues, badIndexes: bad, merkleRoot: ledgerTree(db).root(), keys: s.keys };
 }
 
 export function entriesFor(db: Db, subjectId: string): LedgerEntry[] {

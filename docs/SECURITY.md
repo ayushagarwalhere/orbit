@@ -83,4 +83,4 @@ No private keys are in the repository. Earlier prototype keys derived from publi
   - The witness verified the ledger and anchored from its own wallet.
   - The operator then rewrote and re-signed history.
   - Both the operator's and the witness's on-chain roots flagged the mismatch, and the witness refused to anchor the forged history.
-- **On Base Sepolia:** the [live contract](https://sepolia.basescan.org/address/0x8d451a63bf860baf08bf5f74bcf67f42dea4e1a6) holds checkpoints from Orbit's wallet and from an independent witness wallet, and all of them match the ledger.
+- **On Base Sepolia:** the [live contract](https://sepolia.basescan.org/address/0x8a9bd10b411a5509916dbe812fd803611c2f9151) holds checkpoints from Orbit's wallet and from an independent witness wallet, and all of them match the ledger.

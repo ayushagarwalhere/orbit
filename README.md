@@ -4,7 +4,7 @@
 
 Built for the **IEEE ClimateChain Global Hackathon**, track **Sustainable Supply Chains**: *increase transparency and accountability in supply chains, where ethical sourcing and sustainability claims are hard to verify.*
 
-⛓️ **Live contract:** [`OrbitAnchor` v2 on Base Sepolia · 0x8d45…e1a6](https://sepolia.basescan.org/address/0x8d451a63bf860baf08bf5f74bcf67f42dea4e1a6). Open to anyone. Its history already shows checkpoints from two independent parties: Orbit's operator wallet and a witness wallet.
+⛓️ **Live contract:** [`OrbitAnchor` v2 on Base Sepolia · 0x8a9b…9151](https://sepolia.basescan.org/address/0x8a9bd10b411a5509916dbe812fd803611c2f9151). Open to anyone. Its history already shows checkpoints from two independent parties: Orbit's operator wallet and a witness wallet.
 
 📄 [Problem statement](docs/PROBLEM_STATEMENT.md) · 🌍 [Climate impact assessment & projections](docs/IMPACT.md) · 🔐 [Security & data integrity assessment](docs/SECURITY.md) · 📝 [Devpost write-up](docs/DEVPOST.md)
 

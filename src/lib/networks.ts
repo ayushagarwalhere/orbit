@@ -17,13 +17,38 @@ export const NETWORKS: Network[] = [
 ];
 
 /**
- * Orbit's published OrbitAnchor deployments. The verifier reads roots ONLY from these addresses,
- * never from an address supplied inside a passport, so a forged passport can't point it at a
- * contract its forger controls.
+ * Trust roots, pinned in code (the browser verifier never takes them from a passport or the server):
+ *  - contract: Orbit's published OrbitAnchor deployment
+ *  - operator: Orbit's anchoring wallet; a passport's checkpoint must be submitted by it
+ *  - witnesses: named parties whose independent roots must also be consistent with history.
+ * Anyone else can anchor too (the contract is open), but unknown submitters are informational only,
+ * so a junk anchor can neither forge a passport nor grief verification.
  */
-export const OFFICIAL_ANCHORS: Record<number, string> = {
-  84532: "0x8d451a63bf860baf08bf5f74bcf67f42dea4e1a6", // Base Sepolia
+export interface TrustedDeployment {
+  contract: string;
+  operator: string;
+  witnesses: { address: string; name: string }[];
+}
+export const OFFICIAL_ANCHORS: Record<number, TrustedDeployment> = {
+  84532: {
+    contract: "0x8a9bd10b411a5509916dbe812fd803611c2f9151", // Base Sepolia, OrbitAnchor v3 (source verified on Sourcify)
+    operator: "0xC1eE3bE7FD0e5f10Db6eAbe0967BE354ec8054e6",
+    witnesses: [{ address: "0x1eb7f4057C3689F790D3Bc69C69c9F1Fe58770Cd", name: "Demo witness (a second wallet run by the Orbit team to show the role)" }],
+  },
 };
+
+export type SubmitterRole = "operator" | "witness" | "unidentified";
+export function submitterRole(chainId: number | undefined, submitter: string, operatorFallback?: string): { role: SubmitterRole; name: string } {
+  return classifySubmitter(chainId !== undefined ? OFFICIAL_ANCHORS[chainId] : undefined, submitter, operatorFallback);
+}
+
+export function classifySubmitter(t: TrustedDeployment | undefined, submitter: string, operatorFallback?: string): { role: SubmitterRole; name: string } {
+  const a = submitter.toLowerCase();
+  if ((t?.operator ?? operatorFallback)?.toLowerCase() === a) return { role: "operator", name: "Orbit operator" };
+  const w = t?.witnesses.find((x) => x.address.toLowerCase() === a);
+  if (w) return { role: "witness", name: w.name };
+  return { role: "unidentified", name: `unidentified ${submitter.slice(0, 6)}…${submitter.slice(-4)}` };
+}
 
 export function networkByKey(key: string): Network | undefined {
   return NETWORKS.find((n) => n.key === key);
@@ -66,16 +91,40 @@ export const ANCHOR_ABI = [
   { type: "function", name: "countFor", stateMutability: "view", inputs: [{ name: "ledgerId", type: "bytes32" }], outputs: [{ name: "", type: "uint256" }] },
   {
     type: "function",
-    name: "checkpointFor",
+    name: "checkpointsFor",
     stateMutability: "view",
     inputs: [
       { name: "ledgerId", type: "bytes32" },
-      { name: "i", type: "uint256" },
+      { name: "from", type: "uint256" },
+      { name: "max", type: "uint256" },
     ],
     outputs: [
-      { name: "id", type: "uint256" },
-      { name: "cp", type: "tuple", components: CHECKPOINT_TUPLE },
+      { name: "ids", type: "uint256[]" },
+      { name: "cps", type: "tuple[]", components: CHECKPOINT_TUPLE },
     ],
+  },
+  {
+    type: "function",
+    name: "verifyInclusion",
+    stateMutability: "view",
+    inputs: [
+      { name: "id", type: "uint256" },
+      { name: "entryHash", type: "bytes32" },
+      { name: "index", type: "uint256" },
+      { name: "path", type: "bytes32[]" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "verifyConsistency",
+    stateMutability: "view",
+    inputs: [
+      { name: "older", type: "uint256" },
+      { name: "newer", type: "uint256" },
+      { name: "proof", type: "bytes32[]" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
   },
   { type: "function", name: "operator", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "address" }] },
   {

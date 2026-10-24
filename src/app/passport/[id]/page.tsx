@@ -35,8 +35,8 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
   const qr = await QRCode.toString(url, { type: "svg", margin: 1, color: { dark: "#0e1613", light: "#f3f1ea" } });
 
   const integrity = verifyLedger(db);
-  const anchorChecks = await checkAnchors(db, 4);
-  // Show a mismatch from any party first; otherwise the most recent checkpoint.
+  const anchorChecks = (await checkAnchors(db)).filter((a) => a.status !== "ignored");
+  // Show a mismatch from any trusted party first; otherwise the most recent trusted checkpoint.
   const anchor = anchorChecks.find((a) => a.status === "mismatch") ?? anchorChecks.at(-1);
   const trust = trustReport(db, p, integrity);
   const brand = getActor(db, p.brandId);

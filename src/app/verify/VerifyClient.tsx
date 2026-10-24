@@ -2,150 +2,44 @@
 
 import { useState } from "react";
 import { readCheckpoint, readLedgerCheckpoints } from "@/lib/anchor-read.ts";
-import { PROTOCOL_ID, authMismatch, verifyRequest } from "@/lib/auth.ts";
-import { hashObject, rootFromProof, verifySignature, type ProofStep } from "@/lib/crypto.ts";
-import { hashEntry } from "@/lib/ledger.ts";
-import { OFFICIAL_ANCHORS, addressUrl, networkById, txUrl } from "@/lib/networks.ts";
-import type { LedgerEntry } from "@/lib/types.ts";
-
-interface Result {
-  label: string;
-  ok: boolean | "warn";
-  detail: string;
-  link?: string;
-}
-
-type ProvenEntry = LedgerEntry & { merkleProof: ProofStep[] | null };
+import { OFFICIAL_ANCHORS, networkById, txUrl } from "@/lib/networks.ts";
+import { verifyPassport, type Check, type ChainReader } from "@/lib/passport-verify.ts";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-async function verifyDoc(doc: any, onProgress: (r: Result[]) => void): Promise<Result[]> {
-  const out: Result[] = [];
-  const push = (r: Result) => {
-    out.push(r);
-    onProgress([...out]);
+function chainFor(doc: any): { reader?: ChainReader; chainId?: number } {
+  const chainId = doc?.proof?.anchor?.chainId ? Number(doc.proof.anchor.chainId) : undefined;
+  const network = chainId ? networkById(chainId) : undefined;
+  const trusted = chainId ? OFFICIAL_ANCHORS[chainId] : undefined;
+  if (!network || !trusted) return { chainId };
+  // Public RPC chosen here; contract address pinned in code. Consistency proofs come from Orbit's
+  // server, but are checked against roots read straight from the chain, so they can't be faked.
+  return {
+    chainId,
+    reader: {
+      checkpoint: (id) => readCheckpoint(network, trusted.contract, id),
+      ledgerCheckpoints: (ledgerId) => readLedgerCheckpoints(network, trusted.contract, ledgerId),
+      consistency: async (m, n) => {
+        const r = await fetch(`/api/proof?m=${m}&n=${n}`);
+        if (!r.ok) throw new Error("no proof");
+        return (await r.json()).proof as string[];
+      },
+    },
   };
-  const subj = doc?.credentialSubject;
-  if (!subj) return [{ label: "Document", ok: false, detail: "Not an Orbit passport (missing credentialSubject)" }];
-  const anchor = doc.proof?.anchor;
-  const regs: ProvenEntry[] = subj.actorRegistrations ?? [];
-  const events: ProvenEntry[] = subj.traceabilityEvents ?? [];
-
-  // 1. Keys: only from registration entries, each self-signed (proof of key possession).
-  const keys = new Map<string, string>();
-  for (const e of regs) {
-    const pk = String(e.data?.publicKey);
-    const ok = hashEntry(e) === e.hash && !!e.auth && verifyRequest(e.auth, pk) && !authMismatch(e);
-    if (ok) keys.set(e.subjectId, pk);
-    push({ label: `Key of ${e.subjectId}`, ok, detail: ok ? `registered at #${e.index}, self-signed · ${pk.slice(0, 16)}…` : "registration entry is invalid" });
-  }
-  const seq = keys.get(PROTOCOL_ID);
-
-  // 2. Passport record is the one committed at manufacture.
-  const recomputed = hashObject(subj.passportCore);
-  const made = events.find((e) => e.type === "MANUFACTURED");
-  push({ label: "Passport record", ok: !!made && recomputed === subj.passportHash && made.data?.passportHash === recomputed, detail: `sha256(bill of materials…) = ${recomputed.slice(0, 16)}…, committed by MANUFACTURED #${made?.index}` });
-
-  // 3. Every event: content hash, sequencer signature, actor's signed instruction and its binding.
-  for (const e of events) {
-    const hashOk = hashEntry(e) === e.hash;
-    const seqOk = !!seq && verifySignature(e.hash, e.signature, seq);
-    const isProtocol = e.actorId === PROTOCOL_ID;
-    const actorKey = keys.get(e.actorId);
-    const actorOk = isProtocol || (!!actorKey && !!e.auth && verifyRequest(e.auth, actorKey));
-    const mismatch = isProtocol ? null : authMismatch(e);
-    const ok = hashOk && seqOk && actorOk && !mismatch;
-    push({
-      label: `#${e.index} ${e.type}`,
-      ok,
-      detail: !hashOk
-        ? "content does not match its hash"
-        : !seqOk
-          ? "sequencer signature invalid"
-          : !actorOk
-            ? `not signed by ${e.actorId}'s registered key`
-            : mismatch
-              ? `differs from what ${e.actorId} signed: ${mismatch}`
-              : isProtocol
-                ? "protocol entry, sequencer-signed"
-                : `${e.actorId} signed this instruction · ${e.auth!.signature.slice(0, 14)}…`,
-    });
-  }
-
-  // 4. Merkle inclusion of every entry in the anchored root.
-  if (!anchor) {
-    push({ label: "Anchor", ok: "warn", detail: "No checkpoint yet" });
-    return out;
-  }
-  const all = [...regs, ...events];
-  const covered = all.filter((e) => e.merkleProof);
-  const proofsOk = covered.every((e) => rootFromProof(e.hash, e.merkleProof!) === anchor.merkleRoot);
-  push({ label: "Merkle inclusion", ok: proofsOk, detail: `${covered.length} entries prove inclusion in root ${String(anchor.merkleRoot).slice(0, 16)}…` });
-  const pending = all.length - covered.length;
-  if (pending) push({ label: "Not yet anchored", ok: "warn", detail: `${pending} newer entr${pending === 1 ? "y is" : "ies are"} after the latest checkpoint` });
-
-  // 5. The root itself, read straight from the blockchain via a public RPC chosen here, not by Orbit.
-  const network = anchor.chainId ? networkById(Number(anchor.chainId)) : undefined;
-  if (!anchor.onChain || !network || !anchor.contract) {
-    push({ label: "On-chain root", ok: "warn", detail: "Checkpoint is local only; it cannot be independently timestamped" });
-    return out;
-  }
-  // Read only from Orbit's published contract, never from an address the passport supplies.
-  const official = OFFICIAL_ANCHORS[network.chainId];
-  if (official && official.toLowerCase() !== String(anchor.contract).toLowerCase()) {
-    push({ label: "Anchor contract", ok: false, detail: `Passport points to ${anchor.contract}, not Orbit's published OrbitAnchor ${official}` });
-    return out;
-  }
-  const contract = official ?? String(anchor.contract);
-  push({
-    label: "Anchor contract",
-    ok: official ? true : "warn",
-    detail: official ? `Orbit's published OrbitAnchor on ${network.name}: ${official}` : `No published Orbit contract on ${network.name}; using the passport's address`,
-    link: addressUrl(network, contract),
-  });
-  try {
-    const cp = await readCheckpoint(network, contract, Number(anchor.checkpointId));
-    const ok = cp.merkleRoot === anchor.merkleRoot && cp.ledgerLength === anchor.covers && (!anchor.ledgerId || cp.ledgerId === anchor.ledgerId);
-    push({
-      label: `On-chain root (${network.name})`,
-      ok,
-      detail: ok
-        ? `OrbitAnchor checkpoint #${anchor.checkpointId} = ${cp.merkleRoot.slice(0, 16)}…, anchored ${new Date(cp.timestamp * 1000).toUTCString()}`
-        : `Chain holds ${cp.merkleRoot.slice(0, 16)}… (${cp.ledgerLength} entries); passport claims ${String(anchor.merkleRoot).slice(0, 16)}…`,
-      link: txUrl(network, anchor.txHash ?? undefined),
-    });
-    // Other parties may have anchored this ledger too. Their roots are public, so anyone can compare.
-    if (anchor.ledgerId) {
-      const { operator, checkpoints } = await readLedgerCheckpoints(network, contract, anchor.ledgerId, 20);
-      const witnesses = checkpoints.filter((c) => c.submitter.toLowerCase() !== operator.toLowerCase());
-      const sameLength = witnesses.filter((w) => w.ledgerLength === anchor.covers);
-      const conflict = sameLength.find((w) => w.merkleRoot !== anchor.merkleRoot);
-      push({
-        label: "Independent witnesses",
-        ok: conflict ? false : witnesses.length ? true : "warn",
-        detail: conflict
-          ? `Witness ${conflict.submitter} anchored a DIFFERENT root for the same ${anchor.covers} entries`
-          : witnesses.length
-            ? `${witnesses.length} checkpoint${witnesses.length > 1 ? "s" : ""} by ${new Set(witnesses.map((w) => w.submitter)).size} party(ies) other than Orbit${sameLength.length ? `; ${sameLength.length} independently confirm this exact root` : ""}`
-            : "No independent witness has anchored this ledger yet (anyone can, it's an open contract)",
-      });
-    }
-  } catch (e) {
-    push({ label: "On-chain root", ok: "warn", detail: `Could not reach ${network.name} RPC: ${e instanceof Error ? e.message.split("\n")[0] : "error"}` });
-  }
-  return out;
 }
 
 export function VerifyClient({ products }: { products: { id: string; name: string; emoji: string }[] }) {
   const [text, setText] = useState("");
-  const [results, setResults] = useState<Result[] | null>(null);
+  const [results, setResults] = useState<Check[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
 
-  async function run(json: unknown) {
+  async function run(doc: any) {
     setRunning(true);
     setResults([]);
     try {
-      setResults(await verifyDoc(json, setResults));
+      const { reader, chainId } = chainFor(doc);
+      const network = chainId ? networkById(chainId) : undefined;
+      setResults(await verifyPassport(doc, { trusted: chainId ? OFFICIAL_ANCHORS[chainId] : undefined, chainId, chain: reader, explorer: (tx) => txUrl(network, tx) }, setResults));
     } finally {
       setRunning(false);
     }
@@ -196,13 +90,14 @@ export function VerifyClient({ products }: { products: { id: string; name: strin
       <div className="card p-4">
         {!results && (
           <div className="space-y-2 text-sm text-muted">
-            <p>Results appear here. Your browser does all the work:</p>
+            <p>Results appear here. Your browser does all the work, with trust roots pinned in its code:</p>
             <ol className="list-decimal space-y-1 pl-5">
               <li>Takes actor keys only from their self-signed registration entries</li>
-              <li>Re-hashes every event and checks the sequencer&apos;s and the actor&apos;s signatures</li>
-              <li>Checks each event matches exactly what the actor signed</li>
-              <li>Proves every entry is in the Merkle root…</li>
-              <li>…and reads that root directly from the public blockchain</li>
+              <li>Re-hashes every event and checks the sequencer&apos;s and the actor&apos;s signatures, bindings and signed times</li>
+              <li>Re-derives every claim verdict itself from the proven events</li>
+              <li>Reads the checkpoint from Orbit&apos;s pinned contract and checks it was submitted by Orbit&apos;s pinned operator</li>
+              <li>Proves every entry is in that on-chain root (RFC 6962)</li>
+              <li>Checks the history is append-only against every trusted checkpoint, including independent witnesses</li>
             </ol>
           </div>
         )}
@@ -217,7 +112,7 @@ export function VerifyClient({ products }: { products: { id: string; name: strin
                   <span className={r.ok === true ? "text-leaf" : r.ok === "warn" ? "text-amber" : "font-bold text-rust"}>{r.ok === true ? "✓" : r.ok === "warn" ? "ⓘ" : "✕"}</span>
                   <div className="min-w-0">
                     <div className="font-medium">{r.label}</div>
-                    <div className="hash truncate">
+                    <div className="hash truncate" title={r.detail}>
                       {r.detail}{" "}
                       {r.link && (
                         <a href={r.link} target="_blank" className="text-accent underline">

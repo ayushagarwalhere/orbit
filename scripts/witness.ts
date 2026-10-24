@@ -14,7 +14,7 @@ import { createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { readLedgerCheckpoints, viemChain } from "../src/lib/anchor-read.ts";
 import { prefixRoot, verifyLedger } from "../src/lib/ledger.ts";
-import { ANCHOR_ABI, networkByKey } from "../src/lib/networks.ts";
+import { ANCHOR_ABI, networkByKey, submitterRole } from "../src/lib/networks.ts";
 import type { Db, LedgerEntry } from "../src/lib/types.ts";
 
 const url = (process.env.ORBIT_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -44,12 +44,19 @@ async function pass(): Promise<boolean> {
     return false;
   }
 
-  const { operator, checkpoints } = await readLedgerCheckpoints(network!, address!, body.ledgerId, 20, rpc);
+  // Compare against every root from parties this witness trusts: Orbit's operator, the named
+  // witnesses, and itself. Anyone can anchor, so roots from unidentified wallets are only reported.
+  const { operator, checkpoints } = await readLedgerCheckpoints(network!, address!, body.ledgerId, rpc);
   let consistent = true;
   for (const cp of checkpoints) {
-    const who = cp.submitter.toLowerCase() === operator.toLowerCase() ? "operator" : cp.submitter.toLowerCase() === account.address.toLowerCase() ? "me" : `witness ${cp.submitter}`;
+    const mine = cp.submitter.toLowerCase() === account.address.toLowerCase();
+    const { role, name } = submitterRole(network!.chainId, cp.submitter, operator);
     const ok = cp.ledgerLength <= body.entries.length && prefixRoot(db, cp.ledgerLength) === cp.merkleRoot;
-    console.log(`  ${ok ? "✓" : "✕ ALERT"} checkpoint #${cp.id} by ${who}: ${cp.ledgerLength} entries`);
+    if (role === "unidentified" && !mine) {
+      if (!ok) console.log(`  · checkpoint #${cp.id} by ${name} disagrees (ignored: not a trusted submitter)`);
+      continue;
+    }
+    console.log(`  ${ok ? "✓" : "✕ ALERT"} checkpoint #${cp.id} by ${mine ? "me" : name}: ${cp.ledgerLength} entries`);
     consistent &&= ok;
   }
   if (!consistent) {

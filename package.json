@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/core.test.ts tests/store.test.ts",
+    "test": "node --test tests/core.test.ts tests/store.test.ts tests/merkle.test.ts",
     "compile:anchor": "node scripts/compile-anchor.mjs",
     "wallet": "node --env-file-if-exists=.env.local scripts/new-wallet.mjs",
     "deploy:anchor": "node --env-file-if-exists=.env.local scripts/deploy-anchor.mjs",

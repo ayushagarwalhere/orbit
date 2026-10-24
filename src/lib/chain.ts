@@ -5,7 +5,7 @@ import { readLedgerCheckpoints, viemChain, type OnChainCheckpoint } from "./anch
 import { recordCheckpoint } from "./actions.ts";
 import { OrbitError } from "./domain.ts";
 import { prefixRoot } from "./ledger.ts";
-import { ANCHOR_ABI, networkByKey, txUrl, type Network } from "./networks.ts";
+import { ANCHOR_ABI, networkByKey, submitterRole, txUrl, type Network, type SubmitterRole } from "./networks.ts";
 import { getDb, mutate } from "./store.ts";
 import type { Checkpoint, Db } from "./types.ts";
 
@@ -128,55 +128,56 @@ export interface AnchorCheck {
   id?: number;
   local?: Checkpoint;
   covers: number;
-  status: "match" | "mismatch" | "unreachable" | "local";
-  role: "operator" | "witness" | "local";
+  /** ignored = an unidentified submitter disagrees; shown, but it can't fail verification. */
+  status: "match" | "mismatch" | "ignored" | "unreachable" | "local";
+  role: SubmitterRole | "local";
+  name: string;
   recomputedRoot: string;
   detail: string;
   explorerTx?: string;
 }
 
 /**
- * Compare the ledger as it is now against every root published for it on-chain, by Orbit or by
- * independent witnesses. Reads the chain directly, so rewriting local records changes nothing.
+ * Compare the ledger as it is now against EVERY root published for it on-chain. Only Orbit's
+ * pinned operator and named witnesses count; anyone else's root is informational. Reads the
+ * chain directly, so rewriting local records changes nothing.
  */
-export async function checkAnchors(db: Db, limit = 5): Promise<AnchorCheck[]> {
+export async function checkAnchors(db: Db): Promise<AnchorCheck[]> {
   const cfg = chainConfig();
   if (!cfg || !db.ledgerId) {
-    return db.checkpoints.slice(-limit).map((cp) => ({
+    return db.checkpoints.map((cp) => ({
       onChain: null,
       network: cp.network,
       local: cp,
       covers: cp.covers,
       status: "local",
       role: "local",
+      name: "local record",
       recomputedRoot: cp.covers <= db.ledger.length ? prefixRoot(db, cp.covers) : "",
       detail: "Local checkpoint only: not independently verifiable",
     }));
   }
   try {
-    const { operator, checkpoints } = await readLedgerCheckpoints(cfg.network, cfg.address, db.ledgerId, limit, cfg.rpc);
+    const { operator, checkpoints } = await readLedgerCheckpoints(cfg.network, cfg.address, db.ledgerId, cfg.rpc);
     const localById = new Map(db.checkpoints.filter((c) => c.checkpointId !== undefined).map((c) => [c.checkpointId!, c]));
     return checkpoints.map((oc): AnchorCheck => {
-      const role = oc.submitter.toLowerCase() === operator.toLowerCase() ? "operator" : "witness";
-      const who = role === "operator" ? "Orbit operator" : `independent witness ${oc.submitter.slice(0, 6)}…${oc.submitter.slice(-4)}`;
+      const { role, name } = submitterRole(cfg.network.chainId, oc.submitter, operator);
+      const trusted = role !== "unidentified";
+      const base = { onChain: oc, network: cfg.network.name, id: oc.id, local: localById.get(oc.id), covers: oc.ledgerLength, role, name, explorerTx: localById.get(oc.id)?.explorerTx };
       if (oc.ledgerLength > db.ledger.length) {
-        return { onChain: oc, network: cfg.network.name, id: oc.id, covers: oc.ledgerLength, status: "mismatch", role, recomputedRoot: "", detail: `${who} anchored ${oc.ledgerLength} entries, but the ledger now has only ${db.ledger.length}: events were deleted or withheld` };
+        return { ...base, status: trusted ? "mismatch" : "ignored", recomputedRoot: "", detail: `${name} anchored ${oc.ledgerLength} entries, but the ledger now has only ${db.ledger.length}${trusted ? ": events were deleted or withheld" : " (not a trusted submitter)"}` };
       }
       const recomputed = prefixRoot(db, oc.ledgerLength);
       const ok = recomputed === oc.merkleRoot;
       return {
-        onChain: oc,
-        network: cfg.network.name,
-        id: oc.id,
-        local: localById.get(oc.id),
-        covers: oc.ledgerLength,
-        status: ok ? "match" : "mismatch",
-        role,
+        ...base,
+        status: ok ? "match" : trusted ? "mismatch" : "ignored",
         recomputedRoot: recomputed,
-        explorerTx: localById.get(oc.id)?.explorerTx,
         detail: ok
-          ? `Entries 0–${oc.ledgerLength - 1} match checkpoint #${oc.id} by ${who}`
-          : `History changed after ${who} anchored it: checkpoint #${oc.id} holds ${oc.merkleRoot.slice(0, 12)}…, ledger now hashes to ${recomputed.slice(0, 12)}…`,
+          ? `Entries 0–${oc.ledgerLength - 1} match checkpoint #${oc.id} by ${name}`
+          : trusted
+            ? `History changed after ${name} anchored it: checkpoint #${oc.id} holds ${oc.merkleRoot.slice(0, 12)}…, ledger now hashes to ${recomputed.slice(0, 12)}…`
+            : `Checkpoint #${oc.id} by ${name} disagrees with the ledger; ignored because this submitter isn't trusted`,
       };
     });
   } catch (e) {
@@ -187,8 +188,9 @@ export async function checkAnchors(db: Db, limit = 5): Promise<AnchorCheck[]> {
       covers: cp.covers,
       status: "unreachable",
       role: "local",
+      name: "local record",
       recomputedRoot: "",
-      detail: `Could not reach ${cfg.network.name}: ${e instanceof Error ? e.message.split("\n")[0] : "error"}`,
+      detail: `Could not reach ${cfg.network.name}: ${e instanceof Error ? (e.message.split(String.fromCharCode(10))[0] ?? "") : "error"}`,
     }));
   }
 }

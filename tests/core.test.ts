@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { installNativeCrypto } from "../src/lib/crypto-node.ts";
 import { test } from "node:test";
 import { PROTOCOL_ID, newRequest, signRequest } from "../src/lib/auth.ts";
-import { IncrementalMerkle, merkleProof, merkleRoot, publicKeyOf, randomPrivateKey, rootFromProof, setEd25519Backend, signHash, verifyMerkleProof, verifySignature } from "../src/lib/crypto.ts";
+import { publicKeyOf, randomPrivateKey, setEd25519Backend, signHash, verifySignature } from "../src/lib/crypto.ts";
+import { verifyPassport } from "../src/lib/passport-verify.ts";
 import { ed25519 } from "@noble/curves/ed25519";
 import { sha256 } from "@noble/hashes/sha2";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
@@ -11,7 +12,7 @@ import { applySigned } from "../src/lib/dispatch.ts";
 import { balanceOf, balances, carbonFootprint, custody, provenRecycledPct } from "../src/lib/domain.ts";
 import { lintClaim } from "../src/lib/greenwash.ts";
 import { generateKeystore } from "../src/lib/keys.ts";
-import { append, hashEntry, prefixRoot, verifyLedger } from "../src/lib/ledger.ts";
+import { append, hashEntry, ledgerTree, prefixRoot, verifyLedger } from "../src/lib/ledger.ts";
 import { replay } from "../src/lib/replay.ts";
 import { exportPassport } from "../src/lib/passport.ts";
 import { ACTOR_IDS, seedDb } from "../src/lib/seed.ts";
@@ -399,31 +400,87 @@ test("native (server) and pure-JS (browser) Ed25519 + SHA-256 agree byte for byt
   }
 });
 
-test("incremental Merkle tree matches the batch root at every size", () => {
-  const t = new IncrementalMerkle();
-  const leaves: string[] = [];
-  for (let i = 0; i < 40; i++) {
-    const leaf = (i.toString(16).padStart(2, "0")).repeat(32);
-    leaves.push(leaf);
-    t.append(leaf);
-    assert.equal(t.root(), merkleRoot(leaves), `size ${i + 1}`);
-  }
-});
+// ---------- trustless passport verification (as run in the browser) ----------
 
-test("merkle proofs verify against the root", () => {
-  const leaves = ["a", "b", "c", "d", "e"].map((x) => x.repeat(64));
-  const root = merkleRoot(leaves);
-  for (let i = 0; i < leaves.length; i++) assert.ok(verifyMerkleProof(leaves[i], merkleProof(leaves, i), root));
-  assert.equal(verifyMerkleProof("f".repeat(64), merkleProof(leaves, 0), root), false);
-});
+const OPERATOR = "0x00000000000000000000000000000000000000aa";
+const WITNESS = "0x00000000000000000000000000000000000000bb";
+const TRUSTED = { contract: "0xcontract", operator: OPERATOR, witnesses: [{ address: WITNESS, name: "Test witness" }] };
 
-test("passport events and actor registrations prove inclusion in the anchored root", () => {
+/** A fake chain holding whatever checkpoints a test anchors; consistency proofs come from the real ledger. */
+function fakeChain(db: Db) {
+  const cps: { id: number; ledgerId: string; merkleRoot: string; ledgerLength: number; timestamp: number; submitter: string }[] = [];
+  const anchorAs = (submitter: string, covers = db.ledger.length, root = prefixRoot(db, covers)) => {
+    const id = cps.length;
+    cps.push({ id, ledgerId: db.ledgerId!, merkleRoot: root, ledgerLength: covers, timestamp: 0, submitter });
+    return id;
+  };
+  const reader = {
+    checkpoint: async (id: number) => cps[id],
+    ledgerCheckpoints: async (lid: string) => ({ operator: OPERATOR, checkpoints: cps.filter((c) => c.ledgerId === lid) }),
+    consistency: async (m: number, n: number) => ledgerTree(db).consistencyProof(m, n),
+  };
+  return { cps, anchorAs, reader };
+}
+function anchoredPassport(db: Db, name: string, id: number, covers: number) {
+  db.checkpoints.push({ covers, merkleRoot: prefixRoot(db, covers), at: "", onChain: true, network: "test", chainId: 999, contract: "0xcontract", checkpointId: id, ledgerId: db.ledgerId });
+  return exportPassport(db, byName(db, name), "http://localhost");
+}
+const failed = (checks: { ok: boolean | "warn"; label: string; detail: string }[]) => checks.filter((c) => c.ok === false);
+
+test("browser verifier: an honest passport passes every check, including re-derived verdicts", async () => {
   const { db } = world();
-  const root = prefixRoot(db, db.ledger.length);
-  db.checkpoints.push({ covers: db.ledger.length, merkleRoot: root, at: "", onChain: true, network: "test", chainId: 31337, contract: "0x0", checkpointId: 0 });
-  const doc = exportPassport(db, byName(db, "Orbit Tee"), "http://localhost:3000");
-  const all = [...doc.credentialSubject.traceabilityEvents, ...doc.credentialSubject.actorRegistrations];
-  assert.ok(all.length > 10);
-  for (const e of all) assert.equal(rootFromProof(e.hash, e.merkleProof!), root);
-  assert.equal(doc.proof.anchor?.merkleRoot, root);
+  const chain = fakeChain(db);
+  chain.anchorAs(OPERATOR, 40);
+  chain.anchorAs(WITNESS, 55);
+  const id = chain.anchorAs(OPERATOR);
+  const doc = anchoredPassport(db, "EcoCloud Hoodie", id, db.ledger.length);
+  const checks = await verifyPassport(doc, { trusted: TRUSTED, chainId: 999, chain: chain.reader });
+  assert.deepEqual(failed(checks), []);
+  assert.ok(checks.some((c) => c.label.startsWith("Verdict") && c.detail.includes("CONTRADICTED")), "hoodie verdicts re-derived in the browser");
+  assert.ok(checks.find((c) => c.label === "Append-only history")?.detail.includes("1 by independent witnesses"));
 });
+
+test("browser verifier: a passport anchored by someone other than Orbit's operator is rejected", async () => {
+  const { db } = world();
+  const chain = fakeChain(db);
+  const id = chain.anchorAs("0x00000000000000000000000000000000000000ff"); // forger anchors on the open contract
+  const checks = await verifyPassport(anchoredPassport(db, "Orbit Tee", id, db.ledger.length), { trusted: TRUSTED, chainId: 999, chain: chain.reader });
+  assert.ok(failed(checks).some((c) => c.label === "On-chain checkpoint" && c.detail.includes("not Orbit")));
+});
+
+test("browser verifier: history rewritten and re-anchored at a new length fails the append-only check", async () => {
+  const { db, keys } = world();
+  const chain = fakeChain(db);
+  chain.anchorAs(WITNESS); // a witness saw the genuine history
+  const i = db.ledger.findIndex((e) => e.type === "CLAIM_ATTESTED" && e.data.verdict === "REJECT");
+  tamper(db, i, "erase", keys[PROTOCOL_ID]); // operator erases the failed audit and regenerates history
+  act2(db, keys); // ...and appends one more entry so the lengths differ
+  const id = chain.anchorAs(OPERATOR);
+  const checks = await verifyPassport(anchoredPassport(db, "EcoCloud Hoodie", id, db.ledger.length), { trusted: TRUSTED, chainId: 999, chain: chain.reader });
+  assert.ok(failed(checks).some((c) => c.label === "Append-only history"), JSON.stringify(failed(checks)));
+});
+
+test("browser verifier: junk anchors from unidentified wallets are ignored, not fatal", async () => {
+  const { db } = world();
+  const chain = fakeChain(db);
+  chain.anchorAs("0x00000000000000000000000000000000000000ee", db.ledger.length, "00".repeat(32)); // griefing root
+  const id = chain.anchorAs(OPERATOR);
+  const checks = await verifyPassport(anchoredPassport(db, "Orbit Tee", id, db.ledger.length), { trusted: TRUSTED, chainId: 999, chain: chain.reader });
+  assert.deepEqual(failed(checks), []);
+  assert.ok(checks.find((c) => c.label === "Append-only history")?.detail.includes("1 by unidentified submitters ignored"));
+});
+
+test("browser verifier: a passport whose claim verdict was edited is caught by re-derivation", async () => {
+  const { db } = world();
+  const chain = fakeChain(db);
+  const id = chain.anchorAs(OPERATOR);
+  const doc = anchoredPassport(db, "EcoCloud Hoodie", id, db.ledger.length);
+  const c = doc.credentialSubject.conformityClaims.find((x) => x.status === "CONTRADICTED")!;
+  (c as { status: string }).status = "VERIFIED";
+  const checks = await verifyPassport(doc, { trusted: TRUSTED, chainId: 999, chain: chain.reader });
+  assert.ok(failed(checks).some((x) => x.label.startsWith(`Verdict ${c.id}`)));
+});
+
+function act2(db: Db, keys: Record<string, string>) {
+  applySigned(db, keys[PROTOCOL_ID], "create-batch", signRequest(newRequest("create-batch", "kutch-coop", { material: "organic-cotton", massKg: 1 }, db.ledgerId!), keys["kutch-coop"]));
+}

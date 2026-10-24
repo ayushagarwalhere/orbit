@@ -4,9 +4,8 @@
 // the actors' public keys come from their own registration entries (also proven). A verifier needs
 // nothing from Orbit's server except this document; it reads the root from the chain itself.
 import { PROTOCOL_ID } from "./auth.ts";
-import { merkleProof } from "./crypto.ts";
 import { attestationsOf, avoidedCo2e, carbonFootprint, custody, getActor, materialLines, passportCore, passportHash, productEntries, productMass, provenRecycledPct } from "./domain.ts";
-import { entryBody, verifyLedger } from "./ledger.ts";
+import { entryBody, ledgerTree, verifyLedger } from "./ledger.ts";
 import type { Checkpoint, Db, LedgerEntry, Product } from "./types.ts";
 import { trustReport } from "./verify.ts";
 
@@ -22,13 +21,14 @@ export function exportPassport(db: Db, p: Product, baseUrl: string) {
   const trust = trustReport(db, p, report);
   const cf = carbonFootprint(db, p);
   const cp = latestCheckpoint(db);
-  const leaves = cp ? db.ledger.slice(0, cp.covers).map((e) => e.hash) : [];
+  const tree = ledgerTree(db);
 
+  // RFC 6962 inclusion proof against the anchored checkpoint (bound to index and tree size).
   const withProof = (e: LedgerEntry) => ({
     ...entryBody(e),
     hash: e.hash,
     signature: e.signature,
-    merkleProof: cp && e.index < cp.covers ? merkleProof(leaves, e.index) : null,
+    merkleProof: cp && e.index < cp.covers ? { index: e.index, size: cp.covers, path: tree.inclusionProof(e.index, cp.covers) } : null,
   });
 
   // Include material lot entries too: the passport is only as good as its inputs.
@@ -46,6 +46,8 @@ export function exportPassport(db: Db, p: Product, baseUrl: string) {
     credentialSubject: {
       product: {
         id: `https://id.gs1.org/01/${p.gtin}/21/${p.serial}`,
+        emoji: p.emoji,
+        createdAt: p.createdAt,
         passportId: p.id,
         name: p.name,
         category: p.category,
@@ -85,6 +87,10 @@ export function exportPassport(db: Db, p: Product, baseUrl: string) {
         kind: c.claim.kind,
         statement: c.claim.statement,
         value: c.claim.value,
+        productId: c.claim.productId,
+        issuerId: c.claim.issuerId,
+        evidenceHash: c.claim.evidenceHash ?? null,
+        createdAt: c.claim.createdAt,
         status: c.status,
         evidence: c.evidence,
         caveats: c.caveats,
