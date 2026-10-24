@@ -370,8 +370,9 @@ export function shipmentLegs(db: Db, p: Product): Leg[] {
         note = `Declared ${declaredMode}, but the recipient's signed receipt shows ${Math.round(distanceKm).toLocaleString("en")} km in ${transitHours < 48 ? `${Math.round(transitHours)} h` : `${Math.round(transitHours / 24)} days`} (≈${Math.round(kmPerDay).toLocaleString("en")} km/day). A ${declaredMode} can't do more than ${MAX_KM_PER_DAY[declaredMode].toLocaleString("en")} km/day, so this leg is counted as ${mode}.`;
       }
     }
-    const route = routeKm(mode, getActor(db, e.actorId).place, getActor(db, to).place);
-    legs.push({ shippedIndex: e.index, from: e.actorId, to, declaredMode, mode, distanceKm, routeKm: route, co2eKg: route * (mass / 1000) * transportFactor(mode, distanceKm), transitHours, check, note });
+    const [fromPlace, toPlace] = [getActor(db, e.actorId).place, getActor(db, to).place];
+    const route = routeKm(mode, fromPlace, toPlace);
+    legs.push({ shippedIndex: e.index, from: e.actorId, to, declaredMode, mode, distanceKm, routeKm: route, co2eKg: route * (mass / 1000) * transportFactor(mode, distanceKm, fromPlace, toPlace), transitHours, check, note });
   });
   return legs;
 }

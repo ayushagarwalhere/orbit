@@ -212,10 +212,10 @@ These come from the seeded demo world, which uses published average emission fac
 | Demo passport | What it shows | Literature comparison |
 | --- | --- | --- |
 | Orbit Tee: 40% recycled content, proven by mass balance | Recycled share comes from signed lots, not from a declaration | Global textile-to-textile recycled supply is < 1%[^te] |
-| Strata Loop battery: 93% recycled content, ≈ 65% lower footprint, ≈ 28 kg CO2e avoided per pack | Closed loop, with recovered lots linked to the ancestor passport | Recycled materials save 58–81%[^machala] |
+| Strata Loop battery: 93% recycled content, ≈ 63% lower footprint, ≈ 27 kg CO2e avoided per pack | Closed loop, with recovered lots linked to the ancestor passport | Recycled materials save 58–81%[^machala] |
 | EcoCloud Hoodie: claims "carbon neutral, 1.2 kg"; ledger shows 13.4 kg, including spinning and dyeing and the air freight | Transport legs recomputed from registered locations | Directive 2024/825 bans offset-based neutrality claims[^empco] |
 
-**The demo's "CO2e avoided" figure is attributional, not consequential.** The dashboard's "28.8 kg CO2e avoided by recycled inputs" (passport field `avoidedEmissionsKgCO2e`) compares each product's recycled inputs with the same mass of virgin material. It describes these products; it is **not an effect caused by Orbit**. Much of it would happen anyway: recycled polyester comes mostly from PET bottles (§2.1), and buying recycled input can just move a fixed supply between brands. The §3 levers count only behaviour Orbit changes, so do not add or compare the two. For the Strata Loop pack, ≈ 28 kg is attributional. The consequential figure is ≈ 9 kg (§3's per-pack arithmetic for its 0.5 kWh), and only for packs that would otherwise not have been collected.
+**The demo's "CO2e avoided" figure is attributional, not consequential.** The dashboard's "27.2 kg CO2e avoided by recycled inputs" (passport field `avoidedEmissionsKgCO2e`) compares each product's recycled inputs with the same mass of virgin material. It describes these products; it is **not an effect caused by Orbit**. Much of it would happen anyway: recycled polyester comes mostly from PET bottles (§2.1), and buying recycled input can just move a fixed supply between brands. The §3 levers count only behaviour Orbit changes, so do not add or compare the two. For the Strata Loop pack, ≈ 27 kg is attributional. The consequential figure is ≈ 9 kg (§3's per-pack arithmetic for its 0.5 kWh), and only for packs that would otherwise not have been collected.
 
 ## 9. Limitations
 

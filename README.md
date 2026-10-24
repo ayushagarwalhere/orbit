@@ -136,23 +136,23 @@ Only fingerprints go on-chain (a 32-byte root, the ledger id and its length), an
 
 ### Emission factors and sources
 
-Published averages, defined in [`src/lib/factors.ts`](src/lib/factors.ts). A real deployment would replace them with supplier data. The passport states the boundary: cradle-to-gate materials, garment processing, the factory's declared energy, and transport to the retailer. Use and end of life are excluded.
+Published averages, defined in [`src/lib/factors.ts`](src/lib/factors.ts). A real deployment would replace them with supplier data. The passport states the boundary: cradle-to-gate materials, garment processing, the factory's declared energy, and transport to the retailer. Use and end of life are excluded. Page numbers are the documents' printed page numbers.
 
 | Factor | Value | Source |
 | --- | --- | --- |
-| Organic cotton fibre | 1.5 kg CO₂e/kg (recycled cotton 0.8) | Textile Exchange/Sphera, [LCA for Cotton](https://textileexchange.org/app/uploads/2026/03/Cotton-LCA-Technical-Report.pdf) (2026), Tables 5-2, 5-7 |
+| Organic cotton fibre | 1.5 kg CO₂e/kg (recycled cotton 0.8) | Textile Exchange/Sphera, [LCA for Cotton](https://textileexchange.org/app/uploads/2026/03/Cotton-LCA-Technical-Report.pdf) (2026), Tables 5-2 (p.87), 5-7 (pp.98–99) |
 | Conventional cotton fibre | 1.8 | Textile Exchange, [LCA of Organic Cotton Fiber](https://textileexchange.org/app/uploads/2025/01/the-life-cycle-assessment-of-organic-cotton-fiber_38172.pdf) (2014), p.10 |
-| Polyester yarn | 5.5 (recycled PET fibre 3.0) | Textile Exchange/SCS, [LCA for Polyester](https://textileexchange.org/app/uploads/2026/06/Polyester-LCA-Technical-Report.pdf) (2026), Tables E-2 to E-6 |
-| Spinning (cotton) · knitting · dyeing and finishing | 4.2 · 0.4 · 5.6 kg CO₂e/kg textile, ×1/0.85 for cutting waste | Cotton Inc./thinkstep, [LCA Update of Cotton Fiber and Fabric](https://cottontoday.cottoninc.com/wp-content/uploads/2019/11/2016-LCA-Full-Report-Update.pdf) (2017), Table 4-4; Sandin et al., [Mistra Future Fashion 2019:05](https://research.chalmers.se/publication/514322/file/514322_Fulltext.pdf), p.53 |
+| Polyester yarn | 5.5 (recycled PET fibre 3.0) | Textile Exchange/SCS, [LCA for Polyester](https://textileexchange.org/app/uploads/2026/06/Polyester-LCA-Technical-Report.pdf) (2026), Tables E-3, E-5, E-6 (pp.27, 29) |
+| Spinning (cotton) · knitting · dyeing and finishing | 4.2 · 0.4 · 5.6 kg CO₂e/kg textile, ×1/0.85 for cutting waste | Cotton Inc./thinkstep, [LCA Update of Cotton Fiber and Fabric](https://cottontoday.cottoninc.com/wp-content/uploads/2019/11/2016-LCA-Full-Report-Update.pdf) (2017), Table 4-4 (p.79); Sandin et al., [Mistra Future Fashion 2019:05](https://research.chalmers.se/publication/514322/file/514322_Fulltext.pdf), Table 3.4 (p.50), p.52 |
 | Aluminium | 14.8 (recycled 0.6) | International Aluminium Institute, [2023 intensity](https://international-aluminium.org/global-aluminium-industry-greenhouse-gas-emissions-intensity-reduction-continues-with-total-emissions-below-2020-peak) and [recycling factsheet](https://aluminium.org.au/wp-content/uploads/2024/10/IAI-Factsheet-Claim-3_GHG-Saving_external.pdf) |
 | Copper | 4.0 (recycled 0.8, our estimate) | International Copper Association, [Copper Environmental Profile](https://internationalcopper.org/wp-content/uploads/2023/05/ICA-LCI-GlobalSummary-202305-F.pdf) (2023), Table 4 |
-| LFP cells | 9.4 (recycled 3.1, our estimate) | Llamas-Orozco et al., [PNAS Nexus 2(11)](https://academic.oup.com/pnasnexus/article/2/11/pgad361/7344002) (2023): 56 kg/kWh × ~0.165 kWh/kg |
+| LFP cells | 9.2 (recycled 3.6: the paper's best-case 61% cut from recycling) | Llamas-Orozco et al., [PNAS Nexus 2(11)](https://academic.oup.com/pnasnexus/article/2/11/pgad361/7344002) (2023), Fig. 3B: 56 kg/kWh of battery pack × ~0.165 kWh/kg (our assumption) |
 | Steel | 2.3 (scrap EAF 0.7) | worldsteel, [Sustainability Indicators](https://worldsteel.org/wider-sustainability/sustainability-indicators-2024-report/) (2025) |
-| ABS | 3.1 (recycled 1.4, our estimate) | Franklin Associates for ACC, [Cradle-to-Gate LCA of ABS](https://americanchemistry.com/content/download/12625/file/Cradle-to-Gate-Life-Cycle-Analysis-of-Acrylonitrile-Butadiene-Styrene-ABS-Resin.pdf) (2022), Table 7 |
-| Truck · rail · container ship · air (long / short haul) | 0.115 · 0.030 · 0.009 · 0.82 / 1.36 kg CO₂e per t-km (well-to-wheel) | [GLEC Framework v3.0](https://knowledgeplatform.ecta.com/wp-content/uploads/2023/09/2023_GLEC_FRAMEWORK_v3.0_September.pdf) (2023), pp.85–99 |
-| Distances | air: great circle + 95 km; road and rail: ×1.2; Europe–Asia sea legs via Gibraltar and Suez, other sea legs great circle (a lower bound) | GLEC v3.0 p.38; detour index range 1.2–1.6 from Boscoe et al., [Professional Geographer 64(2)](https://pmc.ncbi.nlm.nih.gov/articles/PMC3835347) (2012) |
+| ABS | 2.9 (recycled 1.4, our estimate) | Franklin Associates for ACC, [Cradle-to-Gate LCA of ABS](https://americanchemistry.com/content/download/12625/file/Cradle-to-Gate-Life-Cycle-Analysis-of-Acrylonitrile-Butadiene-Styrene-ABS-Resin.pdf) (2022), Table 7 |
+| Truck · rail · container ship (industry average / Asia–North Europe lane) · air (long / short haul) | 0.115 · 0.030 · 0.009 / 0.005 · 0.82 / 1.36 kg CO₂e per t-km (well-to-wheel) | [GLEC Framework v3.0](https://knowledgeplatform.ecta.com/wp-content/uploads/2023/09/2023_GLEC_FRAMEWORK_v3.0_September.pdf) (2023): air Table 1 p.85, rail p.88, road p.91, sea Table 16 p.99 (10 t/TEU, p.50) |
+| Distances | air: great circle + 95 km; road and rail: ×1.2; Europe–Asia sea legs via Gibraltar and Suez, other sea legs great circle (a lower bound) | GLEC v3.0 p.38; detour index range 1.2–1.6 (Cole and King 1968), as cited in Boscoe et al., [Professional Geographer 64(2)](https://pmc.ncbi.nlm.nih.gov/articles/PMC3835347) (2012) |
 
-The recycled factors for copper, LFP and ABS are our estimates; we found no primary source. Recycled metal values are gate-to-gate, so they understate collection.
+The recycled factors for copper and ABS are our estimates; we found no primary source. Recycled metal values are gate-to-gate, so they understate collection.
 
 ### Quality checks
 

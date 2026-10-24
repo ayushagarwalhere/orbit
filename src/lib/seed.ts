@@ -95,7 +95,7 @@ export function seedDb(keys: Keystore, ledgerId: string): Db {
     warrantyYears: 2,
     depositCredits: 20,
     endOfLife: "Drop at any GreenLoop store. Fibre-to-fibre recycled by Re:Fibre.",
-    co2eKg: 0.6, // cut-make-trim energy: ~2.6 kWh/kg x 0.93 kg CO2e/kWh x 0.25 kg (Sandin et al. 2019)
+    co2eKg: 0.6, // cut-make-trim energy: 2.64 kWh/kg (Sandin et al. 2019, Table 3.5, p.51, T-shirt) x 0.929 kg CO2e/kWh (p.94) x 0.25 kg
   });
   as("lumen", "issue-claim", d("01-15T10:00:00"), { productId: tee.id, issuerId: "lumen", kind: "RECYCLED_CONTENT", value: 40, statement: "40% recycled polyester, 60% organic cotton" });
   as("lumen", "issue-claim", d("01-15T10:01:00"), { productId: tee.id, issuerId: "lumen", kind: "CARBON_FOOTPRINT", value: 3.9, statement: "3.9 kg CO2e from field to shelf, including spinning and dyeing" });
