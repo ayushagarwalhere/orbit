@@ -58,7 +58,7 @@ npm test        # 56 tests
 
 ## Impact
 
-If 5% of EU textiles and batteries carried Orbit-style passports by 2030, we project about **0.08 Mt CO₂e avoided per year**, mostly from longer textile life and more fibre-to-fibre recycling. The biggest uncertainty is how many people actually repair. Every input is sourced in [IMPACT.md](docs/IMPACT.md), and the in-app Impact page reproduces the arithmetic.
+If 5% of EU textiles and batteries carried Orbit-style passports by 2030, we project about **0.08 Mt CO₂e avoided per year** (plausible range 0.01–0.25), mostly from longer textile life and more fibre-to-fibre recycling. The biggest uncertainty is how many people actually repair. Every input is sourced in [IMPACT.md](docs/IMPACT.md), and the in-app Impact page reproduces the arithmetic.
 
 ---
 

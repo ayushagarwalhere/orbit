@@ -70,7 +70,7 @@ Vague wording is linted against Directive 2024/825. Recycled lots link back to t
 | 4 | Closed loop | Recycled lots link to their source product | Done: 93% recycled battery |
 | 5 | On-chain data minimisation | Only 32-byte Merkle roots on-chain | Done: `OrbitAnchor.sol` |
 | 6 | Pilot (next) | One brand plus one recycler: ≥ 90% of claims machine-checkable, ≥ 50% of footprint data counter-signed | Not started |
-| 7 | Climate outcome | Avoided emissions measured from ledger events ([IMPACT.md](IMPACT.md)) | Projected: ~0.12 Mt CO2e/yr at 5% EU adoption |
+| 7 | Climate outcome | Avoided emissions measured from ledger events ([IMPACT.md](IMPACT.md)) | Projected: ~0.08 Mt CO2e/yr at 5% EU adoption |
 
 ---
 
