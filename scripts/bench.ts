@@ -6,6 +6,7 @@ import { MerkleTree, merkleRoot } from "../src/lib/crypto.ts";
 import { applySigned } from "../src/lib/dispatch.ts";
 import { generateKeystore } from "../src/lib/keys.ts";
 import { verifyLedger } from "../src/lib/ledger.ts";
+import { exportPassport } from "../src/lib/passport.ts";
 import { ACTOR_IDS, seedDb } from "../src/lib/seed.ts";
 
 const N = Number(process.argv[2] ?? 5000);
@@ -34,6 +35,12 @@ merkleRoot(leaves);
 const tRoot = performance.now() - t3;
 const proof = new MerkleTree(leaves).inclusionProof(Math.floor(leaves.length / 2));
 
+// A checkpoint covering everything, then export a passport (proofs come from the cached tree).
+db.checkpoints.push({ covers: db.ledger.length, merkleRoot: merkleRoot(leaves), at: "", onChain: true, network: "bench", chainId: 0, contract: "0x0", checkpointId: 0, ledgerId: db.ledgerId });
+const t4 = performance.now();
+const doc = exportPassport(db, db.products[0], "http://bench");
+const tExport = performance.now() - t4;
+
 const ms = (x: number) => `${x.toFixed(1)} ms`;
 console.log(`entries                         ${db.ledger.length}`);
 console.log(`build (sign request + sequence)  ${ms(tBuild)}  (${ms(tBuild / N)} per write)`);
@@ -41,3 +48,4 @@ console.log(`full verification               ${ms(tFull)}  (${ms(tFull / full.ch
 console.log(`incremental check after 1 write  ${ms(tInc)}  (ok=${inc.ok})`);
 console.log(`merkle root over all entries     ${ms(tRoot)}`);
 console.log(`inclusion proof size             ${proof.length} hashes (${proof.length * 32} bytes)`);
+console.log(`passport export (warm)           ${ms(tExport)}  (${doc.credentialSubject.traceabilityEvents.length} events with proofs)`);

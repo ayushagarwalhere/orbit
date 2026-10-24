@@ -19,8 +19,8 @@ const ROLE_HELP: Record<Role, string> = {
   supplier: "Register raw material lots. Only recyclers can create recycled lots, so recycled content cannot be invented upstream.",
   manufacturer: "Build products from material lots (mass balance enforced), ship them, and publish sustainability claims.",
   logistics: "Receive shipments addressed to you and forward them. Distance and emissions are computed from signed locations.",
-  retailer: "Receive stock and sell to consumers. The sale activates the product's deposit refund.",
-  consumer: "Return products at end of life to collect your deposit as credits.",
+  retailer: "Receive stock and sell to consumers. The sale makes the buyer eligible for the return reward.",
+  consumer: "Return products at end of life to earn their return reward as credits.",
   repairer: "Log repairs on products in use. Owners earn credits for repairing instead of replacing.",
   recycler: "Recycle returned products into new traceable recycled lots and earn recovery credits.",
   auditor: "Independently approve or reject claims. A rejection overrides the brand's claim.",
@@ -228,7 +228,7 @@ function HeldActions({ p, actorRole, actorId, data, busy, run }: { p: ConsoleDat
             </option>
           ))}
         </select>
-        <button className="btn btn-primary text-xs" disabled={busy || !to} onClick={() => run("return", { productId: p.id, actorId, toId: to }, `Returned ${p.name}, deposit refunded`)}>
+        <button className="btn btn-primary text-xs" disabled={busy || !to} onClick={() => run("return", { productId: p.id, actorId, toId: to }, `Returned ${p.name}, return reward earned`)}>
           ↩ Return
         </button>
       </>
@@ -406,7 +406,7 @@ function ManufactureForm({ data, actorId, busy, run }: { data: ConsoleData; acto
       </button>
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="text-xs">
-          Deposit refund (credits)
+          Return reward (credits, funded by EPR fee)
           <input className="field mt-1" type="number" value={deposit} onChange={(e) => setDeposit(e.target.value)} />
         </label>
         <label className="text-xs">

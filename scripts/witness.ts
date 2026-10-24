@@ -31,11 +31,26 @@ const chain = viemChain(network, rpc);
 const pub = createPublicClient({ chain, transport: http(rpc) });
 const wallet = createWalletClient({ account, chain, transport: http(rpc) });
 let lastAnchored = 0;
+// In --watch mode, keep what we've downloaded and only fetch new entries each pass.
+let cache: { ledgerId: string; entries: LedgerEntry[] } | null = null;
+
+async function download(): Promise<{ ledgerId: string; entries: LedgerEntry[] }> {
+  const from = cache?.entries.length ?? 0;
+  const body = (await (await fetch(`${url}/api/ledger?from=${from}`)).json()) as { ledgerId?: string; total: number; entries: LedgerEntry[] };
+  if (!body.ledgerId) throw new Error("Node did not publish a ledgerId");
+  if (!cache || cache.ledgerId !== body.ledgerId || body.total < from) {
+    // New ledger (or history shrank): start over with a full download.
+    cache = null;
+    const full = (await (await fetch(`${url}/api/ledger`)).json()) as { ledgerId: string; entries: LedgerEntry[] };
+    cache = { ledgerId: full.ledgerId, entries: full.entries };
+  } else {
+    cache.entries.push(...body.entries);
+  }
+  return cache;
+}
 
 async function pass(): Promise<boolean> {
-  const res = await fetch(`${url}/api/ledger`);
-  const body = (await res.json()) as { ledgerId?: string; entries: LedgerEntry[] };
-  if (!body.ledgerId) throw new Error("Node did not publish a ledgerId");
+  const body = await download();
   const db = { ledger: body.entries } as unknown as Db;
   const report = verifyLedger(db);
   console.log(`[witness] ${url}: ${body.entries.length} entries, local verification ${report.ok ? "OK" : "FAILED"}`);

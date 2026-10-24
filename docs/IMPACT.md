@@ -28,7 +28,7 @@ Every input is either cited (§2) or stated as an assumption (§3). The model is
 **Conservative choices:**
 1. We use the **low end** of published savings factors. Where a source says "up to", we halve the figure.
 2. We count only **what Orbit's incentives and checks plausibly change**. Recycling that EU law requires anyway (e.g. battery collection targets) is part of the baseline.
-3. Where regulation already requires similar checks (EV battery carbon footprint declarations), we apply a **50% additionality haircut**.
+3. Where regulation already requires similar checks (EV battery carbon footprint declarations), we apply a **50% additionality haircut**. The other levers are not haircut; §5.2 sets out how much of them a mandatory, non-Orbit passport might deliver anyway.
 4. The **greenwashing-deterrence effect on textiles** is shown only as a sensitivity and is **excluded from the headline**, because no source lets us size it robustly.
 5. Adoption **ramps linearly** to the 2030 level: 25% of it in 2027, 50% in 2028, 75% in 2029 and 100% in 2030. Cumulative = 2.5 × the 2030 value.
 6. Reuse of returned garments, repair of batteries, and textiles outside the EU are **not counted**, although they are likely positive.
@@ -71,16 +71,16 @@ Every input is either cited (§2) or stated as an assumption (§3). The model is
 
 ### Lever 1: Higher return and recycling, displacing virgin material
 
-**How Orbit drives it.** Orbit's protocol pays a deposit refund only when a signed return event exists, and pays recovery credits per kg only when a recycler signs the lot. Recycled content is proven by mass balance, so recycled fibre and cells earn a verifiable claim, which gives recyclers a market for their output. IVL's LCA identifies the share of recycled fibre that **actually replaces virgin fibre** as decisive: each kg recycled must displace at least **0.44 kg** of new production for a net climate gain.[^ivl-2023] Mass-balance verification is how a buyer can confirm that displacement.
+**How Orbit drives it.** Orbit's protocol pays a return reward (funded by the brand's EPR fee in a real scheme; no deposit is charged at sale) only when a signed return event exists, and pays recovery credits per kg only when a recycler signs the lot. Recycled content is proven by mass balance, so recycled fibre and cells earn a verifiable claim, which gives recyclers a market for their output. IVL's LCA identifies the share of recycled fibre that **actually replaces virgin fibre** as decisive: each kg recycled must displace at least **0.44 kg** of new production for a net climate gain.[^ivl-2023] Mass-balance verification is how a buyer can confirm that displacement.
 
 **1a. Textiles: fibre-to-fibre recycling.**
 - *Evidence:* IVL's consequential LCA (Sandin et al. 2025) finds that raising EU textile-to-textile recycling from ~1% to **10%** reduces climate impact by an average **0.5%, about 0.44 Mt CO2e/yr**, with a 92% probability of a net reduction.[^ivl-2025][^ec-ivl] An earlier IVL scenario (1% → 26% by 2035) gives about **1.3%**.[^textile-etp] Both give roughly 0.05 Mt CO2e/yr per percentage point of EU textiles recycled fibre-to-fibre.
-- *Assumption:* Products on Orbit reach the IVL 10% scenario (deposit returns plus verified recycled-content demand), while the rest of the market stays at ~1%.
+- *Assumption:* Products on Orbit reach the IVL 10% scenario (rewarded returns plus verified recycled-content demand), while the rest of the market stays at ~1%.
 - *Formula:* **Avoided = *s* × 0.44 Mt CO2e/yr**
 
 **1b. E-bike batteries: extra collection and closed-loop recycling.**
 - *Per pack (derived):* 0.6 kWh × 74 kg CO2e/kWh × 50% materials share × 80% material recovered × 58% saving (low end) = **≈ 10 kg CO2e avoided per extra pack recycled**.
-- *Assumption:* A deposit raises collection of Orbit-tracked packs by **+20 percentage points** above the legal baseline (51% target). For comparison, US data show deposit beverage cans returned at 77% vs. 36% without a deposit, about +40 points (Reloop / Container Recycling Institute; advocacy source).[^reloop] We assume half of that uplift.
+- *Assumption:* A return reward raises collection of Orbit-tracked packs by **+20 percentage points** above the legal baseline (51% target). For comparison, US data show deposit beverage cans returned at 77% vs. 36% without a deposit, about +40 points (Reloop / Container Recycling Institute; advocacy source).[^reloop] We assume half of that uplift, partly because a reward funded by an EPR fee is a weaker incentive than getting back a deposit the buyer paid.
 - *Flow:* 5.1 M packs/yr. We use the sales figure as a proxy for the end-of-life flow; with ~10-year lives, the actual 2030 flow will be **lower**.
 - *Formula:* **Avoided = *s* × 5.1 M × 0.20 × 10.3 kg = *s* × 0.0105 Mt CO2e/yr**
 - E-bike batteries are small in tonnage. The lever matters more for critical-raw-material supply and the 2031 recycled-content targets than for carbon.
@@ -120,6 +120,19 @@ Every input is either cited (§2) or stated as an assumption (§3). The model is
 
 **Worked check, moderate column:** 0.05 × 0.44 = 0.022; 0.05 × 5.1 M × 0.2 × 10.3 kg = 525 t = 0.0005 Mt; 0.05 × 159 × 0.1 × 0.1 = 0.0795; 0.05 × 120 GWh × 3.7 kt/GWh = 22.2 kt = 0.0222. Sum = 0.124 Mt.
 
+### 4.1 Bottom-up illustration: a single pilot
+
+*An illustration of scale for one pilot, not a forecast, and not part of the headline.* It uses the same per-unit factors as §3. Suppose one mid-size apparel brand puts 100,000 garments a year on Orbit (0.5 kg each, so 50 t of textiles), and one e-bike brand puts 20,000 packs a year on it.
+
+| Pilot | Lever | Arithmetic | t CO2e/yr |
+| --- | --- | --- | --- |
+| Apparel, 100,000 garments | 2 Repair | 100,000 × 10% repaired × 0.93 kg per credited repair | 9.3 |
+| | 1a Fibre-to-fibre recycling | 50 t × 0.051 kg CO2e per kg tracked (= 0.44 Mt ÷ 8.56 Mt, §3) | 2.6 |
+| E-bike, 20,000 packs | 1b Extra collection | 20,000 × 0.20 uplift × 10.3 kg per extra pack recycled | 41.2 |
+| **Total** | | | **≈ 53** |
+
+This matches the share model: 50 t is *s* ≈ 0.0006% of EU textiles, and *s* × 1.59 Mt ≈ 9.3 t. For scale, 53 t is about the production footprint of 5,700 garments (at 9.3 kg each). Two caveats. The battery figure only appears once the packs reach end of life, about 10 years after sale (§2.2), so a pilot starting in 2027 shows almost none of it before the late 2030s. The repair figure assumes 10% uptake, which §5.1 suggests is optimistic.
+
 ## 5. Sensitivity and uncertainty
 
 | Lever | Low case | High case | Why |
@@ -130,6 +143,41 @@ Every input is either cited (§2) or stated as an assumption (§3). The model is
 | 3a EV procurement | 0 | × 2 (no additionality haircut) | Regulation may deliver the same shift without Orbit. |
 
 This gives the ranges in the headline. The moderate scenario runs from **0.02 to 0.41 Mt CO2e/yr**. Lever 2 dominates both the central value and the uncertainty, so a pilot should measure repair uptake first.
+
+### 5.1 How repair responds to incentives
+
+Lever 2 is about 64% of the headline (1.59 of 2.49) and rests on an assumed 10% repair uptake. The evidence from existing repair subsidies:
+
+| Scheme | Design | Observed uptake |
+| --- | --- | --- |
+| France, *bonus réparation* for textiles and shoes (run by Refashion) | From 7 Nov 2023. €6–25 off per repair, capped at 60% of the bill, minimum bill €12. Fund of €154 M for 2023–2028, paid from brands' EPR eco-contributions[^qc] | ≈ 826,000 repairs in the first year, €6.8 M paid (≈ €8 per repair, derived). 83% were shoe repairs. About 1,530 labelled repairers[^fu] |
+| Austria, *Reparaturbonus* (electrical and electronic devices, later bicycles) | From 22 Apr 2022. 50% of the cost, up to €200[^at-bka] | 567,076 vouchers in year one[^at-bka]. ≈ 1.7 M by May 2025, when the €130 M of EU recovery funds (plus federal top-ups) ran out and the scheme was paused for evaluation[^at-orf]. That is at least ≈ €76 of subsidy per repair (derived) |
+| Thuringia, Germany (electrical devices) | Since 2021 | ≈ 30,000 approved applications, €2.3 M (≈ €77 each, derived). In a Fraunhofer IZM evaluation, **just over a third** of users said they would not have repaired without the bonus[^euwid] |
+| Saxony, Germany (electrical devices) | 50% of cost, up to €200 | > 24,500 approved applications and ≈ €2.6 M by end 2024[^hwb] |
+| Sweden, VAT on repairs of bicycles, clothes, household linen, leather goods and shoes | Cut from 25% to 12% in 2017[^sr] | We found no published evaluation of the effect on repair volumes |
+
+**What this means for the 10% assumption.** It looks **optimistic, not conservative**. France buys about 3.5 bn new textile pieces a year (2024)[^lid], so the bonus reaches about 0.02% of pieces sold per year (derived). All clothing and shoe repairs in France, subsidised or not, came to about 16 M items in 2019 (ADEME, via FashionUnited)[^fu], or ≈ 0.5% of pieces sold. The Thuringia survey suggests about two-thirds of subsidised repairs would have happened anyway, which our model would not count. A tracked population can do better than a national average: the brand can prompt the owner, and the signed repair history adds resale value. But we found no data showing 10% of items repaired *because of* an incentive. We keep 10% because the in-app calculator and its test pin it. It should be read as a pilot target to measure, with 5% as the more defensible central case.
+
+**Sensitivity to repair uptake only** (repair lever = *s* × 159 × uptake × 0.10; other levers unchanged):
+
+| Repair uptake | Total | *s* = 1% | *s* = 5% | *s* = 15% |
+| --- | --- | --- | --- | --- |
+| 5% | *s* × 1.69 | 0.017 | 0.084 | 0.25 |
+| 10% (headline) | *s* × 2.49 | 0.025 | 0.12 | 0.37 |
+| 20% | *s* × 4.07 | 0.041 | 0.20 | 0.61 |
+
+### 5.2 Additionality against a mandatory, non-Orbit passport
+
+From 18 Feb 2027 every LMT, EV and large industrial battery needs a passport[^battreg]. A textile passport is expected around 2029[^ec-textiles]. Both apply whoever supplies them. After those dates the fair counterfactual is "a compliant passport without Orbit", not "no passport".
+
+| Lever | Any compliant passport (plus EPR) delivers anyway | Specific to Orbit | Overlap in the headline |
+| --- | --- | --- | --- |
+| 1a Textile recycling | Fibre composition and declared recycled content for sorters; EPR fees and eco-modulation | Recycled content proven by mass balance against counter-signed lots; return reward paid only against a signed return event | No haircut applied. From ~2029 the sorting-data part overlaps; we guess a third to half of the lever (our judgement, no source) |
+| 1b E-bike collection | Chemistry and state-of-health data; legal collection targets (already in the baseline) | Return reward paid only against a signed return; recovered lots linked to the ancestor passport | Small: the regulation requires no reward. An EPR scheme could still pay one without Orbit |
+| 2 Repair | Repair information on the passport. National EPR funds (France) already pay repair bonuses without any passport | Bonus paid only against a repairer-signed `REPAIRED` event for that item; history kept for resale | **Largest.** The headline credits Orbit with the whole effect of a repair incentive, but the money is an EPR fee that a scheme like Refashion's can pay anyway. Orbit's own part is verifying each paid repair and tying it to the item. We cannot size that |
+| 3a EV procurement | Mandatory carbon-footprint declaration and later performance classes[^battreg] | Footprints recomputed from counter-signed supplier data; claims checked against counter-party data | Already haircut by 50% |
+
+As a rough guide, if levers 1a and 2 took the same 50% haircut as 3a, the moderate 2030 figure would fall from 0.12 to about **0.07 Mt CO2e/yr**. Before the textile passport arrives, Orbit on textiles is voluntary, so the overlap matters mainly for 2029–2030. France's repair bonus is the exception: it already exists.
 
 ## 6. Orbit's own footprint
 
@@ -148,7 +196,7 @@ For scale, a full year of hourly anchoring emits about as much as the production
 ## 7. What the projections leave out (upside not credited)
 
 - **Enabling policy.** Textile EPR schemes (required by ~2028) are expected to **eco-modulate** producer fees on environmental performance.[^wfd] ESPR will add recycled-content and durability requirements. These schemes need trustworthy per-product data, which Orbit provides. JRC modelling finds that EU textile waste-management interventions could cut up to **22.3 Mt CO2e/yr by 2035** (18% of the sector's impact).[^jrc-wm] Orbit is infrastructure for that, but we claim none of it.
-- **Reuse** of deposit-returned garments, which JRC ranks above recycling.[^jrc-textiles]
+- **Reuse** of garments returned for a reward, which JRC ranks above recycling.[^jrc-textiles]
 - **Battery repair and second life.** In the demo, a battery is repaired before it is recycled.
 - **EV batteries reaching end of life after 2030**, when recycled-content minimums start to bind (2031).
 

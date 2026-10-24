@@ -341,7 +341,7 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
           <dl className="mt-3 space-y-1 text-sm">
             <Row k="Repairability" v={`${p.repairabilityScore}/10`} />
             <Row k="Warranty" v={`${p.warrantyYears} year${p.warrantyYears === 1 ? "" : "s"}`} />
-            <Row k="Deposit refund on return" v={`${p.depositCredits} credits`} />
+            <Row k="Return reward" v={`${p.depositCredits} credits`} />
           </dl>
           {c.stage === "in-use" && (
             <div className="mt-4 rounded-xl border border-line p-3">

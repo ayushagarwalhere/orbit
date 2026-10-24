@@ -17,7 +17,8 @@
     "keystore": "node scripts/export-keystore.mjs",
     "test:chain": "node --test tests/chain.integration.ts",
     "witness": "node --env-file-if-exists=.env.local scripts/witness.ts",
-    "fund:witness": "node --env-file-if-exists=.env.local scripts/fund-witness.mjs"
+    "fund:witness": "node --env-file-if-exists=.env.local scripts/fund-witness.mjs",
+    "chain:local": "npx -y hardhat@2.22.17 node"
   },
   "dependencies": {
     "@noble/curves": "1.9.7",

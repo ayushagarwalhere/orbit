@@ -8,7 +8,8 @@ import { getDb } from "@/lib/store.ts";
 export const dynamic = "force-dynamic";
 
 const REASON: Record<string, string> = {
-  "deposit-refund": "Deposit refund for returning a product",
+  "return-reward": "Return reward for bringing a product back",
+  "deposit-refund": "Return reward for bringing a product back",
   "material-recovered": "Material recovered at recycling",
   "repair-instead-of-replace": "Repaired instead of replaced",
 };
@@ -42,7 +43,7 @@ export default function RewardsPage() {
       <div className="card grid gap-4 p-5 text-sm md:grid-cols-3">
         <div>
           <div className="label">Why not a tradable token?</div>
-          <p className="mt-2 text-ink-soft">A deposit refund has to be worth the same next week. A tradable token invites farming, wash-trading and price swings, so credits are deliberately non-transferable.</p>
+          <p className="mt-2 text-ink-soft">A return reward has to be worth the same next week. A tradable token invites farming, wash-trading and price swings, so credits are deliberately non-transferable.</p>
         </div>
         <div>
           <div className="label">Regulation</div>
@@ -58,7 +59,7 @@ export default function RewardsPage() {
         <Stat label="Credits minted" value={fmt(minted, 0)} tone="leaf" />
         <Stat label="Credits redeemed" value={fmt(redeemed, 0)} />
         <Stat label="Earning actors" value={String(board.length)} />
-        <Stat label="Products returned" value={String(db.ledger.filter((e) => e.type === "RETURNED").length)} sub="via deposit refund" />
+        <Stat label="Products returned" value={String(db.ledger.filter((e) => e.type === "RETURNED").length)} sub="each earning a return reward" />
       </div>
 
       <section className="grid gap-4 md:grid-cols-2">

@@ -12,7 +12,7 @@ const PILLARS = [
   { title: "Lifecycle tracking", body: "Every handover is an instruction signed by that party's own key, hash-chained to the one before it.", Icon: Link2 },
   { title: "Digital product passports", body: "Scan a QR code for materials, origin, footprint and custody. Exports as a self-verifying credential.", Icon: ScanLine },
   { title: "Recycling traceability", body: "Recovered material becomes new lots linked to their source product. Recycled content is proven by mass balance.", Icon: Recycle },
-  { title: "Circular incentives", body: "Deposit refunds, repair bonuses and recovery credits are minted only when a matching signed event exists.", Icon: Coins },
+  { title: "Circular incentives", body: "Return rewards, repair bonuses and recovery credits are minted only against a matching signed event.", Icon: Coins },
 ];
 
 const CATEGORY_HUE: Record<string, string> = { apparel: "#c4a1ff", battery: "#c8f169", electronics: "#7cc4ff", packaging: "#e0b77a" };

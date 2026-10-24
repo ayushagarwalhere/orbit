@@ -8,7 +8,7 @@ const SLIDERS: { key: keyof ImpactInputs; label: string; min: number; max: numbe
   { key: "adoption", label: "Share of EU textiles & batteries on Orbit by 2030", min: 0.01, max: 0.25, step: 0.01, hint: "Our scenarios: 1% conservative, 5% moderate, 15% ambitious" },
   { key: "repairUptake", label: "Tracked textile items that get a life-extending repair", min: 0, max: 0.3, step: 0.01, hint: "Assumption. Repairs are rewarded with credits" },
   { key: "repairSaving", label: "Footprint saved per repaired item", min: 0, max: 0.2, step: 0.01, hint: "WRAP: up to 20% for +9 months of life; we default to half" },
-  { key: "collectionUplift", label: "Extra e-bike pack collection from deposits", min: 0, max: 0.4, step: 0.01, hint: "US deposits show ~+40 pts on cans; we default to half" },
+  { key: "collectionUplift", label: "Extra e-bike pack collection from return rewards", min: 0, max: 0.4, step: 0.01, hint: "US deposits show ~+40 pts on cans; we default to half" },
   { key: "procurementGain", label: "Lower footprint of verified EV cells bought", min: 0, max: 0.2, step: 0.01, hint: "Median to 5th percentile gap is ~20% (Peiseler 2024)" },
   { key: "additionality", label: "Share not already caused by the Battery Regulation", min: 0, max: 1, step: 0.05, hint: "50% haircut by default" },
 ];
