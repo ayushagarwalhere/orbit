@@ -10,12 +10,14 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/core.test.ts",
+    "test": "node --test tests/core.test.ts tests/store.test.ts",
     "compile:anchor": "node scripts/compile-anchor.mjs",
     "wallet": "node --env-file-if-exists=.env.local scripts/new-wallet.mjs",
     "deploy:anchor": "node --env-file-if-exists=.env.local scripts/deploy-anchor.mjs",
     "keystore": "node scripts/export-keystore.mjs",
-    "test:chain": "node --test tests/chain.integration.ts"
+    "test:chain": "node --test tests/chain.integration.ts",
+    "witness": "node --env-file-if-exists=.env.local scripts/witness.ts",
+    "fund:witness": "node --env-file-if-exists=.env.local scripts/fund-witness.mjs"
   },
   "dependencies": {
     "@noble/curves": "1.9.7",

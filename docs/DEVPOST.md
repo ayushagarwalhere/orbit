@@ -50,7 +50,7 @@ Traceability alone doesn't create accountability. Accountability comes from chec
 - Anchoring to a public L2 mainnet, and integration with the EU DPP registry
 
 ## Try it
-**Live contract:** [OrbitAnchor on Base Sepolia](https://sepolia.basescan.org/address/0x9735e3824f7dafb5d2302ed4796c644534688a06). Each checkpoint is a public transaction you can inspect.
+**Live contract:** [OrbitAnchor on Base Sepolia](https://sepolia.basescan.org/address/0x8d451a63bf860baf08bf5f74bcf67f42dea4e1a6). Each checkpoint is a public transaction you can inspect.
 
 ```
 git clone https://github.com/ayushagarwalhere/orbit && cd orbit

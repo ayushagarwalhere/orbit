@@ -1,5 +1,5 @@
 import { PROTOCOL_ID, authMismatch, requestHash, verifyRequest } from "./auth.ts";
-import { hashObject, merkleRoot, signHash, verifySignature } from "./crypto.ts";
+import { IncrementalMerkle, hashObject, merkleRoot, signHash, verifySignature } from "./crypto.ts";
 import type { Db, EntryType, LedgerEntry, Place, SignedRequest } from "./types.ts";
 
 export const GENESIS_HASH = "0".repeat(64);
@@ -88,86 +88,132 @@ export interface IntegrityReport {
 }
 
 /** Public keys, taken only from registration entries (self-signed proof of possession). */
+const keyCache = new WeakMap<LedgerEntry[], { n: number; keys: Map<string, string> }>();
 export function registeredKeys(ledger: LedgerEntry[]): Map<string, string> {
-  const keys = new Map<string, string>();
-  for (const e of ledger) {
-    if (e.type !== "ACTOR_REGISTERED" || keys.has(e.subjectId)) continue;
-    keys.set(e.subjectId, String(e.data.publicKey));
+  let c = keyCache.get(ledger);
+  if (!c || c.n > ledger.length) {
+    c = { n: 0, keys: new Map() };
+    keyCache.set(ledger, c);
   }
-  return keys;
+  for (let i = c.n; i < ledger.length; i++) {
+    const e = ledger[i];
+    if (e.type === "ACTOR_REGISTERED" && !c.keys.has(e.subjectId)) c.keys.set(e.subjectId, String(e.data.publicKey));
+  }
+  c.n = ledger.length;
+  return c.keys;
 }
 
+/**
+ * Root over entries 0..covers-1. Cached by the last entry's hash: thanks to the hash chain that hash
+ * commits to the whole prefix, so a cached root can never be served for different history.
+ */
+const prefixCache = new Map<string, string>();
 export function prefixRoot(db: Db, covers: number): string {
-  return merkleRoot(db.ledger.slice(0, covers).map((e) => e.hash));
+  if (covers <= 0) return merkleRoot([]);
+  const key = `${covers}:${db.ledger[covers - 1]?.hash}`;
+  let root = prefixCache.get(key);
+  if (!root) {
+    root = merkleRoot(db.ledger.slice(0, covers).map((e) => e.hash));
+    if (prefixCache.size > 512) prefixCache.clear();
+    prefixCache.set(key, root);
+  }
+  return root;
 }
 
 /**
  * Full independent check: every hash, every link, the sequencer's signature, the actor's
  * signed instruction (and that the entry matches it), replay, and optional anchored roots.
  */
-const memo = new WeakMap<Db, { key: string; report: IntegrityReport }>();
-
-export function verifyLedger(db: Db, anchors: AnchorRef[] = []): IntegrityReport {
-  // Signature checks are the expensive part; cache per ledger state (append-only, so length + head + tamper flag identify it).
-  const key = anchors.length ? null : `${db.ledger.length}:${db.ledger.at(-1)?.hash}:${db.tamper ? `${db.tamper.mode}${db.tamper.index}` : ""}`;
-  const hit = key ? memo.get(db) : undefined;
-  if (hit && hit.key === key) return hit.report;
-  const report = computeIntegrity(db, anchors);
-  if (key) memo.set(db, { key, report });
-  return report;
+/**
+ * Incremental verification state. The ledger is append-only, so once entries 0..n-1 are verified
+ * only new entries need checking: O(new entries) per call instead of O(ledger). Any edit to
+ * history (tamper flag, different head, shorter ledger) falls back to a full pass.
+ */
+interface VerifyState {
+  n: number;
+  head: string | undefined;
+  tamperKey: string;
+  keys: Map<string, string>;
+  seenRequests: Set<string>;
+  lastRequest: string | null;
+  issues: IntegrityReport["issues"];
+  bad: Set<number>;
+  tree: IncrementalMerkle;
 }
 
-function computeIntegrity(db: Db, anchors: AnchorRef[]): IntegrityReport {
-  const issues: IntegrityReport["issues"] = [];
-  const bad = new Set<number>();
-  const flag = (index: number, problem: EntryProblem, detail: string) => {
-    issues.push({ index, problem, detail });
-    bad.add(index);
+const states = new WeakMap<Db, VerifyState>();
+
+function freshState(tamperKey: string): VerifyState {
+  return { n: 0, head: undefined, tamperKey, keys: new Map(), seenRequests: new Set(), lastRequest: null, issues: [], bad: new Set(), tree: new IncrementalMerkle() };
+}
+
+function checkEntry(s: VerifyState, ledger: LedgerEntry[], i: number) {
+  const e = ledger[i];
+  const flag = (problem: EntryProblem, detail: string) => {
+    s.issues.push({ index: i, problem, detail });
+    s.bad.add(i);
   };
-  const keys = new Map<string, string>();
-  const seenRequests = new Map<string, number>();
-  let lastRequest: string | null = null;
-  const ledger = db.ledger;
+  const expectedPrev = i === 0 ? GENESIS_HASH : ledger[i - 1].hash;
+  if (e.prevHash !== expectedPrev) flag("broken-link", "prevHash does not match previous entry");
+  const recomputed = hashEntry(e);
+  if (recomputed !== e.hash) flag("hash-mismatch", `content hashes to ${recomputed.slice(0, 12)}…`);
 
-  ledger.forEach((e, i) => {
-    const expectedPrev = i === 0 ? GENESIS_HASH : ledger[i - 1].hash;
-    if (e.prevHash !== expectedPrev) flag(i, "broken-link", "prevHash does not match previous entry");
-    const recomputed = hashEntry(e);
-    if (recomputed !== e.hash) flag(i, "hash-mismatch", `content hashes to ${recomputed.slice(0, 12)}…`);
+  if (e.type === "ACTOR_REGISTERED" && !s.keys.has(e.subjectId)) s.keys.set(e.subjectId, String(e.data.publicKey));
+  const seqKey = s.keys.get(PROTOCOL_ID);
+  if (!seqKey || !verifySignature(e.hash, e.signature, seqKey)) flag("bad-sequencer-signature", "not signed by the registered sequencer");
 
-    if (e.type === "ACTOR_REGISTERED" && !keys.has(e.subjectId)) keys.set(e.subjectId, String(e.data.publicKey));
-    const seqKey = keys.get(PROTOCOL_ID);
-    if (!seqKey || !verifySignature(e.hash, e.signature, seqKey)) flag(i, "bad-sequencer-signature", "not signed by the registered sequencer");
-
-    if (e.actorId !== PROTOCOL_ID || e.type === "ACTOR_REGISTERED") {
-      const actorKey = keys.get(e.actorId);
-      if (!actorKey) flag(i, "unknown-actor", `${e.actorId} is not registered on the ledger`);
-      else if (!e.auth || !verifyRequest(e.auth, actorKey)) flag(i, "bad-actor-signature", "actor's signed instruction is missing or invalid");
-      const mismatch = authMismatch(e);
-      if (mismatch) flag(i, "auth-mismatch", mismatch);
-      if (e.auth) {
-        // One instruction may produce a run of entries, but must never reappear later.
-        const rh = requestHash(e.auth.request);
-        if (seenRequests.has(rh) && lastRequest !== rh) flag(i, "replayed-request", "this signed instruction was already used earlier");
-        seenRequests.set(rh, i);
-        lastRequest = rh;
-      }
+  if (e.actorId !== PROTOCOL_ID || e.type === "ACTOR_REGISTERED") {
+    const actorKey = s.keys.get(e.actorId);
+    if (!actorKey) flag("unknown-actor", `${e.actorId} is not registered on the ledger`);
+    else if (!e.auth || !verifyRequest(e.auth, actorKey)) flag("bad-actor-signature", "actor's signed instruction is missing or invalid");
+    const mismatch = authMismatch(e);
+    if (mismatch) flag("auth-mismatch", mismatch);
+    if (e.auth) {
+      // One instruction may produce a run of entries, but must never reappear later.
+      const rh = requestHash(e.auth.request);
+      if (s.seenRequests.has(rh) && s.lastRequest !== rh) flag("replayed-request", "this signed instruction was already used earlier");
+      s.seenRequests.add(rh);
+      s.lastRequest = rh;
     }
-  });
+  }
+}
 
+/**
+ * Full independent check: every hash, every link, the sequencer's signature, the actor's
+ * signed instruction (and that the entry matches it), replay, and optional anchored roots.
+ */
+export function verifyLedger(db: Db, anchors: AnchorRef[] = []): IntegrityReport {
+  const ledger = db.ledger;
+  const tamperKey = db.tamper ? `${db.tamper.mode}${db.tamper.index}` : "";
+  let s = states.get(db);
+  const prefixIntact = s && s.tamperKey === tamperKey && s.n <= ledger.length && (s.n === 0 || ledger[s.n - 1].hash === s.head);
+  if (!s || !prefixIntact) {
+    s = freshState(tamperKey);
+    states.set(db, s);
+  }
+  for (let i = s.n; i < ledger.length; i++) {
+    checkEntry(s, ledger, i);
+    s.tree.append(ledger[i].hash);
+  }
+  s.n = ledger.length;
+  s.head = ledger.at(-1)?.hash;
+
+  const issues = s.issues.slice();
+  const bad = new Set(s.bad);
   for (const a of anchors) {
+    const at = Math.max(0, Math.min(a.covers, ledger.length) - 1);
     if (a.covers > ledger.length) {
-      flag(ledger.length - 1, "anchor-mismatch", `${a.label} covers ${a.covers} entries but ledger has ${ledger.length}`);
+      issues.push({ index: at, problem: "anchor-mismatch", detail: `${a.label} covers ${a.covers} entries but ledger has ${ledger.length}` });
+      bad.add(at);
       continue;
     }
     const root = prefixRoot(db, a.covers);
     if (root !== a.merkleRoot) {
-      // Find the first entry that diverges is impossible from a root alone; flag the range.
-      flag(a.covers - 1, "anchor-mismatch", `${a.label}: recomputed root ${root.slice(0, 12)}… ≠ anchored ${a.merkleRoot.slice(0, 12)}…`);
+      issues.push({ index: at, problem: "anchor-mismatch", detail: `${a.label}: recomputed root ${root.slice(0, 12)}… ≠ anchored ${a.merkleRoot.slice(0, 12)}…` });
+      bad.add(at);
     }
   }
-
-  return { ok: issues.length === 0, checked: ledger.length, issues, badIndexes: bad, merkleRoot: merkleRoot(ledger.map((e) => e.hash)), keys };
+  return { ok: issues.length === 0, checked: ledger.length, issues, badIndexes: bad, merkleRoot: s.tree.root(), keys: s.keys };
 }
 
 export function entriesFor(db: Db, subjectId: string): LedgerEntry[] {

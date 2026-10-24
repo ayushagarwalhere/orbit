@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { readCheckpoint } from "@/lib/anchor-read.ts";
+import { readCheckpoint, readLedgerCheckpoints } from "@/lib/anchor-read.ts";
 import { PROTOCOL_ID, authMismatch, verifyRequest } from "@/lib/auth.ts";
 import { hashObject, rootFromProof, verifySignature, type ProofStep } from "@/lib/crypto.ts";
 import { hashEntry } from "@/lib/ledger.ts";
@@ -104,7 +104,7 @@ async function verifyDoc(doc: any, onProgress: (r: Result[]) => void): Promise<R
   });
   try {
     const cp = await readCheckpoint(network, contract, Number(anchor.checkpointId));
-    const ok = cp.merkleRoot === anchor.merkleRoot && cp.ledgerLength === anchor.covers;
+    const ok = cp.merkleRoot === anchor.merkleRoot && cp.ledgerLength === anchor.covers && (!anchor.ledgerId || cp.ledgerId === anchor.ledgerId);
     push({
       label: `On-chain root (${network.name})`,
       ok,
@@ -113,6 +113,22 @@ async function verifyDoc(doc: any, onProgress: (r: Result[]) => void): Promise<R
         : `Chain holds ${cp.merkleRoot.slice(0, 16)}… (${cp.ledgerLength} entries); passport claims ${String(anchor.merkleRoot).slice(0, 16)}…`,
       link: txUrl(network, anchor.txHash ?? undefined),
     });
+    // Other parties may have anchored this ledger too. Their roots are public, so anyone can compare.
+    if (anchor.ledgerId) {
+      const { operator, checkpoints } = await readLedgerCheckpoints(network, contract, anchor.ledgerId, 20);
+      const witnesses = checkpoints.filter((c) => c.submitter.toLowerCase() !== operator.toLowerCase());
+      const sameLength = witnesses.filter((w) => w.ledgerLength === anchor.covers);
+      const conflict = sameLength.find((w) => w.merkleRoot !== anchor.merkleRoot);
+      push({
+        label: "Independent witnesses",
+        ok: conflict ? false : witnesses.length ? true : "warn",
+        detail: conflict
+          ? `Witness ${conflict.submitter} anchored a DIFFERENT root for the same ${anchor.covers} entries`
+          : witnesses.length
+            ? `${witnesses.length} checkpoint${witnesses.length > 1 ? "s" : ""} by ${new Set(witnesses.map((w) => w.submitter)).size} party(ies) other than Orbit${sameLength.length ? `; ${sameLength.length} independently confirm this exact root` : ""}`
+            : "No independent witness has anchored this ledger yet (anyone can, it's an open contract)",
+      });
+    }
   } catch (e) {
     push({ label: "On-chain root", ok: "warn", detail: `Could not reach ${network.name} RPC: ${e instanceof Error ? e.message.split("\n")[0] : "error"}` });
   }

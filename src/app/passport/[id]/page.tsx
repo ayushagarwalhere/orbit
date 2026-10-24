@@ -35,7 +35,9 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
   const qr = await QRCode.toString(url, { type: "svg", margin: 1, color: { dark: "#0e1613", light: "#f3f1ea" } });
 
   const integrity = verifyLedger(db);
-  const [anchor] = (await checkAnchors(db, 1)).slice(-1);
+  const anchorChecks = await checkAnchors(db, 4);
+  // Show a mismatch from any party first; otherwise the most recent checkpoint.
+  const anchor = anchorChecks.find((a) => a.status === "mismatch") ?? anchorChecks.at(-1);
   const trust = trustReport(db, p, integrity);
   const brand = getActor(db, p.brandId);
   const c = custody(db, p.id);
@@ -75,7 +77,7 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
     <div className="space-y-10">
       {anchor?.status === "mismatch" && (
         <div className="rounded-xl border border-rust bg-rust-soft p-4 text-sm font-semibold text-rust">
-          ⚠ This ledger no longer matches the root published on {anchor.checkpoint.network}. History was rewritten after it was anchored, even though every local signature still checks out.{" "}
+          ⚠ This ledger no longer matches a root published on {anchor.network}. History was rewritten after it was anchored, even though every local signature still checks out.{" "}
           <Link href="/ledger" className="underline">
             Inspect ledger
           </Link>
@@ -116,7 +118,7 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
             {anchor && (
               <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
                 {anchor.status === "match" ? (
-                  <span className="chip border-leaf/30 bg-leaf-soft text-leaf">⚓ Anchored on {anchor.checkpoint.network} · #{anchor.checkpoint.checkpointId}</span>
+                  <span className="chip border-leaf/30 bg-leaf-soft text-leaf">⚓ Anchored on {anchor.network} · #{anchor.id}</span>
                 ) : anchor.status === "local" ? (
                   <span className="chip border-amber/30 bg-amber-soft text-amber">⚓ Local checkpoint only</span>
                 ) : anchor.status === "mismatch" ? (
@@ -124,8 +126,8 @@ export default async function PassportPage({ params }: { params: Promise<{ id: s
                 ) : (
                   <span className="chip border-amber/30 bg-amber-soft text-amber">⚓ Chain unreachable</span>
                 )}
-                {anchor.checkpoint.explorerTx && (
-                  <a href={anchor.checkpoint.explorerTx} target="_blank" className="text-accent hover:underline">
+                {anchor.explorerTx && (
+                  <a href={anchor.explorerTx} target="_blank" className="text-accent hover:underline">
                     view transaction ↗
                   </a>
                 )}

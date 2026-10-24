@@ -107,6 +107,8 @@ export function exportPassport(db: Db, p: Product, baseUrl: string) {
             chainId: cp.chainId ?? null,
             contract: cp.contract ?? null,
             checkpointId: cp.checkpointId ?? null,
+            ledgerId: cp.ledgerId ?? db.ledgerId ?? null,
+            submitter: cp.submitter ?? null,
             covers: cp.covers,
             merkleRoot: cp.merkleRoot,
             txHash: cp.txHash ?? null,

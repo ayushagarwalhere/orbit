@@ -1,11 +1,11 @@
-// Server-only: publishes ledger Merkle roots to OrbitAnchor and checks them back.
+// Server-only: publishes ledger Merkle roots to OrbitAnchor and checks every party's roots back.
 import { createPublicClient, createWalletClient, http, parseEventLogs } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { readCheckpoint, viemChain } from "./anchor-read.ts";
+import { readLedgerCheckpoints, viemChain, type OnChainCheckpoint } from "./anchor-read.ts";
 import { recordCheckpoint } from "./actions.ts";
 import { OrbitError } from "./domain.ts";
 import { prefixRoot } from "./ledger.ts";
-import { ANCHOR_ABI, networkById, networkByKey, txUrl, type Network } from "./networks.ts";
+import { ANCHOR_ABI, networkByKey, txUrl, type Network } from "./networks.ts";
 import { getDb, mutate } from "./store.ts";
 import type { Checkpoint, Db } from "./types.ts";
 
@@ -30,25 +30,24 @@ export function chainConfig(): ChainConfig | null {
   };
 }
 
-async function publishRoot(cfg: ChainConfig, root: string, covers: number) {
+async function publishRoot(cfg: ChainConfig, ledgerId: string, root: string, covers: number) {
   if (!cfg.privateKey) throw new OrbitError("ORBIT_ANCHOR_PRIVATE_KEY is not set, so this server cannot publish anchors", 503);
   const chain = viemChain(cfg.network, cfg.rpc);
   const account = privateKeyToAccount(cfg.privateKey);
   const wallet = createWalletClient({ account, chain, transport: http(cfg.rpc) });
   const pub = createPublicClient({ chain, transport: http(cfg.rpc) });
-  const hash = await wallet.writeContract({ address: cfg.address, abi: ANCHOR_ABI, functionName: "anchor", args: [`0x${root}`, BigInt(covers)] });
+  const hash = await wallet.writeContract({ address: cfg.address, abi: ANCHOR_ABI, functionName: "anchor", args: [`0x${ledgerId}`, `0x${root}`, BigInt(covers)] });
   const receipt = await pub.waitForTransactionReceipt({ hash, timeout: 90_000 });
   if (receipt.status !== "success") throw new OrbitError(`Anchor transaction reverted: ${hash}`, 502);
   const [log] = parseEventLogs({ abi: ANCHOR_ABI, eventName: "Anchored", logs: receipt.logs });
-  return { txHash: hash, blockNumber: Number(receipt.blockNumber), checkpointId: Number(log.args.id) };
+  return { txHash: hash, blockNumber: Number(receipt.blockNumber), checkpointId: Number(log.args.id), submitter: account.address };
 }
 
 const g = globalThis as unknown as { __orbitAnchor?: { inflight: Promise<Checkpoint> | null; timer: ReturnType<typeof setTimeout> | null; booted: boolean } };
 const svc = () => (g.__orbitAnchor ??= { inflight: null, timer: null, booted: false });
 
-/** Commit the current ledger root: on-chain when configured, otherwise as a local-only checkpoint. */
 /** Below this balance, automatic anchoring pauses (manual anchoring still works). */
-const MIN_AUTO_BALANCE_WEI = 20_000_000_000_000n; // 0.00002 ETH ≈ 40 anchors of headroom on Base Sepolia
+const MIN_AUTO_BALANCE_WEI = 20_000_000_000_000n; // 0.00002 ETH, about 40 anchors of headroom on Base Sepolia
 
 export async function anchorWalletBalance(): Promise<bigint | null> {
   const cfg = chainConfig();
@@ -57,14 +56,11 @@ export async function anchorWalletBalance(): Promise<bigint | null> {
   return pub.getBalance({ address: privateKeyToAccount(cfg.privateKey).address });
 }
 
+/** Commit the current ledger root: on-chain when configured, otherwise as a local-only checkpoint. */
 export function anchorNow(opts: { auto?: boolean } = {}): Promise<Checkpoint> {
   const s = svc();
   if (s.inflight) return s.inflight;
   s.inflight = (async () => {
-    if (opts.auto) {
-      const bal = await anchorWalletBalance().catch(() => null);
-      if (bal !== null && bal < MIN_AUTO_BALANCE_WEI) throw new OrbitError("Anchor wallet is low on testnet ETH; auto-anchoring paused until it is topped up", 503);
-    }
     const db = getDb();
     if (db.tamper) throw new OrbitError("Restore the ledger before anchoring: refusing to anchor tampered history", 409);
     const covers = db.ledger.length;
@@ -73,7 +69,12 @@ export function anchorNow(opts: { auto?: boolean } = {}): Promise<Checkpoint> {
     if (!cfg?.privateKey) {
       return mutate((tx) => recordCheckpoint(tx, { covers, merkleRoot: root, onChain: false, network: "local only (no chain configured)" }));
     }
-    const r = await publishRoot(cfg, root, covers);
+    if (opts.auto) {
+      const bal = await anchorWalletBalance().catch(() => null);
+      if (bal !== null && bal < MIN_AUTO_BALANCE_WEI) throw new OrbitError("Anchor wallet is low on testnet ETH; auto-anchoring paused until it is topped up", 503);
+    }
+    const ledgerId = db.ledgerId!;
+    const r = await publishRoot(cfg, ledgerId, root, covers);
     return mutate((tx) =>
       recordCheckpoint(tx, {
         covers,
@@ -83,6 +84,8 @@ export function anchorNow(opts: { auto?: boolean } = {}): Promise<Checkpoint> {
         network: cfg.network.name,
         contract: cfg.address,
         checkpointId: r.checkpointId,
+        ledgerId,
+        submitter: r.submitter,
         txHash: r.txHash,
         blockNumber: r.blockNumber,
         explorerTx: txUrl(cfg.network, r.txHash),
@@ -112,44 +115,77 @@ export function bootAnchor() {
   if (s.booted) return;
   s.booted = true;
   const db = getDb();
-  const last = [...db.checkpoints].reverse().find((c) => c.onChain);
+  const last = [...db.checkpoints].reverse().find((c) => c.onChain && c.ledgerId === db.ledgerId);
   if (!last || last.covers < db.ledger.length - 1) scheduleAnchor(2_000);
 }
 
 export interface AnchorCheck {
-  checkpoint: Checkpoint;
+  onChain: OnChainCheckpoint | null; // null for a local-only record
+  network: string;
+  id?: number;
+  local?: Checkpoint;
+  covers: number;
   status: "match" | "mismatch" | "unreachable" | "local";
-  onChainRoot?: string;
+  role: "operator" | "witness" | "local";
   recomputedRoot: string;
   detail: string;
+  explorerTx?: string;
 }
 
-/** Compare the ledger as it is now against roots stored on-chain. Detects any rewrite of history. */
-export async function checkAnchors(db: Db, limit = 4): Promise<AnchorCheck[]> {
-  const cps = db.checkpoints.slice(-limit);
-  return Promise.all(
-    cps.map(async (cp): Promise<AnchorCheck> => {
-      const recomputed = cp.covers <= db.ledger.length ? prefixRoot(db, cp.covers) : "";
-      if (!cp.onChain || cp.checkpointId === undefined || !cp.contract) {
-        return { checkpoint: cp, status: "local", recomputedRoot: recomputed, detail: "Local checkpoint only: not independently verifiable" };
+/**
+ * Compare the ledger as it is now against every root published for it on-chain, by Orbit or by
+ * independent witnesses. Reads the chain directly, so rewriting local records changes nothing.
+ */
+export async function checkAnchors(db: Db, limit = 5): Promise<AnchorCheck[]> {
+  const cfg = chainConfig();
+  if (!cfg || !db.ledgerId) {
+    return db.checkpoints.slice(-limit).map((cp) => ({
+      onChain: null,
+      network: cp.network,
+      local: cp,
+      covers: cp.covers,
+      status: "local",
+      role: "local",
+      recomputedRoot: cp.covers <= db.ledger.length ? prefixRoot(db, cp.covers) : "",
+      detail: "Local checkpoint only: not independently verifiable",
+    }));
+  }
+  try {
+    const { operator, checkpoints } = await readLedgerCheckpoints(cfg.network, cfg.address, db.ledgerId, limit, cfg.rpc);
+    const localById = new Map(db.checkpoints.filter((c) => c.checkpointId !== undefined).map((c) => [c.checkpointId!, c]));
+    return checkpoints.map((oc): AnchorCheck => {
+      const role = oc.submitter.toLowerCase() === operator.toLowerCase() ? "operator" : "witness";
+      const who = role === "operator" ? "Orbit operator" : `independent witness ${oc.submitter.slice(0, 6)}…${oc.submitter.slice(-4)}`;
+      if (oc.ledgerLength > db.ledger.length) {
+        return { onChain: oc, network: cfg.network.name, id: oc.id, covers: oc.ledgerLength, status: "mismatch", role, recomputedRoot: "", detail: `${who} anchored ${oc.ledgerLength} entries, but the ledger now has only ${db.ledger.length}: events were deleted or withheld` };
       }
-      const network = networkById(cp.chainId!);
-      if (!network) return { checkpoint: cp, status: "unreachable", recomputedRoot: recomputed, detail: "Unknown network" };
-      try {
-        const cfg = chainConfig();
-        const rpc = cfg && network.chainId === cfg.network.chainId ? cfg.rpc : undefined;
-        const onChain = await readCheckpoint(network, cp.contract, cp.checkpointId, rpc);
-        const ok = onChain.merkleRoot === recomputed && onChain.ledgerLength === cp.covers;
-        return {
-          checkpoint: cp,
-          status: ok ? "match" : "mismatch",
-          onChainRoot: onChain.merkleRoot,
-          recomputedRoot: recomputed,
-          detail: ok ? `Root of entries 0–${cp.covers - 1} matches ${network.name} checkpoint #${cp.checkpointId}` : `History changed after it was anchored: ${network.name} checkpoint #${cp.checkpointId} holds ${onChain.merkleRoot.slice(0, 12)}…, ledger now hashes to ${recomputed.slice(0, 12)}…`,
-        };
-      } catch (e) {
-        return { checkpoint: cp, status: "unreachable", recomputedRoot: recomputed, detail: `Could not reach ${network.name}: ${e instanceof Error ? e.message.split("\n")[0] : "error"}` };
-      }
-    }),
-  );
+      const recomputed = prefixRoot(db, oc.ledgerLength);
+      const ok = recomputed === oc.merkleRoot;
+      return {
+        onChain: oc,
+        network: cfg.network.name,
+        id: oc.id,
+        local: localById.get(oc.id),
+        covers: oc.ledgerLength,
+        status: ok ? "match" : "mismatch",
+        role,
+        recomputedRoot: recomputed,
+        explorerTx: localById.get(oc.id)?.explorerTx,
+        detail: ok
+          ? `Entries 0–${oc.ledgerLength - 1} match checkpoint #${oc.id} by ${who}`
+          : `History changed after ${who} anchored it: checkpoint #${oc.id} holds ${oc.merkleRoot.slice(0, 12)}…, ledger now hashes to ${recomputed.slice(0, 12)}…`,
+      };
+    });
+  } catch (e) {
+    return db.checkpoints.slice(-1).map((cp) => ({
+      onChain: null,
+      network: cfg.network.name,
+      local: cp,
+      covers: cp.covers,
+      status: "unreachable",
+      role: "local",
+      recomputedRoot: "",
+      detail: `Could not reach ${cfg.network.name}: ${e instanceof Error ? e.message.split("\n")[0] : "error"}`,
+    }));
+  }
 }

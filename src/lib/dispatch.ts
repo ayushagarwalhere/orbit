@@ -37,6 +37,22 @@ const ACTIONS: Record<string, (tx: Tx, b: any) => unknown> = {
 
 export const SIGNED_ACTIONS = Object.keys(ACTIONS);
 
+/** Used nonces per ledger, extended incrementally as the ledger grows (O(new entries) per request). */
+const nonceCache = new WeakMap<Db, { n: number; set: Set<string> }>();
+function usedNonces(db: Db): Set<string> {
+  let c = nonceCache.get(db);
+  if (!c || c.n > db.ledger.length) {
+    c = { n: 0, set: new Set() };
+    nonceCache.set(db, c);
+  }
+  for (let i = c.n; i < db.ledger.length; i++) {
+    const a = db.ledger[i].auth?.request;
+    if (a) c.set.add(`${a.actorId}:${a.nonce}`);
+  }
+  c.n = db.ledger.length;
+  return c.set;
+}
+
 /**
  * Checks a signed request and, if valid, applies it.
  * The caller must run this inside a transaction that rolls back on throw.
@@ -55,7 +71,7 @@ export function applySigned(db: Db, sequencerKey: string, action: string, sr: Si
   const issued = Date.parse(r.issuedAt);
   if (!Number.isFinite(issued) || Math.abs(nowMs - issued) > MAX_SKEW_MS) throw new OrbitError("Request expired or clock skew too large", 401);
   if (typeof r.nonce !== "string" || r.nonce.length < 8) throw new OrbitError("Missing nonce", 400);
-  if (db.ledger.some((e) => e.auth?.request.actorId === r.actorId && e.auth.request.nonce === r.nonce)) throw new OrbitError("Replay: nonce already used", 409);
+  if (usedNonces(db).has(`${r.actorId}:${r.nonce}`)) throw new OrbitError("Replay: nonce already used", 409);
 
   // The acting party is whoever signed. A body naming someone else is rejected, not rewritten.
   const field = ACTOR_FIELD[action] ?? "actorId";

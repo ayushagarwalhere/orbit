@@ -1,5 +1,5 @@
 // Deploys contracts/OrbitAnchor.json to ORBIT_CHAIN using ORBIT_ANCHOR_PRIVATE_KEY and records
-// ORBIT_ANCHOR_ADDRESS in .env.local. Run: npm run deploy:anchor
+// ORBIT_ANCHOR_ADDRESS in .env.local (unless --no-save). Run: npm run deploy:anchor
 import fs from "node:fs";
 import { createPublicClient, createWalletClient, defineChain, formatEther, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -32,6 +32,7 @@ const receipt = await pub.waitForTransactionReceipt({ hash, timeout: 120_000 });
 const address = receipt.contractAddress;
 console.log(`OrbitAnchor deployed at ${address}${n.explorer ? `  ${n.explorer}/address/${address}` : ""}`);
 
+if (process.argv.includes("--no-save")) process.exit(0);
 const env = fs.existsSync(".env.local") ? fs.readFileSync(".env.local", "utf8") : "";
 const lines = env.split(/\r?\n/).filter((l) => l && !l.startsWith("ORBIT_ANCHOR_ADDRESS=") && !l.startsWith("ORBIT_CHAIN="));
 lines.push(`ORBIT_CHAIN=${key}`, `ORBIT_ANCHOR_ADDRESS=${address}`);

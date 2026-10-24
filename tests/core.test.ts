@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
+import { installNativeCrypto } from "../src/lib/crypto-node.ts";
 import { test } from "node:test";
 import { PROTOCOL_ID, newRequest, signRequest } from "../src/lib/auth.ts";
-import { merkleProof, merkleRoot, randomPrivateKey, rootFromProof, verifyMerkleProof } from "../src/lib/crypto.ts";
+import { IncrementalMerkle, merkleProof, merkleRoot, publicKeyOf, randomPrivateKey, rootFromProof, setEd25519Backend, signHash, verifyMerkleProof, verifySignature } from "../src/lib/crypto.ts";
+import { ed25519 } from "@noble/curves/ed25519";
+import { sha256 } from "@noble/hashes/sha2";
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
 import { restore, tamper } from "../src/lib/demo.ts";
 import { applySigned } from "../src/lib/dispatch.ts";
 import { balanceOf, carbonFootprint, custody, provenRecycledPct } from "../src/lib/domain.ts";
@@ -36,6 +40,17 @@ test("seeded ledger: hashes, sequencer signatures, actor signatures and bindings
   assert.equal(r.ok, true, JSON.stringify(r.issues.slice(0, 3)));
   assert.ok(db.ledger.length > 60);
   assert.equal(r.keys.size, ACTOR_IDS.length, "every actor key comes from an on-ledger registration");
+});
+
+test("incremental verification agrees with a full re-verification", () => {
+  const { db, act } = world();
+  verifyLedger(db); // warm the incremental cache
+  for (let i = 0; i < 5; i++) act("kutch-coop", "create-batch", { material: "organic-cotton", massKg: 10 + i });
+  const incremental = verifyLedger(db);
+  const full = verifyLedger(JSON.parse(JSON.stringify(db))); // fresh object: no cache
+  assert.equal(incremental.ok, true);
+  assert.equal(incremental.merkleRoot, full.merkleRoot);
+  assert.equal(incremental.checked, full.checked);
 });
 
 test("seed is deterministic for a given keystore (stable Merkle root across restarts)", () => {
@@ -234,6 +249,43 @@ test("greenwash lint flags vague wording only", () => {
 });
 
 // ---------- proofs ----------
+
+test("native (server) and pure-JS (browser) Ed25519 + SHA-256 agree byte for byte", () => {
+  const k = randomPrivateKey();
+  const h = "ab".repeat(32);
+  const nativeSig = signHash(h, k);
+  const jsSig = bytesToHex(ed25519.sign(hexToBytes(h), hexToBytes(k)));
+  assert.equal(nativeSig, jsSig, "deterministic RFC 8032 signatures");
+  assert.ok(ed25519.verify(hexToBytes(nativeSig), hexToBytes(h), hexToBytes(publicKeyOf(k)), { zip215: false }));
+  assert.ok(verifySignature(h, jsSig, publicKeyOf(k)));
+  assert.equal(verifySignature(h, jsSig.replace(/^../, "00"), publicKeyOf(k)), false);
+  // The same ledger verifies identically under both backends.
+  const { db } = world();
+  const nativeRoot = verifyLedger(db).merkleRoot;
+  setEd25519Backend({
+    sign: (x, key) => bytesToHex(ed25519.sign(hexToBytes(x), hexToBytes(key))),
+    verify: (x, s, p) => ed25519.verify(hexToBytes(s), hexToBytes(x), hexToBytes(p), { zip215: false }),
+    sha256: (d) => sha256(d),
+  });
+  try {
+    const js = verifyLedger(JSON.parse(JSON.stringify(db)));
+    assert.equal(js.ok, true);
+    assert.equal(js.merkleRoot, nativeRoot);
+  } finally {
+    installNativeCrypto();
+  }
+});
+
+test("incremental Merkle tree matches the batch root at every size", () => {
+  const t = new IncrementalMerkle();
+  const leaves: string[] = [];
+  for (let i = 0; i < 40; i++) {
+    const leaf = (i.toString(16).padStart(2, "0")).repeat(32);
+    leaves.push(leaf);
+    t.append(leaf);
+    assert.equal(t.root(), merkleRoot(leaves), `size ${i + 1}`);
+  }
+});
 
 test("merkle proofs verify against the root", () => {
   const leaves = ["a", "b", "c", "d", "e"].map((x) => x.repeat(64));

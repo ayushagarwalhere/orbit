@@ -1,15 +1,16 @@
 import fs from "node:fs";
+import "./crypto-node.ts"; // native Ed25519/SHA-256 on the server
 import path from "node:path";
 import { PROTOCOL_ID } from "./auth.ts";
-import { publicKeyOf } from "./crypto.ts";
+import { publicKeyOf, randomPrivateKey } from "./crypto.ts";
 import { applySigned } from "./dispatch.ts";
 import { generateKeystore, type Keystore } from "./keys.ts";
 import type { Tx } from "./ledger.ts";
 import { ACTOR_IDS, seedDb } from "./seed.ts";
 import type { Db, SignedRequest } from "./types.ts";
 
-// Single-document store. The ledger is the source of truth and is independently verifiable
-// (hash chain + signatures + on-chain Merkle anchors), so storage itself is not trusted.
+// File store. The ledger is the source of truth and is independently verifiable (hash chain +
+// signatures + on-chain Merkle anchors), so storage itself is not trusted.
 
 const g = globalThis as unknown as { __orbit?: { db: Db; keys: Keystore } };
 
@@ -45,34 +46,70 @@ function loadKeystore(): Keystore {
   }
 }
 
-function dbFile() {
-  return path.join(dataDir(), "orbit-db.json");
+// Storage layout: the ledger is an append-only JSON Lines log (one entry per line), so a write
+// appends O(new entries) bytes instead of rewriting everything. Everything else (actors, products,
+// lots, claims, checkpoints) lives in a small state file.
+const files = () => ({ state: path.join(dataDir(), "state.json"), ledger: path.join(dataDir(), "ledger.jsonl") });
+
+interface Persisted {
+  n: number; // ledger entries already on disk
+  head: string | undefined;
+  tamperKey: string;
+}
+const p = globalThis as unknown as { __orbitPersisted?: Persisted };
+const NL = String.fromCharCode(10);
+
+function tamperKey(db: Db) {
+  return db.tamper ? `${db.tamper.mode}${db.tamper.index}` : "";
+}
+
+function loadDb(): Db | null {
+  try {
+    const f = files();
+    const rest = JSON.parse(fs.readFileSync(f.state, "utf8")) as Omit<Db, "ledger">;
+    const lines = fs.readFileSync(f.ledger, "utf8").split(NL).filter(Boolean);
+    const db = { ...rest, ledger: lines.map((l) => JSON.parse(l)) } as Db;
+    p.__orbitPersisted = { n: db.ledger.length, head: db.ledger.at(-1)?.hash, tamperKey: tamperKey(db) };
+    return db;
+  } catch {
+    return null;
+  }
 }
 
 function state() {
   if (!g.__orbit) {
     const keys = loadKeystore();
-    let db: Db | null = null;
-    try {
-      db = JSON.parse(fs.readFileSync(dbFile(), "utf8")) as Db;
-      const seqKey = db.actors.find((a) => a.id === PROTOCOL_ID)?.publicKey;
-      if (db.version !== DB_VERSION || seqKey !== publicKeyOf(keys[PROTOCOL_ID])) db = null; // stale or other keystore
-    } catch {
-      db = null;
-    }
+    let db = loadDb();
+    const seqKey = db?.actors.find((a) => a.id === PROTOCOL_ID)?.publicKey;
+    if (db && (db.version !== DB_VERSION || seqKey !== publicKeyOf(keys[PROTOCOL_ID]))) db = null; // stale or other keystore
+    const fresh = !db;
     g.__orbit = { db: db ?? seedDb(keys), keys };
-    if (!db) persist();
+    if (!g.__orbit.db.ledgerId) g.__orbit.db.ledgerId = newLedgerId();
+    if (fresh) persist(true);
   }
   return g.__orbit;
 }
 
-function persist() {
+function persist(full = false) {
+  const db = g.__orbit!.db;
+  const was = p.__orbitPersisted;
+  // Append when history only grew; rewrite the log if it was edited (demo tamper/restore) or reset.
+  const appendOnly = !full && was && was.tamperKey === tamperKey(db) && was.n <= db.ledger.length && (was.n === 0 || db.ledger[was.n - 1]?.hash === was.head);
   try {
+    const f = files();
     fs.mkdirSync(dataDir(), { recursive: true });
-    fs.writeFileSync(dbFile(), JSON.stringify(g.__orbit!.db));
+    const { ledger, ...rest } = db;
+    const lines = (from: number) => ledger.slice(from).map((e) => JSON.stringify(e) + NL).join("");
+    if (appendOnly) {
+      if (ledger.length > was!.n) fs.appendFileSync(f.ledger, lines(was!.n));
+    } else {
+      fs.writeFileSync(f.ledger, lines(0));
+    }
+    fs.writeFileSync(f.state, JSON.stringify(rest));
   } catch {
     // Read-only filesystem: keep running in memory.
   }
+  p.__orbitPersisted = { n: db.ledger.length, head: db.ledger.at(-1)?.hash, tamperKey: tamperKey(db) };
 }
 
 export function getDb(): Db {
@@ -89,16 +126,24 @@ export function demoKeys(): Record<string, string> {
   return Object.fromEntries(Object.entries(keys).filter(([id]) => id !== PROTOCOL_ID));
 }
 
-/** Runs a change atomically: if it throws, the database is rolled back. */
+/**
+ * Runs a change atomically: if it throws, the database is rolled back. Rollback truncates the
+ * append-only ledger and restores the (small) non-ledger state, so it doesn't copy the ledger.
+ */
 export function mutate<T>(fn: (tx: Tx) => T): T {
   const s = state();
-  const snapshot = JSON.stringify(s.db);
+  const ledgerLen = s.db.ledger.length;
+  const ledgerRef = s.db.ledger;
+  const { ledger: _ledger, ...rest } = s.db;
+  const snapshot = JSON.stringify(rest);
   try {
     const result = fn({ db: s.db, sequencerKey: s.keys[PROTOCOL_ID] });
     persist();
     return result;
   } catch (err) {
-    s.db = JSON.parse(snapshot) as Db;
+    const restored = JSON.parse(snapshot) as Omit<Db, "ledger">;
+    ledgerRef.length = ledgerLen;
+    s.db = { ...restored, ledger: ledgerRef } as Db;
     throw err;
   }
 }
@@ -108,9 +153,15 @@ export function submitSigned(action: string, sr: SignedRequest): unknown {
   return mutate((tx) => applySigned(tx.db, tx.sequencerKey, action, sr));
 }
 
+/** A fresh id per ledger instance, so different deployments never mix checkpoints on-chain. */
+function newLedgerId(): string {
+  return randomPrivateKey();
+}
+
 export function resetDb(): Db {
   const s = state();
   s.db = seedDb(s.keys);
-  persist();
+  s.db.ledgerId = newLedgerId();
+  persist(true);
   return s.db;
 }

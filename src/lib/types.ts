@@ -156,6 +156,8 @@ export interface Checkpoint {
   network: string;
   contract?: string;
   checkpointId?: number; // index in OrbitAnchor.checkpoints
+  ledgerId?: string;
+  submitter?: string; // EVM address that published it
   txHash?: string;
   blockNumber?: number;
   explorerTx?: string;
@@ -163,6 +165,8 @@ export interface Checkpoint {
 
 export interface Db {
   version: number;
+  /** Random id of this ledger instance; groups its checkpoints on-chain (OrbitAnchor v2). */
+  ledgerId?: string;
   actors: Actor[];
   batches: Batch[];
   products: Product[];

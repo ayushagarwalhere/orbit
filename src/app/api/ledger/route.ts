@@ -10,6 +10,7 @@ export async function GET() {
     const db = getDb();
     const r = verifyLedger(db);
     return {
+      ledgerId: db.ledgerId,
       integrity: { ok: r.ok, checked: r.checked, merkleRoot: r.merkleRoot, issues: r.issues },
       checkpoints: db.checkpoints,
       publicKeys: Object.fromEntries(r.keys), // from on-ledger registrations

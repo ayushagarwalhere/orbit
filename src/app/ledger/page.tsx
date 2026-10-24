@@ -87,18 +87,23 @@ export default async function LedgerPage() {
               .slice()
               .reverse()
               .map((a) => (
-                <li key={`${a.checkpoint.covers}-${a.checkpoint.checkpointId}`} className="flex flex-wrap items-center gap-2">
+                <li key={`${a.covers}-${a.id ?? "local"}`} className="flex flex-wrap items-center gap-2">
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs font-bold ${a.status === "match" ? "bg-leaf-soft text-leaf" : a.status === "mismatch" ? "bg-rust text-on-accent" : "bg-amber-soft text-amber"}`}
                   >
                     {a.status === "match" ? "✓ ON-CHAIN MATCH" : a.status === "mismatch" ? "✕ ON-CHAIN MISMATCH" : a.status === "local" ? "LOCAL ONLY" : "UNREACHABLE"}
                   </span>
+                  {a.role === "witness" && <span className="chip border-sky/30 bg-sky-soft text-sky">Independent witness</span>}
                   <span className={a.status === "mismatch" ? "font-semibold text-rust" : "text-ink-soft"}>{a.detail}</span>
-                  {a.checkpoint.explorerTx && (
-                    <a className="hash text-leaf underline" href={a.checkpoint.explorerTx} target="_blank">
-                      tx {short(a.checkpoint.txHash ?? "", 10)} · block {a.checkpoint.blockNumber}
+                  {a.explorerTx ? (
+                    <a className="hash text-accent hover:underline" href={a.explorerTx} target="_blank">
+                      tx {short(a.local?.txHash ?? "", 10)} ↗
                     </a>
-                  )}
+                  ) : a.onChain && cfg ? (
+                    <a className="hash text-accent hover:underline" href={addressUrl(cfg.network, a.onChain.submitter)} target="_blank">
+                      submitter ↗
+                    </a>
+                  ) : null}
                 </li>
               ))}
           </ul>
