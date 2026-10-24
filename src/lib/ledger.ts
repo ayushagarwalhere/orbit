@@ -76,6 +76,7 @@ export type EntryProblem =
   | "unknown-actor"
   | "replayed-request"
   | "timestamp-skew"
+  | "timestamp-order"
   | "rule-violation"
   | "derived-mismatch"
   | "unauthorised-entry"
@@ -169,6 +170,8 @@ function checkEntry(s: VerifyState, ledger: LedgerEntry[], i: number) {
   if (e.prevHash !== expectedPrev) flag("broken-link", "prevHash does not match previous entry");
   const recomputed = hashEntry(e);
   if (recomputed !== e.hash) flag("hash-mismatch", `content hashes to ${recomputed.slice(0, 12)}…`);
+  // Time only moves forward, so nobody can date an entry ahead and then slip earlier ones in after it.
+  if (i > 0 && !(Date.parse(e.timestamp) >= Date.parse(ledger[i - 1].timestamp))) flag("timestamp-order", `recorded ${e.timestamp}, before the previous entry (${ledger[i - 1].timestamp})`);
 
   if (e.type === "ACTOR_REGISTERED" && !s.keys.has(e.subjectId)) s.keys.set(e.subjectId, String(e.data.publicKey));
   const seqKey = s.keys.get(PROTOCOL_ID);

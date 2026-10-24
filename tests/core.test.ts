@@ -497,7 +497,7 @@ test("browser verifier: a checkpoint submitted by anyone but Orbit's operator is
   assert.ok(failed(checks).some((c) => c.label === "On-chain checkpoint"));
 });
 
-test("browser verifier: forged keys or a forged audit in the passport are caught (review B1)", async () => {
+test("browser verifier: a forged audit in the passport is caught (review B1)", async () => {
   const { db, keys } = world();
   const chain = fakeChain(db);
   chain.anchorAs(WITNESS);
@@ -583,6 +583,39 @@ test("browser verifier: a node serving a rewritten or truncated ledger is caught
   const doc = anchoredPassport(db, "Orbit Tee", id, db.ledger.length);
   const short = { ...chain.reader, ledger: async () => db.ledger.slice(0, 20) };
   assert.ok(failed(await verify(doc, short)).some((c) => c.label === "Ledger authenticated"));
+  // A node that rewrites an entry and recomputes its hash still can't match the on-chain root.
+  const rewritten = db.ledger.map((e) => ({ ...e }));
+  const k = rewritten.findIndex((e) => e.type === "CLAIM_ATTESTED" && e.data.verdict === "REJECT");
+  rewritten[k] = { ...rewritten[k], data: { ...rewritten[k].data, verdict: "APPROVE" } };
+  rewritten[k].hash = hashEntry(rewritten[k]);
+  const forgedNode = { ...chain.reader, ledger: async () => rewritten };
+  assert.ok(failed(await verify(doc, forgedNode)).some((c) => c.label === "Ledger authenticated"));
+});
+
+test("browser verifier: keys swapped into the passport's registrations change nothing (review B1)", async () => {
+  const { db } = world();
+  const chain = fakeChain(db);
+  chain.anchorAs(WITNESS);
+  const id = chain.anchorAs(OPERATOR);
+  const doc = JSON.parse(JSON.stringify(anchoredPassport(db, "EcoCloud Hoodie", id, db.ledger.length))) as { credentialSubject: { actorRegistrations: { data: { publicKey: string } }[] } };
+  assert.ok(doc.credentialSubject.actorRegistrations.length > 0);
+  for (const r of doc.credentialSubject.actorRegistrations) r.data.publicKey = publicKeyOf(randomPrivateKey());
+  const checks = await verify(doc, chain.reader);
+  // Keys come only from the authenticated ledger, so verdicts are unchanged; edited events are flagged.
+  assert.ok(checks.some((c) => c.label.startsWith("Verdict") && c.detail.includes("CONTRADICTED")));
+  assert.ok(failed(checks).some((c) => c.label === "Passport complete and genuine"));
+});
+
+test("entry times must move forward, and can't be later than the anchoring block", async () => {
+  const { db } = world();
+  const bad = JSON.parse(JSON.stringify(db)) as Db;
+  bad.ledger[10].timestamp = "2020-01-01T00:00:00.000Z";
+  assert.ok(verifyLedger(bad).issues.some((i) => i.problem === "timestamp-order"));
+  const chain = fakeChain(db);
+  const id = chain.anchorAs(OPERATOR);
+  chain.cps[id].timestamp = Math.floor(Date.parse(db.ledger[5].timestamp) / 1000); // block mined before the last entry's date
+  const checks = await verify(anchoredPassport(db, "Orbit Tee", id, db.ledger.length), chain.reader);
+  assert.ok(failed(checks).some((c) => c.label === "Single ledger" && c.detail.includes("after the block")));
 });
 
 function act2(db: Db, keys: Record<string, string>) {

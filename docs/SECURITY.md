@@ -1,126 +1,99 @@
 # Security & data integrity assessment
 
-This document covers what Orbit protects, who it protects against, how each guarantee is enforced in code (file references), what is tested, and what it does **not** protect against.
+What Orbit protects, against whom, by which mechanism, which test shows it, and what stays open. Files are in `src/lib/` unless stated. Tests are named by their exact titles.
 
 ## 1. What must be true
 
-| # | Property | Meaning |
-| --- | --- | --- |
-| P1 | **Authenticity** | Every supply chain event was authorised by the party it names, through an instruction signed with that party's key. |
-| P2 | **Derivability** | Every ledger entry, including protocol-created data such as credits, recovered lots, distances and passport hashes, can be re-derived from the signed instructions by the public rules. There is no other source of truth. |
-| P3 | **Integrity** | Nobody, including Orbit's operator, can change, delete or reorder past events without detection. |
-| P4 | **Timestamping** | The existence and order of events at a point in time is publicly provable. |
-| P5 | **Independent verifiability** | A consumer, regulator or judge can check P1–P4 without trusting Orbit's servers. |
-| P6 | **Claim accountability** | A sustainability claim shows as verified only if independent data supports it, and the passport discloses which inputs were self-reported. |
-| P7 | **Confidentiality** | Commercial data (volumes, suppliers, prices) is not published on a public chain. |
+- **P1 Authenticity.** Every event was authorised, through a signed instruction, by the party it names.
+- **P2 Derivability.** Every entry, including protocol-made data (credits, recovered lots, distances), can be re-derived from the signed instructions by the public rules.
+- **P3 Integrity.** Nobody, including Orbit's operator, can change, delete or reorder anchored events without detection.
+- **P4 Timestamping.** That an event existed by a given time is publicly provable.
+- **P5 Verifiability.** Anyone can check P1–P4 against a public chain, not against Orbit's word.
+- **P6 Claim accountability.** A claim is verified only if other parties' data supports it; self-reported inputs are labelled.
+- **P7 Confidentiality.** Only Merkle roots go on-chain.
 
-## 2. Architecture in brief
+## 2. How it works
 
-1. **Identity.** Each actor holds an Ed25519 key and publishes the public key on the ledger in a **self-signed** `ACTOR_REGISTERED` entry (proof of possession). The protocol's own registration is the genesis entry and names the ledger (`ledgerId`).
-2. **Instructions.** Every write is an instruction signed by the actor: `{action, ledger, actorId, body, nonce, issuedAt}`. The API (`dispatch.ts`) checks:
-   - the signature, against the registered key;
-   - that the instruction is for this ledger;
-   - freshness (5 minutes) and nonce uniqueness;
-   - that the body doesn't name a different actor than the signer;
-   - **strict schema validation** of every field (finite, bounded numbers, enums, length limits).
-3. **Rules.** The validated instruction runs through the protocol rules (`actions.ts`): custody, roles, mass balance, recovery bounds and claim issuance. Every resulting entry embeds the signed instruction, gets one sequencer timestamp (bound to the signed time), is hash-chained, and is signed by the sequencer.
-4. **Replay.** `replay.ts` re-runs every instruction through **the same code path** and requires byte-identical entries. Application state is never stored: actors, lots, products, claims, audits, credits and checkpoints are all rebuilt by replay. The disk holds only an append-only log of entries (`store.ts`).
-5. **Anchoring.** RFC 6962 Merkle roots of the ledger go to the open `OrbitAnchor` v3 contract ([Base Sepolia](https://sepolia.basescan.org/address/0x8a9bd10b411a5509916dbe812fd803611c2f9151), source verified on Sourcify). Roots come from Orbit's operator and from **witnesses**: independent parties who download the ledger, re-verify it, and anchor from their own wallets (`scripts/witness.ts`).
-6. **Verification.** The browser verifier (`passport-verify.ts`) checks a passport against **trust roots pinned in code** (contract address, operator address, named witnesses):
-   - keys, taken only from registrations;
-   - every signature, binding and signed time;
-   - every claim verdict, **re-derived** from the proven events;
-   - that the checkpoint was submitted by the pinned operator;
-   - an RFC 6962 inclusion proof for every entry;
-   - an RFC 6962 **consistency proof** against **every** trusted checkpoint for the ledger.
+1. **Identity.** Each actor publishes an Ed25519 public key in a self-signed `ACTOR_REGISTERED` entry. Entry #0 is the protocol's registration and names the `ledgerId`.
+2. **Instructions.** Every write is a signed `{action, ledger, actorId, body, nonce, issuedAt}`. `applySigned` (`dispatch.ts`) checks the signature, the ledger id, a 5-minute freshness window, the nonce, that the body names no other actor, that there are no unknown fields, and strict types and bounds.
+3. **Rules and replay.** `actions.ts` applies custody, roles, mass balance and claim rules. Each entry embeds its instruction, is hash-chained and sequencer-signed. `replay.ts` re-runs every instruction and requires identical entries. Only the entry log is stored.
+4. **Anchoring.** RFC 6962 roots go to the open `OrbitAnchor` v3 contract on [Base Sepolia](https://sepolia.basescan.org/address/0x8a9bd10b411a5509916dbe812fd803611c2f9151). The operator anchors automatically. A witness (`scripts/witness.ts`) re-verifies and replays the ledger, checks it against every trusted root, then anchors from its own wallet.
+5. **Browser verification** (`passport-verify.ts`), with the contract, operator and one named witness pinned in `networks.ts`:
+   1. read the passport's checkpoint through a public RPC; it must be on the pinned contract, by the pinned operator;
+   2. download the **whole ledger**, re-hash every entry, rebuild the root; it must equal the on-chain root;
+   3. compute the root locally at every other checkpoint by the operator or a named witness; each must match. Unidentified submitters are counted and ignored;
+   4. warn (**Witnessed**) if no named witness has anchored this ledger;
+   5. **single ledger:** entry #0 is the genesis and names the ledger id, which equals the checkpoint's and the passport's; every instruction names it; each actor registered once, by itself;
+   6. check every signature and signed time, and replay every instruction;
+   7. **complete and genuine:** every anchored entry about the product, plus each source lot's `BATCH_CREATED`, is in the passport; each passport event re-hashes to the anchored entry at its index;
+   8. re-derive every claim verdict and the trust grade.
+
+The browser no longer uses inclusion or consistency proofs from the server. Passports still carry inclusion proofs, and the contract can check them, but the verifier does not rely on them.
 
 ## 3. Threat model
 
-| Adversary | Capability | What stops them | Enforced in | Tested |
-| --- | --- | --- | --- | --- |
-| **Outsider calling the API** | Sends arbitrary requests | Every action needs a valid signature from a registered actor (`401`). | `dispatch.ts` | ✓ |
-| **Malformed or hostile input** | Sends `"x"`, NaN, negatives or huge values | Strict validation rejects them before any rule runs; nothing is written. | `dispatch.ts` | ✓ |
-| **Actor impersonating another** | Holds their own key | The signer is the actor. A body naming someone else gets `403`. Custody and role rules then apply. | `dispatch.ts`, `actions.ts` | ✓ |
-| **Replaying a captured instruction** | Has a valid signed request | Nonce uniqueness, 5-minute freshness, and binding to the ledger id (so it can't be replayed into a fresh or reset ledger). Replay verification also flags an instruction reused later. | `dispatch.ts`, `ledger.ts` | ✓ |
-| **Database intruder** | Edits stored entries | The entry hash breaks the chain. No mutable records exist to edit: all state is re-derived from the ledger. | `ledger.ts`, `replay.ts`, `store.ts` | ✓ |
-| **Malicious operator rewriting derived data** (holds the sequencer key) | Changes a distance, a lot's recycled mass or a credit amount, then re-hashes and re-signs | **Replay** re-derives the entry from the actor's signed instruction and reports exactly which field differs (`derived-mismatch`). | `replay.ts` | ✓ |
-| **Malicious operator minting credits** | Appends `CREDIT_MINTED`, or smuggles a bigger amount into a real instruction's entries | An entry with no instruction behind it is `unauthorised-entry`; an altered amount is a `derived-mismatch`. | `replay.ts` | ✓ |
-| **Malicious operator erasing or reordering instructions** | Deletes an instruction (e.g. a failed audit), then **regenerates** all later history through the real rules and re-signs | Every local check passes; this is the hardest case. Roots already on-chain disagree, and no RFC 6962 consistency proof can link the rewritten history to any earlier trusted checkpoint, **whatever length it is re-anchored at**. | `chain.ts`, `passport-verify.ts`, `OrbitAnchor.verifyConsistency` | ✓ (also run live on Base Sepolia) |
-| **Operator showing different histories to different parties** (split view) | Serves witness A one ledger and witness B another | All trusted roots for a ledger must be mutually consistent. The browser checks consistency with every one, and each witness compares all prior roots before anchoring. | `passport-verify.ts`, `witness.ts` | ✓ |
-| **Forger using the open contract** | Builds a fake ledger with their own keys and anchors its root | The verifier requires the checkpoint's submitter to be Orbit's **pinned operator** on the **pinned contract**. A forger's checkpoint fails. | `networks.ts` `OFFICIAL_ANCHORS`, `passport-verify.ts` | ✓ |
-| **Griefer anchoring junk roots** | Publishes bad roots under Orbit's `ledgerId` | Unidentified submitters are reported as informational and can't fail verification or block witnesses. | `chain.ts`, `passport-verify.ts`, `witness.ts` | ✓ |
-| **Forged passport file** | Edits the JSON (events, proofs, verdicts) | Hashes, signatures and proofs fail, and claim verdicts are re-derived in the browser, so an edited verdict is caught. | `passport-verify.ts` | ✓ |
-| **Shipper misdeclaring transport mode** | Declares "sea" for an air shipment | The recipient signs the arrival. The transit time from **both parties' signed times** makes the declared mode impossible, so the leg is counted with the lowest-emission mode that could make the trip. | `domain.ts` `shipmentLegs` | ✓ |
-| **Recycler over-claiming recovered material** | Signs a recovered mass | It can't exceed the input mass of that material. | `actions.ts` `recycle` | ✓ |
-| **Supplier inventing recycled content** | Registers lots | Only recyclers can create recycled lots, and they're traceable to their source product. | `actions.ts` | ✓ |
-| **Over-drawing a lot** | Builds products | Mass balance, including within one request. | `actions.ts` | ✓ |
-| **Greenwashing brand** | Publishes misleading claims | Claims are checked against counter-party data; any auditor rejection overrides the brand; vague wording is linted. | `verify.ts` | ✓ |
-| **Draining the anchor wallet** | Calls `/api/actions/anchor` repeatedly | No-op when nothing changed, one manual anchor per 30 s, balance floor for every anchor, debounced auto-anchoring. | `chain.ts`, route | (manual) |
+| Adversary and attempt | What stops it | Where | Test |
+| --- | --- | --- | --- |
+| Outsider calls the API | A valid signature from a registered key (`401`). | `dispatch.ts` | "API rejects requests not signed by the actor's own key" |
+| Hostile input: bad types, out-of-range values, extra fields, large bodies (B4) | Strict validation; unknown fields rejected; bodies over 16 KB rejected. Nothing is written. | `dispatch.ts`, `app/api/actions/[action]/route.ts` | "API validates every input strictly, so no request can poison the ledger"; "API rejects unknown fields and odd self-registration ids instead of storing them" |
+| Self-registering as a privileged role or look-alike id (B4) | Consumers only; id must match `guest-[a-z0-9]{1,32}`; signed by the key it registers; 20 successful registrations per 10 minutes (failed attempts don't count, so they can't lock others out). | `dispatch.ts`, route | "a guest consumer can self-register with a key that never leaves their browser, and only as a consumer" |
+| Actor impersonates another | The signer is the actor; naming another gets `403`. | `dispatch.ts` | "API rejects impersonation, replay and stale requests" |
+| Replay of a captured instruction | Nonce, freshness, ledger binding; reuse is flagged on replay. | `dispatch.ts`, `ledger.ts` | "API rejects impersonation, replay and stale requests"; "a signed instruction cannot be replayed into another ledger (e.g. after a reset)" |
+| Database intruder edits entries | Hash chain breaks; no mutable state exists. | `ledger.ts`, `store.ts` | "naive edit is caught by hash check, and restore fixes it" |
+| Operator changes derived data or mints credits, and re-signs | Replay re-derives each entry; an entry without an instruction fails. | `replay.ts` | "operator rewriting derived data (and re-signing) is caught by replaying the signed instructions"; "operator cannot mint credits from nothing" |
+| Insider alters a signed instruction or the sequencer key | Actor signature fails; sequencer key comes only from genesis. | `ledger.ts` | "insider cannot change what an actor signed: flipping an audit verdict is caught without the chain"; "an entry re-signed with a different sequencer key is rejected" |
+| Operator erases an instruction, regenerates later history, re-anchors | Local checks pass, but the root differs from roots already anchored under this ledger id. | `passport-verify.ts`, `witness.ts` | "operator erasing a whole signed instruction passes every local check but fails against the anchored root"; "browser verifier: history rewritten and re-anchored fails against the witness's checkpoint" |
+| Server feeds the verifier a rewritten or truncated ledger | Must hash to the on-chain root and be as long as every trusted checkpoint. | `passport-verify.ts` | "browser verifier: a node serving a rewritten or truncated ledger is caught" |
+| Forger anchors a fake ledger on the open contract | Checkpoint must be by the pinned operator on the pinned contract. | `networks.ts`, `passport-verify.ts` | "browser verifier: a checkpoint submitted by anyone but Orbit's operator is rejected"; "browser verifier: an unanchored passport is never shown as verified" |
+| Griefer anchors junk roots | Unidentified submitters are ignored, and shown. | `passport-verify.ts`, `witness.ts` | "browser verifier: junk anchors from unidentified wallets are ignored, not fatal" |
+| Passport carries forged keys or events (B1) | Keys come only from the authenticated ledger. Every event and registration in the passport is re-hashed and must equal the anchored entry. | `passport-verify.ts` | "browser verifier: a forged audit in the passport is caught (review B1)"; "browser verifier: keys swapped into the passport's registrations change nothing (review B1)" |
+| Sequencer dates entries ahead (e.g. to farm time-based credits) | Entry times must never go backwards, and no anchored entry may be dated after its anchoring block (5 minutes' grace). | `ledger.ts`, `passport-verify.ts` | "entry times must move forward, and can't be later than the anchoring block" |
+| Passport omits an event (B2) | All anchored product and source-lot events must be present. | `passport-verify.ts` | "browser verifier: a passport that leaves out an inconvenient event is caught (review B2)" |
+| Passport has an edited verdict or grade | Both are re-derived in the browser. | `passport-verify.ts` | "browser verifier: an edited verdict or grade is caught by re-derivation" |
+| Operator rebuilds history under a new ledger id (B3) | Reused instructions name the old ledger and fail. A full re-sign needs every actor's key; it then passes but shows the **Witnessed** warning. | `passport-verify.ts` | "browser verifier: rebuilding history under a new ledger id is caught or flagged (review B3)" |
+| Repair credit farming (B5) | One repair credit per product per 30 days, by ledger time, so replay agrees. | `actions.ts` | "repair credits: at most once per product every 30 days, and replay agrees" |
+| Steady writes postpone anchoring (B6) | A pending auto-anchor timer is no longer reset by new writes. A new ledger (boot or reset) is anchored within seconds. | `chain.ts` | none |
+| Draining the anchor wallet | Auto-anchor at most every 10 min (`ORBIT_ANCHOR_MIN_INTERVAL_MS`); manual anchor refused within 2 min unless 5+ new entries; no-op if nothing changed; balance floor. | `chain.ts`, route | none |
+| Shipper misdeclares mode | Both parties' signed times rule it out; the leg is counted with the lowest-emission feasible mode. | `domain.ts` | "a misdeclared transport mode is exposed by the recipient's signed arrival time" |
+| Recycler over-claims, supplier invents recycled content, brand over-draws a lot or greenwashes | Recovery ≤ input mass; only recyclers create recycled lots; mass balance; claims checked against other parties' data; auditor rejection overrides. | `actions.ts`, `verify.ts` | "a recycler cannot sign for more material than went in"; "suppliers cannot invent recycled content"; "mass balance prevents overselling a material lot"; "honest product earns an A, greenwashed product is caught" |
 
-## 4. The oracle problem (stated up front)
+## 4. The oracle problem
 
-A ledger proves **who said what, and when**. It can't prove that what they said was true. Orbit narrows the gap in five ways:
+Signatures prove **who said what, and when**, not that it was true. Orbit narrows the gap by preferring counter-party data (lots signed by suppliers, receipts by recipients, distance from both sites), cross-checks (arrival time against declared mode; mass balance), physical bounds, and auditor attestation ("only independent auditors can attest; brands only claim their own products"). Factory energy is **self-reported**, labelled as such, and a carbon claim relying on it scores less.
 
-1. **Counter-party data instead of self-reports.**
-   - Lots are signed by suppliers or recyclers, not by brands.
-   - Distance comes from both parties' registered sites.
-   - A receipt needs the recipient's own signature.
-2. **Cross-checks between signers.** The recipient's signed arrival time tests the shipper's declared mode: the brand's lie is exposed by someone else's signature (the hoodie demo). Mass balance across all of a lot's consumers stops a brand claiming more recycled input than its suppliers sold.
-3. **Physical bounds.** A recycler can't sign for more recovered material than went in. A claim can't exceed physical limits (recycled ≤ 100%, repairability ≤ 10).
-4. **Disclosure.** Self-reported factory energy is labelled as such. A carbon claim relying on it without attestation carries a caveat and counts for less.
-5. **Independent attestation** for what data can't show (labour). Any auditor's rejection overrides.
-
-**What remains possible:**
-- **Inflating yield.** A recycler could still inflate its yield up to the input mass.
-- **Recording SHIPPED early.** A shipper could record `SHIPPED` days before the goods actually leave, making a slower mode look plausible. The product is then locked "in transit" and can't be sold meanwhile, which limits the abuse, but a carrier pickup signature is the real fix.
-- **Under-reported factory energy.** Factory energy remains self-reported unless an auditor attests it.
-
-The roadmap adds signed scale weights at handovers, carrier pickup signatures, and utility-attested energy.
+Still possible: a recycler inflating yield up to the input mass; a shipper recording `SHIPPED` early to make a slower mode look plausible; under-reported factory energy.
 
 ## 5. Key management
 
 | Key | Holder | Exposure |
 | --- | --- | --- |
-| Actor Ed25519 keys | **Production:** each actor's wallet or HSM. **Demo:** generated randomly on first run (`data/keystore.json`, gitignored, or the `ORBIT_KEYSTORE` secret) and served to the role-play console in demo mode. | Demo mode is **on by default only in development** (`npm run dev`), and must be enabled explicitly in production (`ORBIT_DEMO_MODE=1`). While it's on, the server generated the role-play keys and could sign as those demo actors. The UI and docs say so. |
-| Guest consumer key | **Generated in the visitor's browser** and kept in localStorage. The server only sees the public key, through a self-signed registration. | Non-custodial, even in the demo. |
-| Sequencer key (`orbit-protocol`) | Server only, never served. | Can order and re-sign entries, but can't forge instructions, can't alter derived data without a replay mismatch, and can't make a rewrite consistent with trusted on-chain roots. |
-| Anchor EVM key | Server env, testnet only. | Same rights as anyone on the open contract. Its address is the pinned operator. |
-| Witness EVM key | The witness's own environment. | **In this demo the witness wallet is run by the Orbit team** (and was funded from the operator's wallet) to show the role. Its label in `networks.ts` says so. A real deployment pins wallets of independent auditors, recyclers or NGOs. |
+| Actor keys | **Production:** each actor. **Demo:** generated on first run and served to the role-play console. | Demo mode is on unless `NODE_ENV=production`, or with `ORBIT_DEMO_MODE=1`. While on, **the server holds the role-play actors' keys and can sign as them.** |
+| Guest key | Generated and kept in the visitor's browser. | Server sees only the public key. |
+| Sequencer key | Server only. | Can order, delay, refuse and re-sign. Cannot forge instructions, alter derived data unnoticed, or rewrite history anchored under the same ledger id. |
+| Anchor EVM key | Server env, testnet. | The pinned operator address. |
+| Witness EVM key | Separate wallet. | **The only named witness is a second wallet run by the Orbit team**, funded from the operator's wallet. It shows the role. It is not independent. |
 
-No private keys are in the repository. All keys are random (OS CSPRNG via `@noble/hashes`).
+No private keys are in the repository.
 
-## 6. Residual risks & limitations
+## 6. What remains open
 
-- **Unanchored window.** Entries newer than the latest trusted checkpoint aren't yet publicly fixed, and the operator could withhold them. Auto-anchoring about 45 s after the last write, and witnesses, narrow this. Passports mark such entries "not yet anchored".
-- **Censorship.** A sequencer can refuse to accept an instruction. Actors keep their own signed instruction as a receipt. The fix is rotating sequencers or a consortium chain.
-- **Tail completeness.** A passport proves the events it contains are genuine and anchored. It can't prove no *later* event exists. The append-only check against every trusted checkpoint limits this to entries newer than the latest one.
-- **Coarse speed bounds.** The transport check catches gross misdeclarations (sea vs. air), not subtle ones.
-- **Registration trust.** The first registration of an actor id wins. Mapping keys to real companies needs onboarding (KYC / GS1 GLN), which is out of scope.
-- **Rule changes.** Replay assumes one rule set. Changing the rules needs versioned rules keyed by ledger height.
-- **No general API rate limiting** beyond anchoring and reset; use a gateway in production.
-- **Demo mode** hands out role-play keys by design. Never enable it in production.
+- **The witness is ours.** With demo keys and our own witness wallet, Orbit could rebuild a ledger under a new id, re-sign it, and anchor it from both wallets. The Witnessed check only helps once the witness is someone else.
+- **Verifier delivery.** The verifier code and the ledger both come from Orbit's server. The ledger is checked against the chain; the code is not. Running the open-source verifier or `npm run witness -- --check-only` yourself avoids this.
+- **Oracle problem** (§4).
+- **Cost is linear in ledger size.** The browser downloads and replays everything. Fine at demo scale; larger ledgers need signed state checkpoints or sharding.
+- **Tail.** Completeness is checked up to the passport's checkpoint. Later events are shown as "not yet anchored" and only self-hash-checked.
+- **Unanchored window.** Up to about 10 minutes, during which the operator could withhold entries.
+- **Junk anchors.** Anyone with a funded wallet can anchor anything. Ignored, but shown.
+- **Censorship.** The sequencer can refuse an instruction. Actors keep their signed instruction as evidence.
+- **Timestamps.** Sequencer time must be within 5 minutes of the actor's signed time, never go backwards, and not be after the anchoring block. Between anchors, the sequencer can still choose times inside that window.
+- **Anchor wallet.** Manual anchors can spend the wallet down to the floor, which pauses all anchoring.
+- **Rate limits are in memory**, per server instance.
+- **Registration** to real companies (KYC, GS1 GLN) and **versioned rules** are out of scope.
 
-## 7. Verification evidence
+## 7. Evidence
 
-- **`npm test`: 46 tests**:
-  - authentication (forged, replayed, stale, impersonating, cross-ledger requests)
-  - strict validation
-  - guest self-registration
-  - replay catching operator-altered derived data and operator-minted credits
-  - erase-and-regenerate passing local checks but failing against the anchored root
-  - timestamp binding
-  - state rebuilt by replay identical to live state
-  - transport misdeclaration
-  - recovery bounds
-  - mass balance and custody
-  - storage reload, rollback and memory-only tamper
-  - native vs. pure-JS crypto equivalence
-  - exhaustive RFC 6962 inclusion and consistency tests (every size up to 70 and 50), including forged histories
-  - browser-verifier tests against a simulated chain: an honest passport passes; a forger's checkpoint, a rewrite re-anchored at a new length, and an edited verdict all fail; junk anchors are ignored
-- **`npm run test:chain`:** deploys `OrbitAnchor` v3 to a real EVM node.
-  - Checks Solidity `verifyInclusion` and `verifyConsistency` against the TypeScript proofs, including a forged history.
-  - Checks that a second wallet can anchor as witness, and that empty ledgers are rejected.
-- **Live on Base Sepolia:**
-  - The browser verifier's code passes all 28 checks on a real passport against [OrbitAnchor v3](https://sepolia.basescan.org/address/0x8a9bd10b411a5509916dbe812fd803611c2f9151): consistent with 7 other trusted checkpoints, 2 of them by the witness.
-  - After the erase-and-regenerate attack, the same verifier fails at the on-chain checkpoint while every local check still passes.
-- **Contract source** verified with an exact match on Sourcify (creation and runtime bytecode).
+- **`npm test`: 56 tests, all passing.** Also relevant: "RFC 6962: every inclusion proof verifies for every size up to 70, and forgeries fail"; "RFC 6962: every consistency proof verifies for every pair of sizes up to 50, and rewrites fail"; "native (server) and pure-JS (browser) Ed25519 + SHA-256 agree byte for byte"; "sequencer time must match the time the actor signed"; "all state is rebuilt from the ledger alone by replay, identical to the live state"; "browser verifier: an honest, witnessed passport passes every check, verdicts and grade re-derived".
+- Browser-verifier tests run against a simulated chain, not Base Sepolia.
+- **`npm run test:chain`** ("OrbitAnchor v3: open anchoring, RFC 6962 inclusion and consistency proofs verified on-chain") deploys the contract to a local EVM node and checks its proofs, a second wallet anchoring, and rejection of empty ledgers.
+- The contract source is verified on Sourcify.
+- **Untested:** the 16 KB cap, the rate limits, the balance floor, and the B6 timer fix (they live in the HTTP route and the chain service, which the unit tests don't start).

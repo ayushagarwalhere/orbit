@@ -17,8 +17,9 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request, { params }: { params: Promise<{ action: string }> }) {
   const { action } = await params;
   return handle(async () => {
+    if (Number(req.headers.get("content-length") ?? 0) > 16_384) throw new OrbitError("Request too large", 413);
     const raw = await req.text();
-    if (raw.length > 16_384) throw new OrbitError("Request too large", 413);
+    if (Buffer.byteLength(raw) > 16_384) throw new OrbitError("Request too large", 413);
     let body: Record<string, unknown> = {};
     try {
       body = raw ? JSON.parse(raw) : {};
@@ -33,7 +34,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
       const now = Date.now();
       g.__orbitGuestRegs = (g.__orbitGuestRegs ?? []).filter((t) => now - t < 600_000);
       if (g.__orbitGuestRegs.length >= 20) throw new OrbitError("Too many new guests right now; try again in a few minutes", 429);
+      // Count only registrations that succeed, so invalid requests can't lock others out.
+      const result = submitSigned(action, body as unknown as SignedRequest);
       g.__orbitGuestRegs.push(now);
+      scheduleAnchor();
+      return result;
     }
     if (SIGNED_ACTIONS.includes(action)) {
       const result = submitSigned(action, body as unknown as SignedRequest);
@@ -67,7 +72,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
         if (g.__orbitLastReset && Date.now() - g.__orbitLastReset < 120_000) throw new OrbitError("The demo was reset less than 2 minutes ago; try again shortly", 429);
         g.__orbitLastReset = Date.now();
         resetDb();
-        scheduleAnchor(2_000);
+        scheduleAnchor(2_000, true);
         return { ok: true };
       }
       default:

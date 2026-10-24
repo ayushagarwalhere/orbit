@@ -20,7 +20,7 @@ export const NETWORKS: Network[] = [
  * Trust roots, pinned in code (the browser verifier never takes them from a passport or the server):
  *  - contract: Orbit's published OrbitAnchor deployment
  *  - operator: Orbit's anchoring wallet; a passport's checkpoint must be submitted by it
- *  - witnesses: named parties whose independent roots must also be consistent with history.
+ *  - witnesses: named parties whose own roots must also be consistent with history.
  * Anyone else can anchor too (the contract is open), but unknown submitters are informational only,
  * so a junk anchor can neither forge a passport nor grief verification.
  */

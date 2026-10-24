@@ -160,7 +160,7 @@ export function trustReport(db: Db, product: Product, ledgerReport?: IntegrityRe
   }
   const raw = score;
   score = Math.max(0, Math.min(100, Math.round(score)));
-  if (score !== Math.round(raw)) breakdown.push({ label: "Kept within 0–100", points: score - raw });
+  if (score !== Math.round(raw)) breakdown.push({ label: raw < 0 ? `Floor: the penalties add up to ${Math.round(raw)}, but scores stop at 0` : "Ceiling: scores stop at 100", points: score - raw });
   for (const b of breakdown) b.points = Math.round(b.points * 10) / 10;
   const grade = score >= 85 ? "A" : score >= 70 ? "B" : score >= 50 ? "C" : score >= 30 ? "D" : "E";
 

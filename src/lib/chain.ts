@@ -46,7 +46,7 @@ async function publishRoot(cfg: ChainConfig, ledgerId: string, root: string, cov
 const g = globalThis as unknown as { __orbitAnchor?: { inflight: Promise<Checkpoint> | null; timer: ReturnType<typeof setTimeout> | null; booted: boolean } };
 const svc = () => (g.__orbitAnchor ??= { inflight: null, timer: null, booted: false });
 
-/** Below this balance, automatic anchoring pauses (manual anchoring still works). */
+/** Below this balance all anchoring pauses, so the wallet always keeps some headroom. */
 const MIN_AUTO_BALANCE_WEI = 20_000_000_000_000n; // 0.00002 ETH, about 40 anchors of headroom on Base Sepolia
 
 export async function anchorWalletBalance(): Promise<bigint | null> {
@@ -105,15 +105,20 @@ export function anchorNow(opts: { auto?: boolean } = {}): Promise<Checkpoint> {
 const AUTO_INTERVAL_MS = Number(process.env.ORBIT_ANCHOR_MIN_INTERVAL_MS ?? 600_000);
 const autoState = globalThis as unknown as { __orbitLastAuto?: number };
 
-export function scheduleAnchor(delayMs = 45_000) {
+/**
+ * Anchor soon after a write: at least delayMs later, and at most once per AUTO_INTERVAL_MS.
+ * `fresh` is for a brand-new ledger (boot, reset): anchor it promptly, replacing any pending timer.
+ */
+export function scheduleAnchor(delayMs = 45_000, fresh = false) {
   const cfg = chainConfig();
   if (!cfg?.privateKey || process.env.ORBIT_AUTO_ANCHOR === "0") return;
   const s = svc();
   // Keep a pending timer: it anchors whatever exists when it fires, and resetting it on each
   // write would let a steady stream of writes postpone anchoring forever.
-  if (s.timer) return;
+  if (s.timer && !fresh) return;
+  if (s.timer) clearTimeout(s.timer);
   const sinceLast = Date.now() - (autoState.__orbitLastAuto ?? 0);
-  const wait = Math.max(delayMs, AUTO_INTERVAL_MS - sinceLast);
+  const wait = fresh ? delayMs : Math.max(delayMs, AUTO_INTERVAL_MS - sinceLast);
   s.timer = setTimeout(() => {
     s.timer = null;
     autoState.__orbitLastAuto = Date.now();
@@ -128,7 +133,7 @@ export function bootAnchor() {
   s.booted = true;
   const db = getDb();
   const last = [...db.checkpoints].reverse().find((c) => c.onChain && c.ledgerId === db.ledgerId);
-  if (!last || last.covers < db.ledger.length - 1) scheduleAnchor(2_000);
+  if (!last || last.covers < db.ledger.length - 1) scheduleAnchor(2_000, !last);
 }
 
 export interface AnchorCheck {

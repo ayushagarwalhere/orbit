@@ -8,7 +8,7 @@ The European Commission found that 53% of green claims it examined were vague, m
 ## What it does
 - **Lifecycle tracking:** every handover (material lot → factory → ship → retailer → consumer → repair → return → recycler) is an **instruction signed with that party's own Ed25519 key**. The API checks the signature, the ledger it was signed for, freshness, the nonce and strict input validation, then applies the protocol rules (custody, roles, mass balance).
 - **The ledger is the only source of truth:** all state is rebuilt by **replaying** the signed instructions through the same rules. So anyone can re-derive every entry. If the operator alters a distance, inflates a credit or invents a recycled lot, replay names the exact field that differs.
-- **Digital product passport:** a public QR page with materials, origin, carbon breakdown, journey map and the signed event trail. It exports as JSON-LD in the shape of a UNTP / W3C Verifiable Credential, with **RFC 6962 inclusion proofs**.
+- **Digital product passport:** a public QR page with materials, origin, carbon breakdown, journey map and the signed event trail. It exports as JSON-LD following the UNTP passport data model, with **RFC 6962 inclusion proofs**.
 - **Recycling traceability:** recyclers **sign the mass they actually recovered** (it can't exceed what went in). That becomes new recycled lots linked to the source product, so a battery built from them proves its 93% recycled content back to its ancestor passport.
 - **Claim verification engine (the core idea):** each claim is checked against data the brand doesn't control:
   - recycled % against mass balance of supplier- and recycler-signed lots

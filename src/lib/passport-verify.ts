@@ -135,7 +135,11 @@ export async function verifyPassport(doc: any, opts: { trusted?: TrustedDeployme
     if (regs.has(e.subjectId) || e.subjectId !== e.actorId) dupReg = dupReg < 0 ? i : dupReg;
     regs.add(e.subjectId);
   });
-  const bound = !!lid && lid === cp.ledgerId && lid === anchor.ledgerId && foreign < 0 && dupReg < 0;
+  // No entry may claim a time after the block that anchored it (5 minutes' grace for clock skew).
+  // With times ordered (checked below), entries can't be dated ahead to farm time-based rewards.
+  const lastAt = Date.parse(anchored.at(-1)?.timestamp ?? "");
+  const future = cp.timestamp > 0 && lastAt > cp.timestamp * 1000 + 5 * 60_000;
+  const bound = !!lid && lid === cp.ledgerId && lid === anchor.ledgerId && foreign < 0 && dupReg < 0 && !future;
   push({
     label: "Single ledger",
     ok: bound,
@@ -147,7 +151,9 @@ export async function verifyPassport(doc: any, opts: { trusted?: TrustedDeployme
           ? `#${foreign} was signed for a different ledger`
           : dupReg >= 0
             ? `#${dupReg} re-registers an actor`
-            : "the passport, checkpoint and genesis name different ledgers",
+            : future
+              ? `the last anchored entry is dated ${anchored.at(-1)?.timestamp}, after the block that anchored it`
+              : "the passport, checkpoint and genesis name different ledgers",
   });
 
   // 5. Full integrity in the browser: signatures, signed times, and replay of every instruction.
@@ -170,7 +176,8 @@ export async function verifyPassport(doc: any, opts: { trusted?: TrustedDeployme
   const have = new Set(events.map((e) => e.hash));
   const missing = relevant.filter((e) => !have.has(e.hash));
   // Re-hash what the passport shows, so edited data under a kept hash is caught too.
-  const forged = events.filter((e) => {
+  const shown: LedgerEntry[] = [...events, ...(subj.actorRegistrations ?? [])];
+  const forged = shown.filter((e) => {
     try {
       return hashEntry(e) !== e.hash || (e.index < cp.ledgerLength && anchored[e.index]?.hash !== e.hash);
     } catch {

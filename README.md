@@ -1,80 +1,92 @@
-# Orbit: verifiable circular supply chains
+# Orbit: green claims, checked against the supply chain
 
-> Green claims, checked against the supply chain. Orbit gives every product a **digital product passport** backed by a ledger of **instructions signed by each party**, which anyone can **replay** to re-derive every entry. The ledger is **anchored on a public blockchain** with RFC 6962 Merkle roots, and Orbit **checks every sustainability claim against that record** to catch greenwashing automatically.
+**A hoodie says "70% recycled, carbon neutral, ethically made". Orbit's passport for it says: 6.7% recycled, 6.0 kg CO₂e, labour audit rejected. Grade E.**
 
-Built for the **IEEE ClimateChain Global Hackathon**, track **Sustainable Supply Chains**: *increase transparency and accountability in supply chains, where ethical sourcing and sustainability claims are hard to verify.*
+Orbit gives every product a digital product passport. The passport doesn't repeat what the brand says. It checks each claim against what *other* parties signed: the supplier who sold the fibre, the retailer who received the parcel, the auditor who visited the factory. If those signatures contradict the label, the passport says so, and shows why.
 
-⛓️ **Live contract:** [`OrbitAnchor` v3 on Base Sepolia · 0x8a9b…9151](https://sepolia.basescan.org/address/0x8a9bd10b411a5509916dbe812fd803611c2f9151). Source verified: exact match on [Sourcify](https://repo.sourcify.dev/84532/0x8A9BD10b411A5509916dbe812fd803611C2F9151), readable on [Blockscout](https://base-sepolia.blockscout.com/address/0x8A9BD10b411A5509916dbe812fd803611C2F9151?tab=contract). The contract is open: anyone can anchor. Its history shows checkpoints from Orbit's operator wallet and from a witness wallet (in this demo the witness is a second wallet run by our team, to show the role).
+Built for the **IEEE ClimateChain Global Hackathon**, track **Sustainable Supply Chains**.
 
-📄 [Problem statement](docs/PROBLEM_STATEMENT.md) · 🌍 [Climate impact assessment & projections](docs/IMPACT.md) · 🔐 [Security & data integrity assessment](docs/SECURITY.md) · 📝 [Devpost write-up](docs/DEVPOST.md)
+📄 [Problem statement](docs/PROBLEM_STATEMENT.md) · 🌍 [Climate impact](docs/IMPACT.md) · 🔐 [Security](docs/SECURITY.md) · 📝 [Devpost write-up](docs/DEVPOST.md) · 🧾 [Be a witness](docs/WITNESS_GUIDE.md)
 
-| Track idea | What Orbit does |
-| --- | --- |
-| Product lifecycle tracking | Every handover (sourcing, manufacture, shipping, sale, repair, return, recycling) is an **instruction signed by the party doing it** (Ed25519). The ledger is hash-chained and anchored on-chain, and **every entry can be re-derived** from those instructions. |
-| Digital product passports | A public passport page per product (QR code + GS1 Digital Link) and a JSON-LD export in the shape of a UNTP / W3C Verifiable Credential, with **RFC 6962 inclusion proofs**. The browser verifies it against the chain and **re-derives every claim verdict itself**. |
-| Recycling traceability | Recyclers **sign the mass they recovered** (bounded by what went in), creating new recycled lots linked to the source product. Recycled content is **proven by mass balance**, not declared. |
-| Circular economy incentives | **Non-transferable** credits for returning (a return reward funded by the brand's EPR fee in a real scheme), repairing and recycling. They're minted only as a rule-derived consequence of a signed event, so the operator can't mint from nothing ([why not a token](#incentives-why-credits-are-not-a-tradable-token)). |
-| *(Accountability layer)* | A **claim verification engine** grades every product A–E. Claims are checked against **counter-party data**: lots signed by suppliers, receipts signed by recipients, audits signed by auditors. Self-reported inputs are disclosed, and vague wording is linted against EU Directive 2024/825. |
+## How the hoodie gets caught
 
-## The demo story
+| The label says | Who contradicts it | What the passport shows |
+| --- | --- | --- |
+| "70% recycled" | The fibre suppliers' signed lots: only 0.05 kg of the 0.75 kg used was recycled | **6.7% recycled**: contradicted |
+| Shipped by sea | The retailer signed for it **24 hours** after it left, 2,892 km away. Ships don't go that fast. | **Misdeclared: it went by air** |
+| "Carbon neutral, 1.2 kg" | Recomputed with the real transport mode | **6.0 kg CO₂e**: contradicted |
+| "Ethically made" | An independent auditor's signed verdict | **Audit rejected** |
 
-| Passport | What it shows |
-| --- | --- |
-| 👕 **Orbit Tee** · grade **A** | Honest product. Its 40% recycled claim matches lot lineage, every declared transport mode fits the recipient's signed arrival time, and the labour claim is approved by an auditor. The carbon claim carries a caveat because 54% of it is self-reported factory data. |
-| 🧥 **EcoCloud Hoodie** · grade **E** | Greenwashing, caught four ways. It claims "70% recycled, 100% eco-friendly", but the lots prove **6.7%**. Lumen **declared sea freight**, but GreenLoop's **signed receipt 24 h later** proves 2,892 km could only have gone by air, which makes "carbon neutral 1.2 kg" really **6.0 kg**. And the auditor rejected the labour claim. |
-| 🔋 **Strata E-bike Battery** | Full life: shipped → sold → **repaired** (owner earns credits) → **returned** (return reward) → **recycled**. The recycler signs the recovered masses, creating 3 recovered lots. |
-| ♻️ **Strata Loop Edition** | **Closed loop.** Built from those lots: **93% recycled content** and about 65% lower footprint, linked back to its ancestor passport. |
+The passport scores this **E (0/100)** and lists every point gained and lost, so the grade can be checked. An honest product in the same demo, the Orbit Tee, gets an A. A battery goes through its whole life (sold, repaired, returned, recycled), and its recovered materials become a new battery with **93% recycled content**, provable back to the original passport.
 
-**Live demo path (3 minutes)**
-1. **Overview → "See a greenwashed product get caught"**: the hoodie's contradicted claims, including the misdeclared sea freight.
-2. **Ledger → Tamper simulator.** Three attacks, three layers of defence:
-   - *Database intruder* inflates a credit, and the hash breaks.
-   - *Malicious operator* shrinks a freight leg and re-signs. Signatures pass, but **replay** recomputes 2,892 km.
-   - *Malicious operator* **erases the failed audit and regenerates all later history through the real rules**. Every local check passes; only the **on-chain roots** disagree.
+## Why you can believe the passport
 
-   Simulations stay in memory and auto-restore after 90 s.
-3. **Verify**: your browser checks every key, signature and binding, re-derives each claim verdict, confirms the checkpoint came from Orbit's **pinned** operator on the **pinned** contract, proves inclusion (RFC 6962), and proves the history is **append-only** against every trusted checkpoint.
-4. **Console**:
-   - Click **"Create my key & join"** to become a consumer whose private key is generated in your browser and never leaves it.
-   - As GreenLoop, sell yourself something. Then return it for the return reward.
-   - As Re:Fibre, weigh and sign the recovered material.
+Anyone who can edit a database can make a passport say anything. Orbit makes that visible:
 
-## Quick start
+1. **Every party signs its own step** with its own key. Orbit can't sign for them.
+2. **Everything else is recomputed from those signatures by public rules**: distances, recycled content, credits. If Orbit changes a number, recomputing exposes it.
+3. **A fingerprint of the whole history goes on a public blockchain** (Base Sepolia), from Orbit's wallet and from **witnesses' own wallets**. If Orbit deletes the failed audit and rebuilds everything after it, the fingerprints stop matching.
+4. **Your browser checks all of this itself**, on the Verify page. It doesn't trust Orbit's server.
+
+The Ledger page lets you try three attacks and see each one caught.
+
+## Circular incentives
+
+Returning, repairing and recycling earn **non-transferable credits**, redeemable for repairs, transit top-ups or tree planting. In a real scheme the brand's EPR fee would fund the return reward. Credits only appear as a consequence of a signed return, repair or recovery, so Orbit can't mint them from nothing. Repairs earn credit at most once per product every 30 days. ([Why not a tradable token](#why-credits-are-not-a-tradable-token).)
+
+## Try it (3 minutes)
 
 ```bash
 npm install
-npm run dev          # http://localhost:3000; demo mode on; checkpoints stay local-only without a chain
-npm test             # 46 tests (node:test)
+npm run dev     # http://localhost:3000
+npm test        # 56 tests
 ```
 
-> **Judges:** a fresh clone generates its own random keys and a new ledger, so nothing in it is anchored on our contract. To see anchoring, follow the steps below (about 5 minutes with a faucet), or inspect the public history of [our contract](https://sepolia.basescan.org/address/0x8a9bd10b411a5509916dbe812fd803611c2f9151).
+1. **Overview → "See a greenwashed product get caught"**: the hoodie's passport and the "Why 0/100" breakdown.
+2. **Ledger → tamper simulator**: three attacks, three defences.
+   - An intruder edits a credit, and a hash breaks.
+   - Orbit itself shortens a freight leg and re-signs. Recomputing gives 2,892 km again.
+   - Orbit erases the failed audit and rebuilds all later history through the real rules. Every local check passes; only the on-chain fingerprints disagree.
 
-### Anchor on a public testnet (Base Sepolia by default)
+   Simulations stay in memory and undo themselves after 90 s.
+3. **Verify**: load the hoodie. Your browser rebuilds the ledger, checks it against the chain and re-derives every verdict.
+4. **Console → "Create my key & join"**: become a consumer whose key never leaves your browser, buy something and return it for the reward.
+
+**Live contract:** [OrbitAnchor v3 on Base Sepolia](https://sepolia.basescan.org/address/0x8a9bd10b411a5509916dbe812fd803611c2f9151), with source verified on [Sourcify](https://repo.sourcify.dev/84532/0x8A9BD10b411A5509916dbe812fd803611C2F9151). Its history shows checkpoints from Orbit's operator and from a witness wallet. That witness is a second wallet run by our team, to show the role; we're inviting outside witnesses ([guide](docs/WITNESS_GUIDE.md)).
+
+> A fresh clone makes its own keys and a new ledger, so nothing in it is anchored on our contract until you set up a wallet (below).
+
+## Impact
+
+If 5% of EU textiles and batteries carried Orbit-style passports by 2030, we project about **0.08 Mt CO₂e avoided per year**, mostly from longer textile life and more fibre-to-fibre recycling. The biggest uncertainty is how many people actually repair. Every input is sourced in [IMPACT.md](docs/IMPACT.md), and the in-app Impact page reproduces the arithmetic.
+
+---
+
+## For developers
+
+### Anchor on a public testnet
 
 ```bash
 npm run wallet            # creates Orbit's anchor wallet in .env.local and prints its address
-# fund that address with a little Base Sepolia ETH from a faucet
+# fund it with a little Base Sepolia ETH from a faucet
 npm run deploy:anchor     # deploys OrbitAnchor, writes ORBIT_ANCHOR_ADDRESS to .env.local
-npm run dev               # anchored on boot and ~45 s after the last write
+npm run dev               # anchors on boot, then at most every 10 minutes while there are new events
 ```
 
 Add your deployment and operator address to `OFFICIAL_ANCHORS` in `src/lib/networks.ts`, so the browser verifier trusts them.
 
-**Be an independent witness** (any auditor, recycler or NGO can do this, from its own wallet):
+**Witness** (any auditor, recycler, NGO or judge, from their own wallet). Details in [WITNESS_GUIDE.md](docs/WITNESS_GUIDE.md):
 
 ```bash
-npm run wallet -- --witness                                    # a wallet Orbit doesn't control
-ORBIT_URL=http://localhost:3000 npm run witness                # re-verify everything, then anchor what you saw
-ORBIT_URL=http://localhost:3000 npm run witness -- --watch 120 # keep watching (downloads only new entries)
+npm run witness -- --file ledger.jsonl --check-only   # verify a ledger file: no wallet, no gas
+npm run wallet -- --witness && npm run witness        # verify, then anchor from your own wallet
 ```
 
-The witness downloads the ledger and **re-verifies it in full**: hashes, signatures, and replay of every instruction. It then compares the ledger with every root already published by Orbit or by named witnesses. If anything disagrees, it **refuses to anchor and raises an alert**. Roots from unidentified wallets are reported but can't block it. `npm run chain:local` starts a local node for `npm run test:chain`.
-
-## How it works
+### How it works
 
 ```mermaid
 flowchart LR
-  subgraph Actors["Actors: each signs instructions with its own Ed25519 key"]
+  subgraph Actors["Each party signs its own instructions (Ed25519)"]
     S[Supplier] --> M[Brand] --> L[Carrier] --> R[Retailer] --> C[Consumer]
     C -- repair --> F[Repairer]
     C -- return --> Y[Recycler]
@@ -83,111 +95,116 @@ flowchart LR
   Actors -- signed instruction --> V{validate · rules<br/>custody · mass balance · bounds}
   V -- entries derived by the rules --> LG[(Append-only ledger)]
   LG -. replay .-> V
-  LG -- RFC 6962 root --> CH[[OrbitAnchor v3<br/>open, Base Sepolia]]
-  W[Independent witness] -- replay + own root --> CH
+  LG -- RFC 6962 root --> CH[[OrbitAnchor v3<br/>Base Sepolia]]
+  W[Witness] -- replay + own root --> CH
   Y -- recovered lots --> M
-  LG --> E[Claim verification engine]
-  LG --> P[Passport + inclusion proofs]
-  CH -. roots read directly · pinned trust .-> B[Browser verifier<br/>re-derives verdicts · consistency proofs]
-  P --> B
+  LG --> E[Claim checks + trust score]
+  CH -. roots read directly · pinned trust .-> B[Browser verifier]
+  LG -- full ledger --> B
 ```
 
-- **The ledger is the only truth.** No mutable state is stored. Actors, lots, products, claims, audits, credits and checkpoints are rebuilt by **replaying** the signed instructions through the same rules as the live API (`replay.ts`). The same replay is a verifier: if anyone, the operator included, alters derived data (a distance, a credit amount, a recovered lot) or adds an entry with no instruction behind it, replay reports exactly what differs.
-- **Writes** (`dispatch.ts`): signature against the registered key, ledger id, 5-minute freshness, nonce, no impersonation, and strict schema validation. Then the rules run (`actions.ts`), and one sequencer timestamp is bound to the signed time.
-- **Merkle trees** follow **RFC 6962** (as in Certificate Transparency): domain-separated leaves and nodes, inclusion proofs bound to index and size, and **consistency proofs** that a later root only appends to an earlier one. `OrbitAnchor` verifies both natively in Solidity.
-- **Trust is pinned, not discovered.** The contract is open, so anyone can anchor. Verifiers trust only Orbit's operator address and named witnesses, pinned in code (`networks.ts`). A forger's checkpoint or a griefer's junk root can't pass or break verification.
-- **Counter-party cross-checks** (`domain.ts`): the recipient's signed arrival time tests the shipper's declared transport mode. Lot lineage tests recycled content. Auditors' signatures test labour claims.
+- **The ledger is the only source of truth.** No other state is stored. Actors, lots, products, claims, audits, credits and checkpoints are rebuilt by **replaying** the signed instructions through the same rules as the live API (`replay.ts`). The same replay acts as a verifier: if anyone, Orbit included, alters a derived value or adds an entry with no instruction behind it, replay names the field that differs.
+- **Writes** (`dispatch.ts`) check:
+  - the signature against the registered key
+  - the ledger id
+  - 5-minute freshness and a single-use nonce
+  - no impersonation
+  - strict schemas: unknown fields are rejected, and requests are capped at 16 KB
 
-See **[docs/SECURITY.md](docs/SECURITY.md)** for the full threat model: who can do what, how it is caught, what is tested, and what remains possible (the oracle problem).
+  Then the rules run (`actions.ts`).
+- **Merkle trees** follow **RFC 6962**, as in Certificate Transparency. `OrbitAnchor` can also verify inclusion and consistency proofs in Solidity.
+- **The browser verifier** (`passport-verify.ts`):
+  1. Reads the checkpoint from Orbit's pinned contract and checks it came from Orbit's pinned operator.
+  2. Downloads the ledger and re-hashes it; the root must equal the on-chain root.
+  3. Checks it against every checkpoint from Orbit and named witnesses.
+  4. Re-checks every signature and replays every instruction.
+  5. Checks the passport leaves no anchored event out.
+  6. Re-derives every verdict and the grade.
 
-## Why a blockchain (and why only roots)
+  If no named witness has anchored the ledger yet, it shows a warning.
+- **Counter-party cross-checks** (`domain.ts`):
+  - the recipient's signed arrival time tests the declared transport mode
+  - lot lineage tests recycled content
+  - auditors' signatures test labour claims
+  - self-reported inputs (factory energy) are labelled as such
 
-A signed database proves who said what, but whoever runs it can rewrite history and re-sign it. The "erase" attack does exactly that and **passes every local check, replay included**. What the chain adds:
+The full threat model, including what is still possible, is in [SECURITY.md](docs/SECURITY.md).
 
-1. **Public, unrevisable timestamps.** A Merkle root in a Base block can't be changed by Orbit or anyone else.
-2. **Append-only, provably.** With RFC 6962 consistency proofs, a later root must extend every earlier trusted root. A rewritten history can't be made consistent, whatever length it is re-anchored at.
-3. **No gatekeeper.** Anchoring is open. Independent witnesses publish roots from their own wallets, so if Orbit rewrites, drops or withholds events, their roots contradict it. Orbit's wallet has no special rights in the contract.
-4. **Verification without trust.** Passports carry inclusion proofs. The browser reads roots straight from the chain via a public RPC, checks them against pinned trust roots, and re-derives verdicts itself. Other contracts can call `verifyInclusion` and `verifyConsistency` on Orbit events too.
+### Why a blockchain, and why only fingerprints
+
+A signed database proves who said what, but whoever runs it can rewrite history and re-sign it. The "erase" attack does exactly that, and passes every local check, replay included. The chain adds:
+
+- **timestamps nobody can revise**
+- **open anchoring**, so witnesses publish from their own wallets and Orbit's wallet has no special rights
+- **roots any browser can read directly** through a public RPC
 
 Only 32-byte roots go on-chain. Supplier identities, volumes and prices stay off-chain, and one transaction covers any number of events.
 
-## Scalability
+### Scalability
 
-Measured with `node scripts/bench.ts 10000` on a Windows dev laptop (Node 24, native Ed25519). On-chain figures come from our Base Sepolia transactions.
+Measured with `node scripts/bench.ts 10000` (Windows laptop, Node 24). Gas figures come from our Base Sepolia transactions.
 
-| Operation | Cost | Grows with |
+| Operation | Cost |
+| --- | --- |
+| Signed write (verify, validate, apply rules, append) | ≈ 0.6 ms |
+| Integrity check after a write (incremental) | ≈ 1.3 ms at 10,000 entries |
+| Full audit from scratch, replay included | ≈ 0.7 ms per entry |
+| Passport export | ≈ 15 ms at 10,000 entries |
+| On-chain anchor | ≈ 146k gas, whatever the number of events; ≈ $0.002–$0.02 on Base mainnet |
+
+The browser verifier downloads the whole ledger. That's fine at demo scale. Production would use one ledger per brand or consortium (`ledgerId` already separates them on-chain), plus signed snapshots, so the download doesn't grow forever.
+
+### Why credits are not a tradable token
+
+- **They reward behaviour, not speculation.** A tradable token invites farming and wash-trading, and a reward worth a different amount next week stops working as an incentive.
+- **Regulation.** A transferable token with market value can fall under the EU's MiCA rules. Closed-loop rewards are treated differently.
+- **They're still accountable.** Replay rejects any credit the rules don't produce, and every mint sits inside the anchored roots.
+- **There's an on-chain path if a scheme wants one.** `OrbitAnchor.verifyInclusion` would let a non-transferable token mint only against an anchored `RETURNED` or `RECYCLED` event.
+
+### API
+
+| Method | Path | Notes |
 | --- | --- | --- |
-| Signed write (verify instruction, validate, apply rules, sequence, append one log line) | ≈ 0.6 ms | constant (indexed) |
-| Integrity check after a write (hashes, signatures and replay, incrementally) | ≈ 1.3 ms at 10,000 entries | O(new entries) |
-| Full independent audit from scratch, replay included (what a witness does) | ≈ 0.7 ms per entry (7 s for 10,000) | O(n), one-off |
-| Passport export with RFC 6962 proofs | ≈ 15 ms at 10,000 entries | O(events · log² n) |
-| Inclusion proof size | 14 hashes, 448 bytes at 10,000 entries | O(log n) |
-| On-chain anchor | ≈ 146k gas (measured), covering any number of events | constant |
-| Anchor fee on Base Sepolia | ≈ 9 × 10⁻⁷ ETH at 0.006 gwei (measured) | constant |
-| Anchor fee on Base mainnet (estimate) | at 0.005–0.05 gwei: 7 × 10⁻⁷ – 7 × 10⁻⁶ ETH, ≈ $0.002–$0.02 at $3,000/ETH | constant |
+| `GET` | `/api/passport/:id` | JSON-LD passport (UNTP DPP data model) with inclusion proofs and an anchor reference |
+| `GET` | `/api/ledger[?from=N]` | Entries, `ledgerId`, registered keys and an integrity report |
+| `GET` | `/api/proof?m=&n=` | RFC 6962 consistency proof (optional: the verifier computes roots itself) |
+| `POST` | `/api/actions/{create-batch, manufacture, ship, receive, sell, repair, return, recycle, issue-claim, attest, redeem, register-actor}` | `{ request: {action, ledger, actorId, body, nonce, issuedAt}, signature }`, signed by the actor. Only consumers may self-register, as `guest-…`, at most 20 per 10 minutes. |
+| `POST` | `/api/actions/anchor` | Publishes the current root. Rate-limited, and a no-op if nothing changed. |
+| `POST` | `/api/actions/{tamper, restore, reset}`, `GET /api/demo/keys` | Demo mode only (on in dev; `ORBIT_DEMO_MODE=1` in production) |
 
-Hourly anchoring costs roughly **$20–$200 per year per ledger, whatever the event volume**. Storage is an append-only JSON Lines log: a write appends one line, and state is rebuilt by replay on start. Witnesses download incrementally (`/api/ledger?from=N`). Production would use Postgres with an append-only ledger table, with one ledger per brand or consortium (`ledgerId` already partitions checkpoints on-chain).
+### Stack and standards
 
-## Incentives: why credits are not a tradable token
+Next.js 15 · React 19 · TypeScript · Tailwind v4 · native Ed25519/SHA-256 on the server and audited `@noble/curves` / `@noble/hashes` in the browser (byte-identical, strict RFC 8032) · `viem` · Solidity 0.8.26.
 
-Orbit's circular credits are deliberately **non-transferable and redeemable only for rewards**:
+Standards: UNTP Digital Product Passport (data model) · GS1 EPCIS 2.0 & Digital Link (restricted-range demo GTINs) · RFC 6962 / 9162 · EU ESPR 2024/1781 · EU Battery Regulation 2023/1542 · EU Directive 2024/825 (greenwashing) · GLEC Framework.
 
-- **They reward behaviour, not speculation.** A tradable token invites farming, wash-trading and price swings, and a return reward that's worth a different amount next week stops working as an incentive.
-- **Regulation.** A transferable token with market value can fall within the EU's MiCA crypto-asset rules. Closed-loop rewards redeemable within a limited network are treated differently. We don't want legal classification to drive the design of a recycling incentive.
-- **They're still accountable.** Credits are minted only as a rule-derived consequence of a signed return, repair or recovery. Replay rejects any credit that the rules don't produce, and every mint sits inside the anchored roots.
-- **There's an on-chain path if a scheme wants one.** `OrbitAnchor.verifyInclusion` proves events on-chain, so a token contract (non-transferable ERC-5192, or ERC-20 if a regulator approves) could mint **only** against an anchored `RETURNED` or `RECYCLED` event from Orbit's pinned operator.
-
-## API
-
-| Method | Path | Body |
-| --- | --- | --- |
-| `GET` | `/api/passport/:id` | n/a. Returns the JSON-LD passport with RFC 6962 inclusion proofs and an anchor reference. |
-| `GET` | `/api/ledger[?from=N]` | n/a. Returns entries, `ledgerId`, registered keys and an integrity report (what witnesses consume). |
-| `GET` | `/api/proof?m=&n=` | n/a. Returns an RFC 6962 consistency proof from size m to n (verifiers check it against on-chain roots). |
-| `POST` | `/api/actions/{create-batch, manufacture, ship, receive, sell, repair, return, recycle, issue-claim, attest, redeem, register-actor}` | `{ request: {action, ledger, actorId, body, nonce, issuedAt}, signature }`, signed by the actor. Self-registration is open only to consumers. |
-| `POST` | `/api/actions/anchor` | `{}`. Publishes the current root (no-op if unchanged, rate-limited). |
-| `POST` | `/api/actions/{tamper, restore, reset}`, `GET /api/demo/keys` | Demo mode only. Tamper is memory-only and auto-restores after 90 s; reset is limited to once per 2 minutes. |
-
-## Stack
-
-Next.js 15 · React 19 · TypeScript · Tailwind CSS v4 · Ed25519 & SHA-256 via Node's native crypto on the server and audited `@noble/curves` / `@noble/hashes` in the browser (byte-identical, strict RFC 8032) · `viem` · Solidity 0.8.26 (`solc`, verified on Sourcify) · `motion`, `@number-flow/react`, `lucide-react`, `sonner` for the UI.
-
-## Standards it borrows from
-
-UNTP Digital Product Passport & W3C Verifiable Credentials (data shape) · GS1 EPCIS 2.0 & Digital Link (GTINs in the restricted-circulation range) · RFC 6962 / RFC 9162 Merkle trees · EU ESPR 2024/1781 · EU Battery Regulation 2023/1542 · EU Directive 2024/825 (greenwashing) · GLEC Framework (transport emissions).
-
-## Project layout
+### Project layout
 
 ```
 src/lib/          core engine (framework-free, unit tested)
-  crypto.ts       canonical JSON, pluggable Ed25519/SHA-256, RFC 6962 Merkle tree + proofs
-  crypto-node.ts  native backend for servers, scripts and tests
-  auth.ts         signed instructions + entry/instruction binding checks
   dispatch.ts     the single write path: validation, signatures, freshness, nonce, ledger id
   actions.ts      protocol rules (custody, roles, mass balance, recovery bounds, credits)
   replay.ts       deterministic replay: rebuilds all state, verifies every derived entry
-  ledger.ts       append, incremental integrity verification, the ledger's Merkle tree
-  domain.ts       indexed views: custody, mass balance, carbon, transport cross-checks
-  verify.ts       claim verification engine + trust score
+  ledger.ts       append, incremental integrity checks, the ledger's Merkle tree
+  domain.ts       custody, mass balance, carbon, transport cross-checks
+  verify.ts       claim checks + trust score with breakdown
   passport-verify.ts  trustless passport verification (browser + tests)
-  chain.ts        publish & check anchors (viem)   anchor-read.ts  browser-safe reads
-  networks.ts     networks, ABI, pinned trust roots
-  store.ts        append-only JSON Lines storage (state rebuilt by replay)
-  seed.ts         reproducible demo world, every action actor-signed
-contracts/        OrbitAnchor.sol (v3) + artifact + Solidity metadata
-scripts/          compile, wallet, deploy, witness, fund, keystore, bench
-tests/            core, storage, RFC 6962 and browser-verifier tests; on-chain integration test
-docs/             problem statement, impact assessment, security assessment, Devpost text
+  chain.ts / anchor-read.ts / networks.ts   anchoring, chain reads, pinned trust roots
+  crypto.ts       canonical JSON, Ed25519/SHA-256, RFC 6962 Merkle tree
+contracts/        OrbitAnchor.sol (v3)
+scripts/          wallet, deploy, witness, fund, bench
+tests/            core, storage, RFC 6962, verifier and on-chain tests
+docs/             problem, impact, security, Devpost, witness guide, user-testing kit
 ```
 
-## Limitations
+### Limitations
 
-- **Demo keys.** Demo mode serves role-play keys (on in development, opt-in in production). Guest consumers are non-custodial; in production all keys stay in actors' wallets.
-- **Demo witness.** The witness in this demo is a second wallet run by our team, not an independent party.
-- **Emission factors** are illustrative.
-- **Oracle problem.** A recycler can inflate its yield up to the input mass, and a shipper can record SHIPPED early. Scale weights and carrier pickup signatures are the fix.
+- **Demo keys.** In demo mode the server holds the role-play actors' keys. Guest consumers keep their own; in production every key would stay with its owner.
+- **Demo witness.** The only witness so far is our own second wallet.
+- **Self-reported data.** Factory energy is self-reported and labelled as such. Emission factors are illustrative.
+- **Physical facts.** A recycler can overstate its yield up to the input mass, and a shipper can record a shipment early. Signed scale weights and carrier pickup signatures would fix this.
 
-The full list is in [SECURITY.md §6](docs/SECURITY.md#6-residual-risks--limitations).
+Full list: [SECURITY.md](docs/SECURITY.md).
 
 ## Inspiration & prior art
 

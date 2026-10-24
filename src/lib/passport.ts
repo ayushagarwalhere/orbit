@@ -38,8 +38,10 @@ export function exportPassport(db: Db, p: Product, baseUrl: string) {
   const registrations = db.ledger.filter((e) => e.type === "ACTOR_REGISTERED" && signers.has(e.subjectId));
 
   return {
-    "@context": ["https://www.w3.org/ns/credentials/v2", "https://test.uncefact.org/vocabulary/untp/dpp/0.5.0/"],
-    type: ["DigitalProductPassport", "VerifiableCredential"],
+    // UNTP DPP data model. Not a W3C Verifiable Credential: there is no Data Integrity signature on
+    // the document; its integrity comes from the ledger proof below, checked against the chain.
+    "@context": ["https://test.uncefact.org/vocabulary/untp/dpp/0.5.0/"],
+    type: ["DigitalProductPassport"],
     id: `${baseUrl}/passport/${p.id}`,
     issuer: { id: `did:orbit:${brand.id}`, name: brand.name, publicKey: brand.publicKey },
     validFrom: p.createdAt,
@@ -97,7 +99,7 @@ export function exportPassport(db: Db, p: Product, baseUrl: string) {
         issues: c.reasons,
         attestations: attestationsOf(db, c.claim.id),
       })),
-      trust: { score: trust.score, grade: trust.grade, summary: trust.summary },
+      trust: { score: trust.score, grade: trust.grade, summary: trust.summary, breakdown: trust.breakdown },
       actorRegistrations: registrations.map(withProof),
       traceabilityEvents: events.map(withProof),
     },
