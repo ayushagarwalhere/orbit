@@ -24,7 +24,7 @@ Ask permission before taking notes or recording. Don't record names unless they 
 3. **QR moment.** *"Imagine this is a tag in a shop. Would this change whether you buy it?"*
 4. **Return.** In the Console, click "Create my key & join", then return a product for its reward. *"What did you just get, and why?"*
 5. **Trust (optional; for the technical testers).** Open Verify, load the hoodie and run it. *"Do you believe this result? What would make you believe it more?"*
-6. **Tamper (optional).** On the Ledger page, run the "erase an audit" scenario. *"What happened?"*
+6. **Tamper (optional).** On the Ledger page, run the "Erase the failed labour audit" scenario. *"What happened?"*
 
 ## Questions afterwards
 - "What is this app for, in one sentence?"
