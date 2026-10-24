@@ -36,8 +36,23 @@ export default function RewardsPage() {
   return (
     <div className="space-y-6">
       <PageHeader kicker="Circular economy incentives" title={<>Circularity <em className="text-accent">rewards</em></>}>
-          Credits are minted by the protocol, not by brands. They are only issued when a matching signed event happens: a repair, a return or a verified recovery of material. That makes rewards impossible to farm without leaving an auditable trail.
+          Credits are minted by the protocol, not by brands, and only against a matching signed event: a repair, a return or a verified recovery of material. Each mint references the hash of the event that triggered it and sits inside the Merkle root anchored on-chain, so the total supply is publicly auditable.
       </PageHeader>
+
+      <div className="card grid gap-4 p-5 text-sm md:grid-cols-3">
+        <div>
+          <div className="label">Why not a tradable token?</div>
+          <p className="mt-2 text-ink-soft">A deposit refund has to be worth the same next week. A tradable token invites farming, wash-trading and price swings, so credits are deliberately non-transferable.</p>
+        </div>
+        <div>
+          <div className="label">Regulation</div>
+          <p className="mt-2 text-ink-soft">A transferable token with market value can fall under the EU&apos;s MiCA rules. Closed-loop rewards redeemable within a limited network are treated differently.</p>
+        </div>
+        <div>
+          <div className="label">On-chain if a scheme wants it</div>
+          <p className="mt-2 text-ink-soft">OrbitAnchor can verify an event&apos;s inclusion on-chain, so a token contract could mint only against an anchored return or recycling proof. No operator could mint from nothing.</p>
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Credits minted" value={fmt(minted, 0)} tone="leaf" />

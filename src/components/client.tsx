@@ -4,8 +4,8 @@ import NumberFlow from "@number-flow/react";
 import { Copy } from "lucide-react";
 import { MotionConfig, motion } from "motion/react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useRef } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { Toaster, toast } from "sonner";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -98,6 +98,25 @@ export function Spotlight({ children, className = "", as = "div" }: { children: 
 
 export function Num({ value, decimals = 0, suffix, prefix }: { value: number; decimals?: number; suffix?: string; prefix?: string }) {
   return <NumberFlow value={value} format={{ maximumFractionDigits: decimals, minimumFractionDigits: 0 }} suffix={suffix} prefix={prefix} willChange />;
+}
+
+/** Seconds left until a deadline; refreshes the page when it passes. */
+export function Countdown({ until, label }: { until: number; label: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  const router = useRouter();
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const left = Math.max(0, Math.ceil((until - now) / 1000));
+  useEffect(() => {
+    if (left === 0) router.refresh();
+  }, [left, router]);
+  return (
+    <span className="chip border-amber/30 bg-amber-soft text-amber tabular-nums">
+      {label} {left}s
+    </span>
+  );
 }
 
 /** Mono hash with an accent-tinted fingerprint; click to copy. */

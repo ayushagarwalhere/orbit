@@ -30,12 +30,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
     switch (action) {
       case "tamper":
         return mutate((tx) => tamper(tx.db, Number(body.index), body.mode === "rewrite" ? "rewrite" : "edit", tx.sequencerKey));
-      case "restore":
-        return mutate((tx) => restore(tx.db));
-      case "reset":
+      case "restore": {
+        const r = mutate((tx) => restore(tx.db));
+        scheduleAnchor();
+        return r;
+      }
+      case "reset": {
+        // Shared demo: at most one reset per 2 minutes, so one visitor can't wipe another's session.
+        const g = globalThis as unknown as { __orbitLastReset?: number };
+        if (g.__orbitLastReset && Date.now() - g.__orbitLastReset < 120_000) throw new OrbitError("The demo was reset less than 2 minutes ago; try again shortly", 429);
+        g.__orbitLastReset = Date.now();
         resetDb();
         scheduleAnchor(2_000);
         return { ok: true };
+      }
       default:
         throw new OrbitError(`Unknown action ${action}`, 404);
     }

@@ -20,8 +20,11 @@ function forge(e: LedgerEntry): Record<string, unknown> {
   return data;
 }
 
-export function tamper(db: Db, index: number, mode: "edit" | "rewrite", sequencerKey: string) {
-  if (db.tamper) throw new OrbitError("Restore the previous tamper first", 409);
+/** A simulation restores itself after this long, so judges sharing one demo don't block each other. */
+export const TAMPER_TTL_MS = 90_000;
+
+export function tamper(db: Db, index: number, mode: "edit" | "rewrite", sequencerKey: string, now = Date.now()) {
+  if (db.tamper) restore(db); // a new simulation replaces the active one
   const target = db.ledger[index];
   if (!target) throw new OrbitError("No such ledger entry", 404);
   const original = JSON.parse(JSON.stringify(db.ledger)) as LedgerEntry[];
@@ -45,8 +48,13 @@ export function tamper(db: Db, index: number, mode: "edit" | "rewrite", sequence
       e.signature = signHash(e.hash, sequencerKey);
     }
   }
-  db.tamper = { index, mode, original, originalCheckpoints };
+  db.tamper = { index, mode, at: now, original, originalCheckpoints };
   return { index, mode, before, after: target.data };
+}
+
+/** True if a simulation has outlived its TTL and should be rolled back. */
+export function tamperExpired(db: Db, now = Date.now()): boolean {
+  return !!db.tamper && now - (db.tamper.at ?? 0) > TAMPER_TTL_MS;
 }
 
 export function restore(db: Db) {

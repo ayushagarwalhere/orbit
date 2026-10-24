@@ -104,6 +104,19 @@ test("an entry re-signed with a different sequencer key is rejected", () => {
   assert.ok(verifyLedger(db).issues.some((x) => x.index === 10 && x.problem === "bad-sequencer-signature"));
 });
 
+test("a demo simulation expires on its own, and a new one replaces an active one", async () => {
+  const { tamperExpired, TAMPER_TTL_MS } = await import("../src/lib/demo.ts");
+  const { db, keys } = world();
+  const i = db.ledger.findIndex((e) => e.type === "SHIPPED");
+  tamper(db, i, "edit", keys[PROTOCOL_ID], 1_000);
+  assert.equal(tamperExpired(db, 1_000 + TAMPER_TTL_MS - 1), false);
+  assert.equal(tamperExpired(db, 1_000 + TAMPER_TTL_MS + 1), true);
+  tamper(db, i + 1, "rewrite", keys[PROTOCOL_ID], 2_000); // replaces, no error
+  assert.equal(db.tamper?.index, i + 1);
+  restore(db);
+  assert.equal(verifyLedger(db).ok, true);
+});
+
 test("tampering with a material lot flags every product made from it", () => {
   const { db, keys } = world();
   const battery = byName(db, "Strata 500 Wh E-bike Battery");

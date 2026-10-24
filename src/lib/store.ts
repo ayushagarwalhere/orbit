@@ -3,6 +3,7 @@ import "./crypto-node.ts"; // native Ed25519/SHA-256 on the server
 import path from "node:path";
 import { PROTOCOL_ID } from "./auth.ts";
 import { publicKeyOf, randomPrivateKey } from "./crypto.ts";
+import { restore, tamperExpired } from "./demo.ts";
 import { applySigned } from "./dispatch.ts";
 import { generateKeystore, type Keystore } from "./keys.ts";
 import type { Tx } from "./ledger.ts";
@@ -113,7 +114,13 @@ function persist(full = false) {
 }
 
 export function getDb(): Db {
-  return state().db;
+  const s = state();
+  // Demo simulations roll themselves back after their TTL (lazily, on the next request).
+  if (tamperExpired(s.db)) {
+    restore(s.db);
+    persist();
+  }
+  return s.db;
 }
 
 export function sequencerKey(): string {

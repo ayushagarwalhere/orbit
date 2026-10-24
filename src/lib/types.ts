@@ -174,7 +174,7 @@ export interface Db {
   ledger: LedgerEntry[];
   checkpoints: Checkpoint[];
   /** Demo only: original ledger before the tamper simulator edited it, so it can be restored. */
-  tamper?: { index: number; mode: "edit" | "rewrite"; original: LedgerEntry[]; originalCheckpoints: Checkpoint[] };
+  tamper?: { index: number; mode: "edit" | "rewrite"; at: number; original: LedgerEntry[]; originalCheckpoints: Checkpoint[] };
 }
 
 export type LifecycleStage =

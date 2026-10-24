@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { ActionButton } from "@/components/act.tsx";
+import { Countdown } from "@/components/client.tsx";
+import { TAMPER_TTL_MS } from "@/lib/demo.ts";
 import { ENTRY_META, PageHeader, RoleTag, dateTime, short } from "@/components/ui.tsx";
 import { chainConfig, checkAnchors } from "@/lib/chain.ts";
 import { verifyLedger } from "@/lib/ledger.ts";
@@ -125,8 +127,9 @@ export default async function LedgerPage() {
           {db.tamper ? (
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <span className="text-sm font-semibold text-rust">
-                Entry #{db.tamper.index} was altered ({db.tamper.mode === "rewrite" ? "insider rewrite with the sequencer key" : "direct database edit"}).
+                Simulation active: entry #{db.tamper.index} was altered ({db.tamper.mode === "rewrite" ? "insider rewrite with the sequencer key" : "direct database edit"}).
               </span>
+              <Countdown until={db.tamper.at + TAMPER_TTL_MS} label="Auto-restores in" />
               <ActionButton action="restore" className="btn btn-primary text-xs">
                 Restore original history
               </ActionButton>
