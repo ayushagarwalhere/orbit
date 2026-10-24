@@ -23,14 +23,14 @@ It covers the whole circular loop:
 - **Lifecycle tracking** from fibre lot to recycler, with a journey map.
 - **Recycling traceability:** a recycler signs the mass it recovered, which can't exceed what went in. Those recovered lots become a new battery with **93% recycled content**, provable back to the original passport.
 - **Circular incentives:** returning, repairing and recycling earn non-transferable credits, redeemable for repairs, transit top-ups or tree planting. In a real scheme the brand's EPR fee would fund them. Credits exist only because of a signed event. Repairs earn at most once per product every 30 days.
-- **Greenwashing lint:** vague wording like "eco-friendly" is flagged under EU Directive 2024/825.
+- **Check any claim:** paste a line from any label. Orbit flags wording banned under EU Directive 2024/825 (like "eco-friendly" or "carbon neutral") and says what signed data it would need to check the rest.
 - **Join as yourself:** a judge can become a consumer whose key is created in their own browser, then buy and return a product for its reward.
 
 ## Why you can trust the passport
 A passport is only useful if the company running it can't quietly edit it. So:
 1. **Orbit can't sign for anyone.** Every step carries the actor's own signature. (In the demo, the server holds the role-play actors' keys; guests keep their own.)
 2. **Everything Orbit derives can be recomputed** from those signatures. Change a distance or a credit, and recomputing exposes it.
-3. **A fingerprint of the whole history is anchored on a public blockchain** (Base Sepolia). Witnesses can anchor it from their own wallets too (so far only a second wallet of ours). If Orbit deletes the failed audit and rebuilds everything after it, the fingerprints stop matching. The Ledger page lets you try this attack live.
+3. **A fingerprint of the whole history is anchored on a public blockchain** (Base Sepolia). Witnesses can anchor it from their own wallets too, in one click from the Verify page with any browser wallet (so far the only named witness is a second wallet of ours). If Orbit deletes the failed audit and rebuilds everything after it, the fingerprints stop matching. The Ledger page lets you try this attack live.
 4. **Your browser checks everything itself.** The Verify page downloads the ledger, matches it to the on-chain fingerprint, re-checks every signature, confirms the passport leaves nothing out, and re-derives every verdict.
 
 ## Impact
@@ -42,7 +42,7 @@ If 5% of EU textiles and batteries carried Orbit-style passports by 2030, we pro
 - **Replay:** the append-only ledger is the only stored state. All state is rebuilt by replaying the signed instructions through the same rules the API uses.
 - **Anchoring:** RFC 6962 Merkle roots, the same scheme as Certificate Transparency, sent to our **OrbitAnchor** contract (Solidity, source verified on Sourcify). Anyone can anchor; verifiers trust only Orbit's operator and named witnesses, pinned in code.
 - **Data models** follow UNTP DPP, GS1 EPCIS 2.0 / Digital Link, EU ESPR and Battery Regulation passport fields, and GLEC transport factors.
-- **56 tests**, plus an on-chain integration test. They cover signature attacks, input hardening, replay catching operator forgeries, the erase-and-rebuild attack, passports that omit or forge events, and RFC 6962 proofs.
+- **57 tests**, plus an on-chain integration test. They cover signature attacks, input hardening, replay catching operator forgeries, the erase-and-rebuild attack, passports that omit or forge events, and RFC 6962 proofs.
 - **Measured at 10,000 entries:** a signed write takes about 0.7 ms. An anchor costs about 146k gas whatever the volume, roughly $0.002–$0.02 on Base mainnet.
 
 ## Challenges we ran into
@@ -53,6 +53,7 @@ If 5% of EU textiles and batteries carried Orbit-style passports by 2030, we pro
 - The greenwashed hoodie is caught four ways, and the grade explains itself.
 - The hardest insider attack (erase an audit, then rebuild all later history through the real rules) passes every local check and is caught only by the on-chain fingerprints.
 - A closed loop: a recycled battery whose 93% recycled content is proven, not declared.
+- Lighthouse scores 100 for accessibility, best practices and SEO on all 7 pages (automated checks, not user testing).
 
 ## What we learned
 Traceability alone doesn't create accountability. Accountability comes from checking claims against data that someone *other than the claimant* signed, and from letting anyone, not just the operator, re-check the record.

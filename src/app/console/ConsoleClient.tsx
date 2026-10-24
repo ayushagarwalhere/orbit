@@ -220,7 +220,7 @@ function HeldActions({ p, actorRole, actorId, data, busy, run }: { p: ConsoleDat
     const recyclers = data.actors.filter((a) => a.role === "recycler");
     return (
       <>
-        <select className="field w-auto text-xs" value={to} onChange={(e) => setTo(e.target.value)}>
+        <select aria-label="Recipient" className="field w-auto text-xs" value={to} onChange={(e) => setTo(e.target.value)}>
           <option value="">Return to…</option>
           {recyclers.map((r) => (
             <option key={r.id} value={r.id}>
@@ -241,7 +241,7 @@ function HeldActions({ p, actorRole, actorId, data, busy, run }: { p: ConsoleDat
     const consumers = data.actors.filter((a) => a.role === "consumer");
     return (
       <>
-        <select className="field w-auto text-xs" value={to} onChange={(e) => setTo(e.target.value)}>
+        <select aria-label="Recipient" className="field w-auto text-xs" value={to} onChange={(e) => setTo(e.target.value)}>
           <option value="">Sell to…</option>
           {consumers.map((c) => (
             <option key={c.id} value={c.id}>
@@ -259,7 +259,7 @@ function HeldActions({ p, actorRole, actorId, data, busy, run }: { p: ConsoleDat
     const targets = data.actors.filter((a) => (a.role === "logistics" || a.role === "retailer") && a.id !== actorId);
     return (
       <>
-        <select className="field w-auto text-xs" value={to} onChange={(e) => setTo(e.target.value)}>
+        <select aria-label="Recipient" className="field w-auto text-xs" value={to} onChange={(e) => setTo(e.target.value)}>
           <option value="">Ship to…</option>
           {targets.map((t) => (
             <option key={t.id} value={t.id}>
@@ -267,7 +267,7 @@ function HeldActions({ p, actorRole, actorId, data, busy, run }: { p: ConsoleDat
             </option>
           ))}
         </select>
-        <select className="field w-auto text-xs" value={mode} onChange={(e) => setMode(e.target.value)}>
+        <select aria-label="Transport mode" className="field w-auto text-xs" value={mode} onChange={(e) => setMode(e.target.value)}>
           {["ship", "rail", "truck", "air"].map((m) => (
             <option key={m}>{m}</option>
           ))}
@@ -289,7 +289,7 @@ function RecycleAction({ p, actorId, busy, run }: { p: ConsoleData["products"][n
       {Object.keys(kg).map((m) => (
         <label key={m} className="flex items-center gap-1 text-[11px] text-muted">
           {m}
-          <input className="field w-20 py-1 text-xs" type="number" step="0.001" min="0" value={kg[m]} onChange={(e) => setKg({ ...kg, [m]: e.target.value })} />
+          <input aria-label={`Recovered ${m} in kg`} className="field w-20 py-1 text-xs" type="number" step="0.001" min="0" value={kg[m]} onChange={(e) => setKg({ ...kg, [m]: e.target.value })} />
           kg
         </label>
       ))}
@@ -325,7 +325,7 @@ function BatchForm({ data, actorId, recycler, busy, run }: { data: ConsoleData; 
       <div className="flex flex-wrap items-end gap-2">
         <label className="text-xs">
           Material
-          <select className="field mt-1" value={material} onChange={(e) => setMaterial(e.target.value)}>
+          <select aria-label="Material" className="field mt-1" value={material} onChange={(e) => setMaterial(e.target.value)}>
             {data.materials.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.label}
@@ -335,7 +335,7 @@ function BatchForm({ data, actorId, recycler, busy, run }: { data: ConsoleData; 
         </label>
         <label className="text-xs">
           Mass (kg)
-          <input className="field mt-1 w-28" type="number" min="0" value={mass} onChange={(e) => setMass(e.target.value)} />
+          <input aria-label="Mass in kg" className="field mt-1 w-28" type="number" min="0" value={mass} onChange={(e) => setMass(e.target.value)} />
         </label>
         <button
           className="btn btn-primary"
@@ -379,7 +379,7 @@ function ManufactureForm({ data, actorId, busy, run }: { data: ConsoleData; acto
       <div className="grid gap-2 sm:grid-cols-[80px_1fr_140px]">
         <input className="field text-center text-xl" value={emoji} onChange={(e) => setEmoji(e.target.value)} aria-label="Emoji" />
         <input className="field" placeholder="Product name" value={name} onChange={(e) => setName(e.target.value)} />
-        <select className="field" value={category} onChange={(e) => setCategory(e.target.value)}>
+        <select aria-label="Product category" className="field" value={category} onChange={(e) => setCategory(e.target.value)}>
           {["apparel", "battery", "electronics", "packaging"].map((c) => (
             <option key={c}>{c}</option>
           ))}
@@ -388,14 +388,14 @@ function ManufactureForm({ data, actorId, busy, run }: { data: ConsoleData; acto
       <div className="label mt-2">Bill of materials (drawn from signed lots)</div>
       {rows.map((r, i) => (
         <div key={i} className="flex gap-2">
-          <select className="field" value={r.batchId} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, batchId: e.target.value } : x)))}>
+          <select aria-label="Material lot" className="field" value={r.batchId} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, batchId: e.target.value } : x)))}>
             {available.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.id} · {b.label} · {b.remainingKg} kg left · {b.recycledPct}% recycled
               </option>
             ))}
           </select>
-          <input className="field w-28" type="number" step="0.01" value={r.massKg} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, massKg: e.target.value } : x)))} />
+          <input aria-label="Kilograms from this lot" className="field w-28" type="number" step="0.01" value={r.massKg} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, massKg: e.target.value } : x)))} />
           <button className="btn btn-ghost" onClick={() => setRows(rows.filter((_, j) => j !== i))} disabled={rows.length === 1}>
             ✕
           </button>
@@ -407,11 +407,11 @@ function ManufactureForm({ data, actorId, busy, run }: { data: ConsoleData; acto
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="text-xs">
           Return reward (credits, funded by EPR fee)
-          <input className="field mt-1" type="number" value={deposit} onChange={(e) => setDeposit(e.target.value)} />
+          <input aria-label="Return reward in credits" className="field mt-1" type="number" value={deposit} onChange={(e) => setDeposit(e.target.value)} />
         </label>
         <label className="text-xs">
           Factory emissions (kg CO2e, self-reported)
-          <input className="field mt-1" type="number" step="0.1" value={co2e} onChange={(e) => setCo2e(e.target.value)} />
+          <input aria-label="Factory emissions in kg CO2e" className="field mt-1" type="number" step="0.1" value={co2e} onChange={(e) => setCo2e(e.target.value)} />
         </label>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
@@ -455,14 +455,14 @@ function ClaimForm({ data, actorId, busy, run }: { data: ConsoleData; actorId: s
   return (
     <Panel title="Publish a sustainability claim">
       <div className="grid gap-2 sm:grid-cols-3">
-        <select className="field" value={productId} onChange={(e) => setProductId(e.target.value)}>
+        <select aria-label="Product" className="field" value={productId} onChange={(e) => setProductId(e.target.value)}>
           {mine.map((p) => (
             <option key={p.id} value={p.id}>
               {p.emoji} {p.name} ({p.id})
             </option>
           ))}
         </select>
-        <select className="field" value={kind} onChange={(e) => setKind(e.target.value as ClaimKind)}>
+        <select aria-label="Claim type" className="field" value={kind} onChange={(e) => setKind(e.target.value as ClaimKind)}>
           {KINDS.map((k) => (
             <option key={k.id} value={k.id}>
               {k.label}

@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { readCheckpoint, readLedgerCheckpoints } from "@/lib/anchor-read.ts";
 import { OFFICIAL_ANCHORS, networkById, txUrl } from "@/lib/networks.ts";
-import { verifyPassport, type Check, type ChainReader } from "@/lib/passport-verify.ts";
-import { WitnessPanel } from "./WitnessPanel.tsx";
+import dynamic from "next/dynamic";
+import type { Check, ChainReader } from "@/lib/passport-verify.ts";
+
+const WitnessPanel = dynamic(() => import("./WitnessPanel.tsx").then((m) => m.WitnessPanel), { ssr: false });
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function chainFor(doc: any): { reader?: ChainReader; chainId?: number } {
@@ -17,8 +18,8 @@ function chainFor(doc: any): { reader?: ChainReader; chainId?: number } {
   return {
     chainId,
     reader: {
-      checkpoint: (id) => readCheckpoint(network, trusted.contract, id),
-      ledgerCheckpoints: (ledgerId) => readLedgerCheckpoints(network, trusted.contract, ledgerId),
+      checkpoint: async (id) => (await import("@/lib/anchor-read.ts")).readCheckpoint(network, trusted.contract, id),
+      ledgerCheckpoints: async (ledgerId) => (await import("@/lib/anchor-read.ts")).readLedgerCheckpoints(network, trusted.contract, ledgerId),
       ledger: async () => {
         const r = await fetch("/api/ledger", { cache: "no-store" });
         if (!r.ok) throw new Error("ledger unavailable");
@@ -42,6 +43,7 @@ export function VerifyClient({ products }: { products: { id: string; name: strin
       const { reader, chainId } = chainFor(doc);
       const network = chainId ? networkById(chainId) : undefined;
       setChainId(chainId);
+      const { verifyPassport } = await import("@/lib/passport-verify.ts");
       setResults(await verifyPassport(doc, { trusted: chainId ? OFFICIAL_ANCHORS[chainId] : undefined, chainId, chain: reader, explorer: (tx) => txUrl(network, tx) }, setResults));
     } finally {
       setRunning(false);

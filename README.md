@@ -28,7 +28,7 @@ Anyone who can edit a database can make a passport say anything. Orbit makes tha
 3. **A fingerprint of the whole history goes on a public blockchain** (Base Sepolia), from Orbit's wallet and from **witnesses' own wallets**. If Orbit deletes the failed audit and rebuilds everything after it, the fingerprints stop matching.
 4. **Your browser checks all of this itself**, on the Verify page. It doesn't trust Orbit's server.
 
-The Ledger page lets you try three attacks and see each one caught.
+The Ledger page lets you try three attacks and see each one caught. After verifying, anyone with a browser wallet can **become a witness** in one click: the browser re-checks the whole ledger, then anchors its fingerprint from their own wallet.
 
 ## Circular incentives
 
@@ -39,17 +39,17 @@ Returning, repairing and recycling earn **non-transferable credits**, redeemable
 ```bash
 npm install
 npm run dev     # http://localhost:3000
-npm test        # 56 tests
+npm test        # 57 tests
 ```
 
-1. **Overview → "See a greenwashed product get caught"**: the hoodie's passport and the "Why 0/100" breakdown.
+1. **Overview → "See a greenwashed product get caught"**: the hoodie's passport and the "Why 0/100" breakdown. Further down, **Check any claim**: paste a line from a real label and see whether EU rules ban the wording and what signed data Orbit would test it against.
 2. **Ledger → tamper simulator**: three attacks, three defences.
    - An intruder edits a credit, and a hash breaks.
    - Orbit itself shortens a freight leg and re-signs. Recomputing gives 2,892 km again.
    - Orbit erases the failed audit and rebuilds all later history through the real rules. Every local check passes; only the on-chain fingerprints disagree.
 
    Simulations stay in memory and undo themselves after 90 s.
-3. **Verify**: load the hoodie. Your browser rebuilds the ledger, checks it against the chain and re-derives every verdict.
+3. **Verify**: load the hoodie. Your browser rebuilds the ledger, checks it against the chain and re-derives every verdict. With a wallet holding a little Base Sepolia ETH, you can then anchor it yourself as a witness.
 4. **Console → "Create my key & join"**: become a consumer whose key never leaves your browser, buy something and return it for the reward.
 
 **Live contract:** [OrbitAnchor v3 on Base Sepolia](https://sepolia.basescan.org/address/0x8a9bd10b411a5509916dbe812fd803611c2f9151), with source verified on [Sourcify](https://repo.sourcify.dev/84532/0x8A9BD10b411A5509916dbe812fd803611C2F9151). Its history shows checkpoints from Orbit's operator and from a witness wallet. That witness is a second wallet run by our team, to show the role; we're inviting outside witnesses ([guide](docs/WITNESS_GUIDE.md)).
@@ -139,7 +139,11 @@ A signed database proves who said what, but whoever runs it can rewrite history 
 - **open anchoring**, so witnesses publish from their own wallets and Orbit's wallet has no special rights
 - **roots any browser can read directly** through a public RPC
 
-Only 32-byte roots go on-chain. Supplier identities, volumes and prices stay off-chain, and one transaction covers any number of events.
+Only fingerprints go on-chain (a 32-byte root, the ledger id and its length). Supplier identities, volumes and prices stay off-chain, and one transaction covers any number of events.
+
+### Quality checks
+
+Lighthouse 12.6 (mobile, simulated throttling) on all 7 pages of a production build: **accessibility 100, best practices 100, SEO 100** on every page; performance 83–90. These are automated checks, not user testing.
 
 ### Scalability
 
@@ -190,6 +194,8 @@ src/lib/          core engine (framework-free, unit tested)
   domain.ts       custody, mass balance, carbon, transport cross-checks
   verify.ts       claim checks + trust score with breakdown
   passport-verify.ts  trustless passport verification (browser + tests)
+  witness-browser.ts  re-check and anchor from a visitor's own wallet
+  greenwash.ts    EU 2024/825 wording rules + "check any claim"
   chain.ts / anchor-read.ts / networks.ts   anchoring, chain reads, pinned trust roots
   crypto.ts       canonical JSON, Ed25519/SHA-256, RFC 6962 Merkle tree
 contracts/        OrbitAnchor.sol (v3)
