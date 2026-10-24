@@ -6,6 +6,8 @@ import { latestCheckpoint } from "@/lib/passport.ts";
 import { overview } from "@/lib/stats.ts";
 import { getDb } from "@/lib/store.ts";
 import { ClaimChecker } from "./ClaimChecker.tsx";
+import { HeroGlobe } from "@/components/HeroGlobe.tsx";
+import { globeData } from "@/lib/globe-data.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +27,7 @@ export default function Home() {
   const recent = db.ledger.slice(-8).reverse();
   const ticker = db.ledger.slice(-24).reverse();
   const actorName = (id: string) => db.actors.find((a) => a.id === id)?.name ?? id;
+  const globe = globeData(db);
 
   return (
     <div className="space-y-20">
@@ -35,6 +38,10 @@ export default function Home() {
           <div className="aurora-b absolute -right-[10%] top-[10%] h-[60%] w-[45%] rounded-full bg-leaf/15 blur-[90px]" />
           <div className="aurora-a absolute bottom-[-30%] left-[30%] h-[50%] w-[40%] rounded-full bg-sky/10 blur-[90px]" />
           <div className="absolute inset-0 [background-image:radial-gradient(#ffffff12_1px,transparent_1px)] [background-size:24px_24px] [mask-image:radial-gradient(ellipse_at_center,#000_30%,transparent_75%)]" />
+        </div>
+        {/* Interactive globe fills the right side on wide screens */}
+        <div className="absolute right-[-1rem] top-14 z-10 hidden h-[min(30vw,440px)] w-[min(30vw,430px)] lg:block">
+          <HeroGlobe nodes={globe.nodes} routes={globe.routes} className="h-full w-full" />
         </div>
         <div className="relative">
           <Reveal>

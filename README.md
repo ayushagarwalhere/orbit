@@ -42,7 +42,7 @@ npm run dev     # http://localhost:3000
 npm test        # 57 tests
 ```
 
-1. **Overview → "See a greenwashed product get caught"**: the hoodie's passport and the "Why 0/100" breakdown. Further down, **Check any claim**: paste a line from a real label and see whether EU rules ban the wording and what signed data Orbit would test it against.
+1. **Overview**: on a wide screen, drag the globe beside the headline. It shows every city where a party signs and the routes products actually took on the ledger, with the misdeclared leg in red. Then **"See a greenwashed product get caught"**: the hoodie's passport and the "Why 0/100" breakdown. Further down, **Check any claim**: paste a line from a real label and see whether EU rules ban the wording and what signed data Orbit would test it against.
 2. **Ledger → tamper simulator**: three attacks, three defences.
    - An intruder edits a credit, and a hash breaks.
    - Orbit itself shortens a freight leg and re-signs. Recomputing gives 2,892 km again.
@@ -143,7 +143,7 @@ Only fingerprints go on-chain (a 32-byte root, the ledger id and its length). Su
 
 ### Quality checks
 
-Lighthouse 12.6 (mobile, simulated throttling) on all 7 pages of a production build: **accessibility 100, best practices 100, SEO 100** on every page; performance 83–90. These are automated checks, not user testing.
+Lighthouse 12.6 (mobile, simulated throttling) on all 7 pages of a production build: **accessibility 100, best practices 100, SEO 100** on every page; performance 82–90. These are automated checks, not user testing.
 
 ### Scalability
 
