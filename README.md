@@ -87,24 +87,9 @@ npm run witness                                       # verify, then anchor from
 
 ### How it works
 
-```mermaid
-flowchart LR
-  subgraph Actors["Each party signs its own instructions (Ed25519)"]
-    S[Supplier] --> M[Brand] --> L[Carrier] --> R[Retailer] --> C[Consumer]
-    C -- repair --> F[Repairer]
-    C -- return --> Y[Recycler]
-    A[Auditor]
-  end
-  Actors -- signed instruction --> V{validate · rules<br/>custody · mass balance · bounds}
-  V -- entries derived by the rules --> LG[(Append-only ledger)]
-  LG -. replay .-> V
-  LG -- RFC 6962 root --> CH[[OrbitAnchor v3<br/>Base Sepolia]]
-  W[Witness] -- replay + own root --> CH
-  Y -- recovered lots --> M
-  LG --> E[Claim checks + trust score]
-  CH -. roots read directly · pinned trust .-> B[Browser verifier]
-  LG -- full ledger --> B
-```
+![How Orbit checks a green claim: parties sign, rules derive, the ledger is anchored on Base Sepolia, witnesses and your browser re-check](docs/images/architecture.png)
+
+<sub>Source: [docs/images/architecture.html](docs/images/architecture.html)</sub>
 
 - **The ledger is the only source of truth.** No other state is stored. Actors, lots, products, claims, audits, credits and checkpoints are rebuilt by **replaying** the signed instructions through the same rules as the live API (`replay.ts`). The same replay acts as a verifier: if anyone, Orbit included, alters a derived value or adds an entry with no instruction behind it, replay names the field that differs.
 - **Writes** (`dispatch.ts`) check:

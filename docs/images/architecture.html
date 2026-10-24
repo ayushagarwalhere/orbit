@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Orbit architecture</title>
+<!-- Source for docs/images/architecture.png. Render: open at 1600x1000 and screenshot. -->
+<style>
+  html, body { margin: 0; background: #0b100e; }
+  body { width: 1600px; height: 1000px; font-family: "Segoe UI", system-ui, sans-serif; color: #edf2ec; }
+  svg text { font-family: inherit; }
+</style>
+</head>
+<body>
+<svg width="1600" height="1000" viewBox="0 0 1600 1000" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8fa39a"/></marker>
+    <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#c8f169"/></marker>
+    <marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ff7a66"/></marker>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#18241d"/><stop offset="1" stop-color="#0b100e"/></linearGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#bg)"/>
+  <g fill="#edf2ec">
+
+  <text x="60" y="70" font-size="40" font-weight="600">Orbit: how a green claim gets checked</text>
+  <text x="60" y="104" font-size="19" fill="#9aaba3">Every party signs its own step. Public rules derive everything else. Fingerprints go on-chain. Anyone can re-check.</text>
+
+  <!-- Column 1: parties -->
+  <g>
+    <rect x="60" y="150" width="300" height="560" rx="18" fill="#121a16" stroke="#2a3a32"/>
+    <text x="84" y="186" font-size="15" fill="#c8f169" letter-spacing="2">1 · PARTIES SIGN</text>
+    <text x="84" y="210" font-size="14" fill="#9aaba3">each with its own Ed25519 key</text>
+    <g font-size="17">
+      <g transform="translate(84,240)"><rect width="252" height="40" rx="10" fill="#1a241f"/><text x="14" y="26">🌱 Fibre supplier: signed lot</text></g>
+      <g transform="translate(84,290)"><rect width="252" height="40" rx="10" fill="#1a241f"/><text x="14" y="26">🏭 Brand: product + claims</text></g>
+      <g transform="translate(84,340)"><rect width="252" height="40" rx="10" fill="#1a241f"/><text x="14" y="26">🚢 Carrier: shipped</text></g>
+      <g transform="translate(84,390)"><rect width="252" height="40" rx="10" fill="#1a241f"/><text x="14" y="26">📥 Retailer: received at time t</text></g>
+      <g transform="translate(84,440)"><rect width="252" height="40" rx="10" fill="#1a241f"/><text x="14" y="26">🔍 Auditor: approve / reject</text></g>
+      <g transform="translate(84,490)"><rect width="252" height="40" rx="10" fill="#1a241f"/><text x="14" y="26">♻ Recycler: kg recovered</text></g>
+      <g transform="translate(84,540)"><rect width="252" height="40" rx="10" fill="#1a241f"/><text x="14" y="26">🔧 Repairer · 🙋 consumer</text></g>
+      <g transform="translate(84,600)"><rect width="252" height="86" rx="10" fill="#14211f" stroke="#3c6157"/><text x="14" y="28">📜 Accreditation body</text><text x="14" y="52" font-size="14" fill="#9aaba3">certifies recyclers (GRS)</text><text x="14" y="72" font-size="14" fill="#9aaba3">and auditors (SA8000)</text></g>
+    </g>
+  </g>
+
+  <!-- Column 2: write path + ledger -->
+  <g>
+    <rect x="440" y="150" width="340" height="250" rx="18" fill="#121a16" stroke="#2a3a32"/>
+    <text x="464" y="186" font-size="15" fill="#c8f169" letter-spacing="2">2 · RULES</text>
+    <g font-size="16" fill="#d5dfd8">
+      <text x="464" y="222">✓ signature · ledger id · nonce · freshness</text>
+      <text x="464" y="252">✓ strict schema, no unknown fields</text>
+      <text x="464" y="282">✓ custody, roles, mass balance</text>
+      <text x="464" y="312">✓ recovered kg ≤ kg returned</text>
+      <text x="464" y="342">✓ recycled content only from</text>
+      <text x="484" y="366">certified recyclers</text>
+    </g>
+    <rect x="440" y="450" width="340" height="260" rx="18" fill="#121a16" stroke="#c8f169" stroke-opacity=".5"/>
+    <text x="464" y="486" font-size="15" fill="#c8f169" letter-spacing="2">3 · APPEND-ONLY LEDGER</text>
+    <g font-size="16" fill="#d5dfd8">
+      <text x="464" y="522">the only stored state</text>
+      <text x="464" y="552">hash-chained · sequencer-signed</text>
+      <text x="464" y="582">each entry embeds the signed</text>
+      <text x="464" y="606">instruction behind it</text>
+    </g>
+    <g transform="translate(464,630)">
+      <rect width="56" height="44" rx="8" fill="#1f2c25" stroke="#3a4d43"/><rect x="70" width="56" height="44" rx="8" fill="#1f2c25" stroke="#3a4d43"/><rect x="140" width="56" height="44" rx="8" fill="#1f2c25" stroke="#3a4d43"/><rect x="210" width="56" height="44" rx="8" fill="#1f2c25" stroke="#c8f169"/>
+      <text x="16" y="28" font-size="14" fill="#9aaba3">#0</text><text x="86" y="28" font-size="14" fill="#9aaba3">#1</text><text x="156" y="28" font-size="14" fill="#9aaba3">…</text><text x="222" y="28" font-size="14" fill="#c8f169">#n</text>
+    </g>
+    <!-- replay loop -->
+    <path d="M 446 500 C 396 480 396 400 446 380" fill="none" stroke="#8fa39a" stroke-width="2" stroke-dasharray="6 6" marker-end="url(#a)"/>
+    <text x="372" y="430" font-size="14" fill="#9aaba3">replay</text>
+    <text x="372" y="448" font-size="14" fill="#9aaba3">re-checks</text>
+  </g>
+
+  <!-- arrows parties -> rules -> ledger -->
+  <path d="M 360 300 L 436 270" stroke="#8fa39a" stroke-width="2.5" fill="none" marker-end="url(#a)"/>
+  <text x="368" y="232" font-size="14" fill="#9aaba3">signed</text>
+  <text x="368" y="250" font-size="14" fill="#9aaba3">instruction</text>
+  <path d="M 610 400 L 610 446" stroke="#8fa39a" stroke-width="2.5" fill="none" marker-end="url(#a)"/>
+
+  <!-- Column 3: claim engine + passport -->
+  <g>
+    <rect x="880" y="150" width="330" height="250" rx="18" fill="#121a16" stroke="#2a3a32"/>
+    <text x="904" y="186" font-size="15" fill="#c8f169" letter-spacing="2">4 · CLAIM CHECKS</text>
+    <g font-size="16" fill="#d5dfd8">
+      <text x="904" y="222">recycled % ← suppliers' lots</text>
+      <text x="904" y="252">sea vs air ← receipt time</text>
+      <text x="904" y="282">carbon ← lots + route + factory</text>
+      <text x="904" y="312">labour ← accredited auditor</text>
+      <text x="904" y="342">wording ← EU 2024/825</text>
+      <text x="904" y="374" fill="#ff7a66">Hoodie: caught 4 ways → grade E</text>
+    </g>
+    <rect x="880" y="450" width="330" height="260" rx="18" fill="#121a16" stroke="#2a3a32"/>
+    <text x="904" y="486" font-size="15" fill="#c8f169" letter-spacing="2">5 · PASSPORT (QR)</text>
+    <g font-size="16" fill="#d5dfd8">
+      <text x="904" y="522">public view: verdicts, grade,</text>
+      <text x="904" y="546">"why N/100", journey</text>
+      <text x="904" y="580">regulator / recycler view:</text>
+      <text x="904" y="604">suppliers, lots, quantities</text>
+      <text x="904" y="638">JSON-LD export, valid</text>
+      <text x="904" y="662">against UNTP DPP 0.5.0</text>
+    </g>
+  </g>
+  <path d="M 780 520 C 830 520 830 300 876 290" stroke="#8fa39a" stroke-width="2.5" fill="none" marker-end="url(#a)"/>
+  <path d="M 1045 400 L 1045 446" stroke="#8fa39a" stroke-width="2.5" fill="none" marker-end="url(#a)"/>
+
+  <!-- Column 4: chain, witnesses, verifier -->
+  <g>
+    <rect x="1290" y="150" width="250" height="250" rx="18" fill="#141d18" stroke="#7cc4ff" stroke-opacity=".6"/>
+    <text x="1314" y="186" font-size="15" fill="#7cc4ff" letter-spacing="2">6 · BASE SEPOLIA</text>
+    <text x="1314" y="220" font-size="18" font-weight="600">OrbitAnchor v3</text>
+    <g font-size="15" fill="#d5dfd8">
+      <text x="1314" y="252">RFC 6962 root + length</text>
+      <text x="1314" y="278">per ledger id</text>
+      <text x="1314" y="310">open: anyone can anchor;</text>
+      <text x="1314" y="334">records who did</text>
+      <text x="1314" y="366" fill="#9aaba3">~146k gas, any # events</text>
+    </g>
+    <rect x="1290" y="450" width="250" height="110" rx="18" fill="#121a16" stroke="#2a3a32"/>
+    <text x="1314" y="486" font-size="15" fill="#c8f169" letter-spacing="2">WITNESSES</text>
+    <text x="1314" y="514" font-size="15" fill="#d5dfd8">re-check all, then anchor</text>
+    <text x="1314" y="538" font-size="15" fill="#d5dfd8">from their own wallet</text>
+    <rect x="1290" y="600" width="250" height="110" rx="18" fill="#121a16" stroke="#c8f169" stroke-opacity=".5"/>
+    <text x="1314" y="636" font-size="15" fill="#c8f169" letter-spacing="2">7 · YOUR BROWSER</text>
+    <text x="1314" y="664" font-size="15" fill="#d5dfd8">ledger root = chain root?</text>
+    <text x="1314" y="688" font-size="15" fill="#d5dfd8">replay · re-derive verdicts</text>
+  </g>
+  <path d="M 700 710 L 700 735 L 1250 735 Q 1262 735 1262 722 L 1262 310 Q 1262 296 1276 296 L 1286 296" stroke="#c8f169" stroke-width="2.5" fill="none" marker-end="url(#g)"/>
+  <text x="880" y="728" font-size="14" fill="#c8f169">RFC 6962 root anchored on-chain</text>
+  <path d="M 1415 450 L 1415 404" stroke="#c8f169" stroke-width="2.5" fill="none" marker-end="url(#g)"/>
+  <path d="M 1500 600 C 1580 560 1580 330 1544 300" stroke="#7cc4ff" stroke-width="2" fill="none" marker-end="url(#a)" stroke-dasharray="6 6"/>
+  <text x="1572" y="440" font-size="13" fill="#7cc4ff" transform="rotate(90 1572 440)">reads roots</text>
+  <path d="M 1210 650 L 1286 650" stroke="#8fa39a" stroke-width="2" fill="none" marker-end="url(#a)" stroke-dasharray="6 6"/>
+
+  <!-- attack strip -->
+  <rect x="60" y="760" width="1480" height="190" rx="18" fill="#170f0e" stroke="#ff7a66" stroke-opacity=".35"/>
+  <text x="84" y="798" font-size="15" fill="#ff7a66" letter-spacing="2">THREE ATTACKS, THREE DEFENCES (try them on the Ledger page)</text>
+  <g font-size="17">
+    <text x="84" y="842" font-weight="600">Database intruder edits a credit</text>
+    <text x="84" y="868" fill="#d5dfd8">→ the entry's hash breaks</text>
+    <text x="580" y="842" font-weight="600">Operator shortens a freight leg and re-signs</text>
+    <text x="580" y="868" fill="#d5dfd8">→ replaying the signed instruction gives 2,892 km again</text>
+    <text x="1080" y="842" font-weight="600">Operator erases the failed audit and</text>
+    <text x="1080" y="866" font-weight="600">rebuilds all later history by the rules</text>
+    <text x="1080" y="892" fill="#d5dfd8">→ passes every local check; only the</text>
+    <text x="1080" y="916" fill="#d5dfd8">on-chain roots disagree</text>
+  </g>
+  </g>
+</svg>
+</body>
+</html>
