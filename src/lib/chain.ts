@@ -63,16 +63,19 @@ export function anchorNow(opts: { auto?: boolean } = {}): Promise<Checkpoint> {
   s.inflight = (async () => {
     const db = getDb();
     if (db.tamper) throw new OrbitError("Restore the ledger before anchoring: refusing to anchor tampered history", 409);
+    // Nothing new since the last checkpoint (only the ANCHORED entry itself): don't spend gas.
+    const last = db.checkpoints.at(-1);
+    if (last && db.ledger.at(-1)?.type === "ANCHORED" && last.covers === db.ledger.length - 1) return last;
     const covers = db.ledger.length;
     const root = prefixRoot(db, covers);
     const cfg = chainConfig();
     if (!cfg?.privateKey) {
       return mutate((tx) => recordCheckpoint(tx, { covers, merkleRoot: root, onChain: false, network: "local only (no chain configured)" }));
     }
-    if (opts.auto) {
-      const bal = await anchorWalletBalance().catch(() => null);
-      if (bal !== null && bal < MIN_AUTO_BALANCE_WEI) throw new OrbitError("Anchor wallet is low on testnet ETH; auto-anchoring paused until it is topped up", 503);
-    }
+    // Keep a reserve for automatic anchors; manual anchors stop at the same floor.
+    const bal = await anchorWalletBalance().catch(() => null);
+    if (bal !== null && bal < MIN_AUTO_BALANCE_WEI) throw new OrbitError("Anchor wallet is low on testnet ETH; anchoring is paused until it is topped up", 503);
+    void opts;
     const ledgerId = db.ledgerId!;
     const r = await publishRoot(cfg, ledgerId, root, covers);
     return mutate((tx) =>

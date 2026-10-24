@@ -29,7 +29,7 @@ test("OrbitAnchor: anchor a ledger root and verify inclusion proofs on-chain", a
   const deployHash = await wallet.deployContract({ abi, bytecode });
   const address = (await pub.waitForTransactionReceipt({ hash: deployHash })).contractAddress!;
 
-  const db = seedDb(generateKeystore(ACTOR_IDS));
+  const db = seedDb(generateKeystore(ACTOR_IDS), "ab".repeat(32));
   const covers = db.ledger.length;
   const root = prefixRoot(db, covers);
   const ledgerId = "11".repeat(32);

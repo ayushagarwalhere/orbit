@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { demoKeys, isDemoMode } from "@/lib/store.ts";
+import { demoKeys, getDb, isDemoMode } from "@/lib/store.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -8,5 +8,5 @@ export const dynamic = "force-dynamic";
 // The sequencer key is never exposed. In production, each actor's key lives in their own wallet.
 export async function GET() {
   if (!isDemoMode()) return NextResponse.json({ error: "Demo mode is off" }, { status: 403 });
-  return NextResponse.json({ keys: demoKeys() }, { headers: { "cache-control": "no-store" } });
+  return NextResponse.json({ keys: demoKeys(), ledgerId: getDb().ledgerId }, { headers: { "cache-control": "no-store" } });
 }

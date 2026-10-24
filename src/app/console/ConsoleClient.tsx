@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { useAct } from "@/components/act.tsx";
+import { useEffect, useMemo, useState } from "react";
+import { forgetGuest, guestRegistrationBody, loadGuest, newGuest, useAct, type Guest } from "@/components/act.tsx";
 import { lintClaim } from "@/lib/greenwash.ts";
 import type { ClaimKind, LifecycleStage, Role } from "@/lib/types.ts";
 
 export interface ConsoleData {
   actors: { id: string; name: string; role: Role; city: string; balance: number }[];
-  products: { id: string; name: string; emoji: string; brandId: string; stage: LifecycleStage; holderId: string; pendingRecipientId: string | null }[];
+  products: { id: string; name: string; emoji: string; brandId: string; stage: LifecycleStage; holderId: string; pendingRecipientId: string | null; recovery: Record<string, number> | null }[];
   batches: { id: string; material: string; label: string; remainingKg: number; recycledPct: number; producerId: string }[];
   claims: { id: string; productId: string; productName: string; kind: ClaimKind; statement: string; status: string; attestedBy: string[] }[];
   materials: { id: string; label: string }[];
@@ -29,7 +29,7 @@ const ROLE_HELP: Record<Role, string> = {
 
 export function ConsoleClient({ data }: { data: ConsoleData }) {
   const [actorId, setActorId] = useState("lumen");
-  const actor = data.actors.find((a) => a.id === actorId)!;
+  const actor = data.actors.find((a) => a.id === actorId) ?? data.actors[0];
   const { act, error, busy } = useAct();
   const [last, setLast] = useState<string | null>(null);
 
@@ -45,6 +45,10 @@ export function ConsoleClient({ data }: { data: ConsoleData }) {
   return (
     <div className="grid gap-6 md:grid-cols-[260px_1fr]">
       <aside className="card h-fit p-3">
+        <GuestPanel actors={data.actors} onPick={(id) => {
+          setActorId(id);
+          setLast(null);
+        }} />
         <div className="label px-2 pb-2">Acting as</div>
         {ROLE_ORDER.map((role) => (
           <div key={role} className="mb-1">
@@ -140,6 +144,48 @@ export function ConsoleClient({ data }: { data: ConsoleData }) {
 
 type Run = (action: string, body: Record<string, unknown>, msg: string) => Promise<void>;
 
+/** A judge can join as a consumer whose private key is generated in, and never leaves, this browser. */
+function GuestPanel({ actors, onPick }: { actors: ConsoleData["actors"]; onPick: (id: string) => void }) {
+  const { act, busy, error } = useAct();
+  const [guest, setGuest] = useState<Guest | null>(null);
+  useEffect(() => setGuest(loadGuest()), []);
+  const registered = guest && actors.some((a) => a.id === guest.id);
+  return (
+    <div className="mb-3 rounded-xl border border-accent/30 bg-accent/5 p-3 text-xs">
+      {registered ? (
+        <>
+          <div className="font-semibold text-ink">You: {guest!.name}</div>
+          <div className="mt-1 text-muted">Your key was generated in this browser and has never been sent anywhere.</div>
+          <button className="btn btn-primary mt-2 w-full text-xs" onClick={() => onPick(guest!.id)}>
+            Act as me
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="font-semibold text-ink">Join as yourself</div>
+          <div className="mt-1 text-muted">Get a consumer identity whose private key is created here, in your browser. The server only ever sees your public key.</div>
+          <button
+            className="btn btn-primary mt-2 w-full text-xs"
+            disabled={busy}
+            onClick={async () => {
+              forgetGuest();
+              const g = await newGuest("Guest judge");
+              const ok = await act("register-actor", guestRegistrationBody(g), g.id);
+              if (ok) {
+                setGuest(g);
+                onPick(g.id);
+              }
+            }}
+          >
+            {busy ? "Creating…" : "Create my key & join"}
+          </button>
+          {error && <div className="mt-1 text-rust">{error}</div>}
+        </>
+      )}
+    </div>
+  );
+}
+
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="card p-5">
@@ -189,11 +235,7 @@ function HeldActions({ p, actorRole, actorId, data, busy, run }: { p: ConsoleDat
     );
   }
   if (p.stage === "returned" && actorRole === "recycler") {
-    return (
-      <button className="btn btn-primary text-xs" disabled={busy} onClick={() => run("recycle", { productId: p.id, actorId }, `Recycled ${p.name} into new lots`)}>
-        ♻ Recycle
-      </button>
-    );
+    return <RecycleAction p={p} actorId={actorId} busy={busy} run={run} />;
   }
   if (p.stage === "in-stock" && actorRole === "retailer") {
     const consumers = data.actors.filter((a) => a.role === "consumer");
@@ -237,6 +279,29 @@ function HeldActions({ p, actorRole, actorId, data, busy, run }: { p: ConsoleDat
     );
   }
   return <span className="text-xs text-muted">No action available</span>;
+}
+
+/** The recycler signs the mass it actually recovered per material (pre-filled with typical yields). */
+function RecycleAction({ p, actorId, busy, run }: { p: ConsoleData["products"][number]; actorId: string; busy: boolean; run: Run }) {
+  const [kg, setKg] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(p.recovery ?? {}).map(([m, v]) => [m, String(v)])));
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      {Object.keys(kg).map((m) => (
+        <label key={m} className="flex items-center gap-1 text-[11px] text-muted">
+          {m}
+          <input className="field w-20 py-1 text-xs" type="number" step="0.001" min="0" value={kg[m]} onChange={(e) => setKg({ ...kg, [m]: e.target.value })} />
+          kg
+        </label>
+      ))}
+      <button
+        className="btn btn-primary text-xs"
+        disabled={busy}
+        onClick={() => run("recycle", { productId: p.id, actorId, recovered: Object.fromEntries(Object.entries(kg).map(([m, v]) => [m, Number(v)])) }, `Recycled ${p.name}: weighed output signed`)}
+      >
+        ♻ Sign recovered mass
+      </button>
+    </span>
+  );
 }
 
 function RepairAction({ p, actorId, busy, run }: { p: ConsoleData["products"][number]; actorId: string; busy: boolean; run: Run }) {

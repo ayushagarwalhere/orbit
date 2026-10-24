@@ -8,10 +8,11 @@ import { sha256 } from "@noble/hashes/sha2";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
 import { restore, tamper } from "../src/lib/demo.ts";
 import { applySigned } from "../src/lib/dispatch.ts";
-import { balanceOf, carbonFootprint, custody, provenRecycledPct } from "../src/lib/domain.ts";
+import { balanceOf, balances, carbonFootprint, custody, provenRecycledPct } from "../src/lib/domain.ts";
 import { lintClaim } from "../src/lib/greenwash.ts";
 import { generateKeystore } from "../src/lib/keys.ts";
-import { hashEntry, prefixRoot, verifyLedger } from "../src/lib/ledger.ts";
+import { append, hashEntry, prefixRoot, verifyLedger } from "../src/lib/ledger.ts";
+import { replay } from "../src/lib/replay.ts";
 import { exportPassport } from "../src/lib/passport.ts";
 import { ACTOR_IDS, seedDb } from "../src/lib/seed.ts";
 import type { Db } from "../src/lib/types.ts";
@@ -19,10 +20,10 @@ import { trustReport } from "../src/lib/verify.ts";
 
 function world() {
   const keys = generateKeystore(ACTOR_IDS);
-  const db = seedDb(keys);
+  const db = seedDb(keys, randomPrivateKey());
   /** Submit an action exactly as the browser console does: signed with the actor's own key. */
   const act = (actorId: string, action: string, body: Record<string, unknown>, opts: { key?: string; issuedAt?: string } = {}) =>
-    applySigned(db, keys[PROTOCOL_ID], action, signRequest(newRequest(action, actorId, body, opts.issuedAt), opts.key ?? keys[actorId]));
+    applySigned(db, keys[PROTOCOL_ID], action, signRequest(newRequest(action, actorId, body, db.ledgerId!, opts.issuedAt), opts.key ?? keys[actorId]));
   return { keys, db, act };
 }
 
@@ -55,7 +56,7 @@ test("incremental verification agrees with a full re-verification", () => {
 
 test("seed is deterministic for a given keystore (stable Merkle root across restarts)", () => {
   const keys = generateKeystore(ACTOR_IDS);
-  assert.equal(verifyLedger(seedDb(keys)).merkleRoot, verifyLedger(seedDb(keys)).merkleRoot);
+  assert.equal(verifyLedger(seedDb(keys, "ab".repeat(32))).merkleRoot, verifyLedger(seedDb(keys, "ab".repeat(32))).merkleRoot);
 });
 
 test("seed timestamps only move forward", () => {
@@ -74,17 +75,75 @@ test("naive edit is caught by hash check, and restore fixes it", () => {
   assert.equal(verifyLedger(db).ok, true);
 });
 
-test("insider rewrite with the sequencer key passes local checks but fails against the anchored root", () => {
+test("operator rewriting derived data (and re-signing) is caught by replaying the signed instructions", () => {
   const { db, keys } = world();
-  const anchored = { covers: db.ledger.length, merkleRoot: prefixRoot(db, db.ledger.length), label: "on-chain checkpoint" };
   const hoodie = byName(db, "EcoCloud Hoodie");
   const i = db.ledger.findIndex((e) => e.type === "SHIPPED" && e.subjectId === hoodie.id);
   tamper(db, i, "rewrite", keys[PROTOCOL_ID]);
   assert.equal(db.ledger[i].data.distanceKm, 1);
-  assert.equal(verifyLedger(db).ok, true, "every hash, link and signature looks valid locally");
+  const r = verifyLedger(db);
+  assert.ok(!r.issues.some((x) => x.problem === "hash-mismatch" || x.problem === "bad-sequencer-signature"), "signatures all pass");
+  const m = r.issues.find((x) => x.problem === "derived-mismatch");
+  assert.ok(m && m.index === i && m.detail.includes("distanceKm"), JSON.stringify(r.issues));
+});
+
+test("operator erasing a whole signed instruction passes every local check but fails against the anchored root", () => {
+  const { db, keys } = world();
+  const anchored = { covers: db.ledger.length, merkleRoot: prefixRoot(db, db.ledger.length), label: "on-chain checkpoint" };
+  const i = db.ledger.findIndex((e) => e.type === "CLAIM_ATTESTED" && e.data.verdict === "REJECT");
+  const before = db.ledger.length;
+  tamper(db, i, "erase", keys[PROTOCOL_ID]);
+  assert.equal(db.ledger.length, before - 1);
+  assert.equal(verifyLedger(db).ok, true, JSON.stringify(verifyLedger(db).issues.slice(0, 2)));
   const r = verifyLedger(db, [anchored]);
-  assert.equal(r.ok, false);
   assert.ok(r.issues.some((x) => x.problem === "anchor-mismatch"));
+  restore(db);
+  assert.equal(verifyLedger(db, [anchored]).ok, true);
+});
+
+test("operator cannot mint credits from nothing", () => {
+  const { db, keys } = world();
+  // A credit entry with no instruction behind it.
+  append({ db, sequencerKey: keys[PROTOCOL_ID] }, { type: "CREDIT_MINTED", subjectId: "priya", actorId: PROTOCOL_ID, data: { to: "priya", amount: 1_000_000, reason: "gift", productId: "DPP-0001", ref: "x" } });
+  assert.ok(verifyLedger(db).issues.some((x) => x.problem === "unauthorised-entry"));
+  // Or one smuggled into a real instruction's run of entries.
+  const { db: db2, keys: k2 } = world();
+  const ret = db2.ledger.findIndex((e) => e.type === "RETURNED");
+  const fake = { ...db2.ledger[ret + 1], data: { ...db2.ledger[ret + 1].data, amount: 999 } };
+  db2.ledger.splice(ret + 1, 1, fake);
+  for (let i = ret + 1; i < db2.ledger.length; i++) {
+    const e = db2.ledger[i];
+    e.prevHash = db2.ledger[i - 1].hash;
+    e.hash = hashEntry(e);
+    e.signature = signHash(e.hash, k2[PROTOCOL_ID]);
+  }
+  const m = verifyLedger(db2).issues.find((x) => x.problem === "derived-mismatch");
+  assert.ok(m && m.detail.includes("amount"), JSON.stringify(verifyLedger(db2).issues.slice(0, 2)));
+});
+
+test("all state is rebuilt from the ledger alone by replay, identical to the live state", () => {
+  const { db, act } = world();
+  act("priya", "return", { productId: byName(db, "Orbit Tee").id, toId: "refibre" });
+  const r = replay(db.ledger);
+  assert.equal(r.issues.length, 0, JSON.stringify(r.issues.slice(0, 2)));
+  assert.deepEqual(r.db.products, db.products);
+  assert.deepEqual(r.db.batches, db.batches);
+  assert.deepEqual(r.db.claims, db.claims);
+  assert.deepEqual(r.db.actors, db.actors);
+  assert.deepEqual([...balances(r.db)], [...balances(db)]);
+});
+
+test("sequencer time must match the time the actor signed", () => {
+  const { db, keys } = world();
+  const i = db.ledger.findIndex((e) => e.type === "SOLD");
+  db.ledger[i].timestamp = "2026-12-31T00:00:00.000Z";
+  for (let j = i; j < db.ledger.length; j++) {
+    const e = db.ledger[j];
+    e.prevHash = db.ledger[j - 1].hash;
+    e.hash = hashEntry(e);
+    e.signature = signHash(e.hash, keys[PROTOCOL_ID]);
+  }
+  assert.ok(verifyLedger(db).issues.some((x) => x.index === i && x.problem === "timestamp-skew"));
 });
 
 test("insider cannot change what an actor signed: flipping an audit verdict is caught without the chain", () => {
@@ -92,7 +151,7 @@ test("insider cannot change what an actor signed: flipping an audit verdict is c
   const i = db.ledger.findIndex((e) => e.type === "CLAIM_ATTESTED" && e.data.verdict === "REJECT");
   tamper(db, i, "rewrite", keys[PROTOCOL_ID]);
   const r = verifyLedger(db);
-  assert.ok(r.issues.some((x) => x.index === i && x.problem === "auth-mismatch"), JSON.stringify(r.issues));
+  assert.ok(r.issues.some((x) => x.index === i && (x.problem === "auth-mismatch" || x.problem === "derived-mismatch")), JSON.stringify(r.issues));
 });
 
 test("an entry re-signed with a different sequencer key is rejected", () => {
@@ -100,7 +159,7 @@ test("an entry re-signed with a different sequencer key is rejected", () => {
   const e = db.ledger[10];
   e.data = { ...e.data, x: 1 };
   e.hash = hashEntry(e);
-  e.signature = signRequest(newRequest("x", "x", {}), randomPrivateKey()).signature;
+  e.signature = signRequest(newRequest("x", "x", {}, "x"), randomPrivateKey()).signature;
   assert.ok(verifyLedger(db).issues.some((x) => x.index === 10 && x.problem === "bad-sequencer-signature"));
 });
 
@@ -145,12 +204,54 @@ test("API rejects requests not signed by the actor's own key", () => {
   assert.throws(() => applySigned(db, keys[PROTOCOL_ID], "sell", undefined as never), /signed/);
 });
 
+test("API validates every input strictly, so no request can poison the ledger", () => {
+  const { db, act } = world();
+  const n = db.ledger.length;
+  assert.throws(() => act("refibre", "create-batch", { material: "polyester", massKg: 5, recycledKg: "x" }), /number/);
+  assert.throws(() => act("kutch-coop", "create-batch", { material: "plutonium", massKg: 5 }), /material/);
+  assert.throws(() => act("kutch-coop", "create-batch", { material: "organic-cotton", massKg: -1 }), /between/);
+  assert.throws(() => act("lumen", "manufacture", { name: "X", category: "apparel", inputs: [{ batchId: "LOT-0001", massKg: 0.1 }], depositCredits: "NaN" }), /number/);
+  assert.throws(() => act("fixhub", "repair", { productId: "DPP-0001", note: "x", co2eKg: -5 }), /between/);
+  assert.throws(() => act("lumen", "issue-claim", { productId: "DPP-0001", kind: "RECYCLED_CONTENT", value: 140, statement: "x" }), /between/);
+  assert.equal(db.ledger.length, n, "nothing was written");
+  assert.equal(verifyLedger(db).ok, true);
+});
+
+test("a recycler cannot sign for more material than went in", () => {
+  const { db, act } = world();
+  const tee = byName(db, "Orbit Tee");
+  act("priya", "return", { productId: tee.id, toId: "refibre" });
+  assert.throws(() => act("refibre", "recycle", { productId: tee.id, recovered: { polyester: 5 } }), /only/);
+  assert.throws(() => act("refibre", "recycle", { productId: tee.id, recovered: { copper: 0.1 } }), /contains no/);
+  act("refibre", "recycle", { productId: tee.id, recovered: { polyester: 0.08, "organic-cotton": 0.1 } });
+  assert.equal(verifyLedger(db).ok, true);
+});
+
+test("a signed instruction cannot be replayed into another ledger (e.g. after a reset)", () => {
+  const a = world();
+  const b = world();
+  const sr = signRequest(newRequest("create-batch", "kutch-coop", { material: "organic-cotton", massKg: 1 }, a.db.ledgerId!), a.keys["kutch-coop"]);
+  assert.throws(() => applySigned(b.db, b.keys[PROTOCOL_ID], "create-batch", sr), /different ledger/);
+});
+
+test("a guest consumer can self-register with a key that never leaves their browser, and only as a consumer", () => {
+  const { db, keys } = world();
+  const k = randomPrivateKey();
+  const body = { actorId: "guest-1", name: "Judge", role: "consumer", publicKey: publicKeyOf(k), place: { city: "Singapore", country: "SG", lat: 1.29, lng: 103.85 } };
+  applySigned(db, keys[PROTOCOL_ID], "register-actor", signRequest(newRequest("register-actor", "guest-1", body, db.ledgerId!), k));
+  assert.ok(db.actors.some((a) => a.id === "guest-1"));
+  const k2 = randomPrivateKey();
+  assert.throws(() => applySigned(db, keys[PROTOCOL_ID], "register-actor", signRequest(newRequest("register-actor", "guest-2", { ...body, actorId: "guest-2", role: "auditor", publicKey: publicKeyOf(k2) }, db.ledgerId!), k2)), /consumers/);
+  assert.throws(() => applySigned(db, keys[PROTOCOL_ID], "register-actor", signRequest(newRequest("register-actor", "guest-3", { ...body, actorId: "guest-3", publicKey: publicKeyOf(k2) }, db.ledgerId!), k)), /signature/);
+  assert.equal(verifyLedger(db).ok, true);
+});
+
 test("API rejects impersonation, replay and stale requests", () => {
   const { db, keys, act } = world();
   const hoodie = byName(db, "EcoCloud Hoodie");
   assert.throws(() => act("priya", "sell", { productId: hoodie.id, actorId: "greenloop", toId: "priya" }), /acting as greenloop/);
   assert.throws(() => act("greenloop", "sell", { productId: hoodie.id, toId: "priya" }, { issuedAt: "2020-01-01T00:00:00Z" }), /expired/);
-  const sr = signRequest(newRequest("sell", "greenloop", { productId: hoodie.id, toId: "priya" }), keys.greenloop);
+  const sr = signRequest(newRequest("sell", "greenloop", { productId: hoodie.id, toId: "priya" }, db.ledgerId!), keys.greenloop);
   applySigned(db, keys[PROTOCOL_ID], "sell", sr);
   assert.throws(() => applySigned(db, keys[PROTOCOL_ID], "sell", sr), /Replay/);
   assert.equal(verifyLedger(db).ok, true);

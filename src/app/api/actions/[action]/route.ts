@@ -24,12 +24,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
       scheduleAnchor();
       return result;
     }
-    if (action === "anchor") return anchorNow();
+    if (action === "anchor") {
+      // Anchoring spends gas: at most one manual anchor every 30 s, whoever asks.
+      const g = globalThis as unknown as { __orbitLastManualAnchor?: number };
+      if (g.__orbitLastManualAnchor && Date.now() - g.__orbitLastManualAnchor < 30_000) throw new OrbitError("Anchored moments ago; try again in a few seconds", 429);
+      g.__orbitLastManualAnchor = Date.now();
+      return anchorNow();
+    }
 
     if (!isDemoMode()) throw new OrbitError("Demo controls are disabled on this deployment", 403);
     switch (action) {
       case "tamper":
-        return mutate((tx) => tamper(tx.db, Number(body.index), body.mode === "rewrite" ? "rewrite" : "edit", tx.sequencerKey));
+        return mutate((tx) => tamper(tx.db, Number(body.index), body.mode === "rewrite" ? "rewrite" : body.mode === "erase" ? "erase" : "edit", tx.sequencerKey));
       case "restore": {
         const r = mutate((tx) => restore(tx.db));
         scheduleAnchor();

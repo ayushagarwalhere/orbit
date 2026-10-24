@@ -10,10 +10,10 @@ import { ACTOR_IDS, seedDb } from "../src/lib/seed.ts";
 
 const N = Number(process.argv[2] ?? 5000);
 const keys = generateKeystore(ACTOR_IDS);
-const db = seedDb(keys);
+const db = seedDb(keys, "ab".repeat(32));
 const t0 = performance.now();
 while (db.ledger.length < N) {
-  const req = newRequest("create-batch", "kutch-coop", { material: "organic-cotton", massKg: 1 });
+  const req = newRequest("create-batch", "kutch-coop", { material: "organic-cotton", massKg: 1 }, db.ledgerId!);
   applySigned(db, keys[PROTOCOL_ID], "create-batch", signRequest(req, keys["kutch-coop"]));
 }
 const tBuild = performance.now() - t0;
@@ -23,7 +23,7 @@ const full = verifyLedger(JSON.parse(JSON.stringify(db)));
 const tFull = performance.now() - t1;
 
 verifyLedger(db); // warm incremental state
-applySigned(db, keys[PROTOCOL_ID], "create-batch", signRequest(newRequest("create-batch", "kutch-coop", { material: "organic-cotton", massKg: 1 }), keys["kutch-coop"]));
+applySigned(db, keys[PROTOCOL_ID], "create-batch", signRequest(newRequest("create-batch", "kutch-coop", { material: "organic-cotton", massKg: 1 }, db.ledgerId!), keys["kutch-coop"]));
 const t2 = performance.now();
 const inc = verifyLedger(db);
 const tInc = performance.now() - t2;

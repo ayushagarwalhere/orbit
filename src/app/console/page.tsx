@@ -1,4 +1,5 @@
-import { balances, batchConsumed, custody } from "@/lib/domain.ts";
+import { modelRecovery } from "@/lib/actions.ts";
+import { attestationsOf, balances, batchConsumed, custody } from "@/lib/domain.ts";
 import { MATERIAL_FACTORS } from "@/lib/factors.ts";
 import { verifyLedger } from "@/lib/ledger.ts";
 import { getDb } from "@/lib/store.ts";
@@ -17,7 +18,16 @@ export default function ConsolePage() {
     actors: db.actors.filter((a) => a.role !== "protocol").map((a) => ({ id: a.id, name: a.name, role: a.role, city: a.place.city, balance: bal.get(a.id) ?? 0 })),
     products: db.products.map((p) => {
       const c = custody(db, p.id);
-      return { id: p.id, name: p.name, emoji: p.emoji, brandId: p.brandId, stage: c.stage, holderId: c.holderId, pendingRecipientId: c.pendingRecipientId ?? null };
+      return {
+        id: p.id,
+        name: p.name,
+        emoji: p.emoji,
+        brandId: p.brandId,
+        stage: c.stage,
+        holderId: c.holderId,
+        pendingRecipientId: c.pendingRecipientId ?? null,
+        recovery: c.stage === "returned" ? (modelRecovery({ db }, p.id) as Record<string, number>) : null,
+      };
     }),
     batches: db.batches.map((b) => ({
       id: b.id,
@@ -30,7 +40,7 @@ export default function ConsolePage() {
     claims: db.claims.map((c) => {
       const p = db.products.find((x) => x.id === c.productId);
       const r = reports.get(c.productId)?.claims.find((x) => x.claim.id === c.id);
-      return { id: c.id, productId: c.productId, productName: p?.name ?? c.productId, kind: c.kind, statement: c.statement, status: r?.status ?? "PENDING", attestedBy: c.attestations.map((a) => a.auditorId) };
+      return { id: c.id, productId: c.productId, productName: p?.name ?? c.productId, kind: c.kind, statement: c.statement, status: r?.status ?? "PENDING", attestedBy: attestationsOf(db, c.id).map((a) => a.auditorId) };
     }),
     materials: Object.entries(MATERIAL_FACTORS).map(([id, f]) => ({ id, label: f.label })),
   };

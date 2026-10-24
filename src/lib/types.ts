@@ -97,7 +97,6 @@ export interface Claim {
   issuerId: string;
   evidenceHash?: string; // sha256 of supporting document
   createdAt: string;
-  attestations: Attestation[];
 }
 
 export type EntryType =
@@ -121,6 +120,8 @@ export type TransportMode = "truck" | "rail" | "ship" | "air";
 /** What an actor actually authorised: signed in their own wallet/browser, never by the server. */
 export interface ActionRequest {
   action: string;
+  /** The ledger this instruction is for, so it can't be replayed into another ledger (e.g. after a reset). */
+  ledger: string;
   actorId: string;
   body: Record<string, unknown>;
   nonce: string;
@@ -174,7 +175,7 @@ export interface Db {
   ledger: LedgerEntry[];
   checkpoints: Checkpoint[];
   /** Demo only: original ledger before the tamper simulator edited it, so it can be restored. */
-  tamper?: { index: number; mode: "edit" | "rewrite"; at: number; original: LedgerEntry[]; originalCheckpoints: Checkpoint[] };
+  tamper?: { index: number; mode: "edit" | "rewrite" | "erase"; at: number; original: LedgerEntry[]; originalCheckpoints: Checkpoint[] };
 }
 
 export type LifecycleStage =

@@ -5,7 +5,7 @@
 // nothing from Orbit's server except this document; it reads the root from the chain itself.
 import { PROTOCOL_ID } from "./auth.ts";
 import { merkleProof } from "./crypto.ts";
-import { avoidedCo2e, carbonFootprint, custody, getActor, materialLines, passportCore, passportHash, productEntries, productMass, provenRecycledPct } from "./domain.ts";
+import { attestationsOf, avoidedCo2e, carbonFootprint, custody, getActor, materialLines, passportCore, passportHash, productEntries, productMass, provenRecycledPct } from "./domain.ts";
 import { entryBody, verifyLedger } from "./ledger.ts";
 import type { Checkpoint, Db, LedgerEntry, Product } from "./types.ts";
 import { trustReport } from "./verify.ts";
@@ -89,7 +89,7 @@ export function exportPassport(db: Db, p: Product, baseUrl: string) {
         evidence: c.evidence,
         caveats: c.caveats,
         issues: c.reasons,
-        attestations: c.claim.attestations,
+        attestations: attestationsOf(db, c.claim.id),
       })),
       trust: { score: trust.score, grade: trust.grade, summary: trust.summary },
       actorRegistrations: registrations.map(withProof),

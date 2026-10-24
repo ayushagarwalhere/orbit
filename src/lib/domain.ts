@@ -1,7 +1,8 @@
-// Read-side queries: everything here is derived from the ledger + records, never stored.
+// Read-side queries. All state is derived from the ledger (see replay.ts); nothing here is trusted
+// storage. Lookups go through incremental indexes so each costs O(entries for that subject).
 import { hashObject } from "./crypto.ts";
 import { MATERIAL_FACTORS, MAX_KM_PER_DAY, TRANSPORT_FACTORS } from "./factors.ts";
-import type { Actor, Batch, Claim, Db, LedgerEntry, LifecycleStage, Material, Place, Product, TransportMode } from "./types.ts";
+import type { Actor, Attestation, Batch, Claim, Db, LedgerEntry, LifecycleStage, Material, Place, Product, TransportMode } from "./types.ts";
 
 export class OrbitError extends Error {
   status: number;
@@ -11,25 +12,116 @@ export class OrbitError extends Error {
   }
 }
 
+// ---------- entity lookups (id -> record), cached per array and extended as it grows ----------
+
+const byIdCache = new WeakMap<object, { n: number; map: Map<string, unknown> }>();
+function lookup<T extends { id: string }>(arr: T[], id: string): T | undefined {
+  let c = byIdCache.get(arr);
+  if (!c || c.n > arr.length) {
+    c = { n: 0, map: new Map() };
+    byIdCache.set(arr, c);
+  }
+  for (let i = c.n; i < arr.length; i++) c.map.set(arr[i].id, arr[i]);
+  c.n = arr.length;
+  return c.map.get(id) as T | undefined;
+}
+
 export function getActor(db: Db, id: string): Actor {
-  const a = db.actors.find((x) => x.id === id);
+  const a = lookup(db.actors, id);
   if (!a) throw new OrbitError(`Unknown actor ${id}`, 404);
   return a;
 }
+export function findActor(db: Db, id: string): Actor | undefined {
+  return lookup(db.actors, id);
+}
 export function getProduct(db: Db, id: string): Product {
-  const p = db.products.find((x) => x.id === id);
+  const p = lookup(db.products, id);
   if (!p) throw new OrbitError(`Unknown product ${id}`, 404);
   return p;
 }
 export function getBatch(db: Db, id: string): Batch {
-  const b = db.batches.find((x) => x.id === id);
+  const b = lookup(db.batches, id);
   if (!b) throw new OrbitError(`Unknown batch ${id}`, 404);
   return b;
 }
 export function getClaim(db: Db, id: string): Claim {
-  const c = db.claims.find((x) => x.id === id);
+  const c = lookup(db.claims, id);
   if (!c) throw new OrbitError(`Unknown claim ${id}`, 404);
   return c;
+}
+
+// ---------- ledger indexes ----------
+
+const LIFECYCLE = new Set(["MANUFACTURED", "SHIPPED", "RECEIVED", "SOLD", "REPAIRED", "RETURNED", "RECYCLED"]);
+
+interface LedgerIndex {
+  n: number;
+  key: string;
+  lifecycle: Map<string, LedgerEntry[]>;
+  byProduct: Map<string, LedgerEntry[]>;
+  attestations: Map<string, LedgerEntry[]>;
+  balances: Map<string, number>;
+}
+const ledgerIdx = new WeakMap<LedgerEntry[], LedgerIndex>();
+
+function push<K>(m: Map<K, LedgerEntry[]>, k: K, e: LedgerEntry) {
+  const a = m.get(k);
+  if (a) a.push(e);
+  else m.set(k, [e]);
+}
+
+function idx(db: Db): LedgerIndex {
+  // A demo tamper edits entries in place, so it invalidates the index.
+  const key = db.tamper ? `${db.tamper.mode}${db.tamper.index}${db.tamper.at}` : "";
+  let x = ledgerIdx.get(db.ledger);
+  if (!x || x.n > db.ledger.length || x.key !== key) {
+    x = { n: 0, key, lifecycle: new Map(), byProduct: new Map(), attestations: new Map(), balances: new Map() };
+    ledgerIdx.set(db.ledger, x);
+  }
+  for (let i = x.n; i < db.ledger.length; i++) {
+    const e = db.ledger[i];
+    if (LIFECYCLE.has(e.type)) push(x.lifecycle, e.subjectId, e);
+    const pid = typeof e.data.productId === "string" ? e.data.productId : LIFECYCLE.has(e.type) ? e.subjectId : undefined;
+    if (pid) push(x.byProduct, pid, e);
+    if (e.type === "CLAIM_ATTESTED") push(x.attestations, e.subjectId, e);
+    if (e.type === "CREDIT_MINTED") x.balances.set(String(e.data.to), (x.balances.get(String(e.data.to)) ?? 0) + Number(e.data.amount));
+    if (e.type === "CREDIT_REDEEMED") x.balances.set(e.actorId, (x.balances.get(e.actorId) ?? 0) - Number(e.data.amount));
+  }
+  x.n = db.ledger.length;
+  return x;
+}
+
+export function lifecycleEntries(db: Db, productId: string): LedgerEntry[] {
+  return idx(db).lifecycle.get(productId) ?? [];
+}
+
+/** Every ledger entry that touches a product: lifecycle, its claims and audits, credits it triggered. */
+export function productEntries(db: Db, productId: string): LedgerEntry[] {
+  return idx(db).byProduct.get(productId) ?? [];
+}
+
+/** Audits of a claim, read from the ledger (never from a mutable record). */
+export function attestationsOf(db: Db, claimId: string): Attestation[] {
+  return (idx(db).attestations.get(claimId) ?? []).map((e) => ({
+    auditorId: e.actorId,
+    verdict: e.data.verdict === "REJECT" ? "REJECT" : "APPROVE",
+    note: String(e.data.note ?? ""),
+    at: e.timestamp,
+    entryHash: e.hash,
+  }));
+}
+
+export function balances(db: Db): Map<string, number> {
+  return idx(db).balances;
+}
+
+export function balanceOf(db: Db, actorId: string): number {
+  return balances(db).get(actorId) ?? 0;
+}
+
+/** When the acting party signed the instruction behind an entry (falls back to the sequencer time). */
+export function signedAt(e: LedgerEntry): number {
+  return Date.parse(e.auth?.request.issuedAt ?? e.timestamp);
 }
 
 /** Fields of a product that are committed to the ledger at manufacture time. */
@@ -55,18 +147,6 @@ export function claimCore(c: Claim) {
 }
 export function claimHash(c: Claim): string {
   return hashObject(claimCore(c));
-}
-
-const LIFECYCLE = new Set(["MANUFACTURED", "SHIPPED", "RECEIVED", "SOLD", "REPAIRED", "RETURNED", "RECYCLED"]);
-
-export function lifecycleEntries(db: Db, productId: string): LedgerEntry[] {
-  return db.ledger.filter((e) => e.subjectId === productId && LIFECYCLE.has(e.type));
-}
-
-/** Every ledger entry that touches a product: lifecycle, its claims, credits it triggered. */
-export function productEntries(db: Db, productId: string): LedgerEntry[] {
-  const claimIds = new Set(db.claims.filter((c) => c.productId === productId).map((c) => c.id));
-  return db.ledger.filter((e) => e.subjectId === productId || claimIds.has(e.subjectId) || e.data.productId === productId);
 }
 
 export interface Custody {
@@ -142,11 +222,17 @@ export function provenRecycledPct(db: Db, p: Product): number {
   return (lines.reduce((s, l) => s + l.recycledKg, 0) / mass) * 100;
 }
 
-/** How much of each batch has been committed to products already. */
+/** How much of each batch has been committed to products already (indexed, extended as products are added). */
+const consumedCache = new WeakMap<Product[], { n: number; kg: Map<string, number> }>();
 export function batchConsumed(db: Db, batchId: string): number {
-  let used = 0;
-  for (const p of db.products) for (const i of p.inputs) if (i.batchId === batchId) used += i.massKg;
-  return used;
+  let c = consumedCache.get(db.products);
+  if (!c || c.n > db.products.length) {
+    c = { n: 0, kg: new Map() };
+    consumedCache.set(db.products, c);
+  }
+  for (let i = c.n; i < db.products.length; i++) for (const inp of db.products[i].inputs) c.kg.set(inp.batchId, (c.kg.get(inp.batchId) ?? 0) + inp.massKg);
+  c.n = db.products.length;
+  return c.kg.get(batchId) ?? 0;
 }
 
 export interface Leg {
@@ -195,7 +281,8 @@ export function shipmentLegs(db: Db, p: Product): Leg[] {
     let transitHours: number | undefined;
     let note: string | undefined;
     if (received) {
-      transitHours = Math.max(0.5, (Date.parse(received.timestamp) - Date.parse(e.timestamp)) / 3.6e6);
+      // Both ends are signed times: the shipper's instruction and the recipient's receipt.
+      transitHours = Math.max(0.5, (signedAt(received) - signedAt(e)) / 3.6e6);
       const kmPerDay = distanceKm / (transitHours / 24);
       if (kmPerDay <= MAX_KM_PER_DAY[declaredMode]) check = "consistent";
       else {
@@ -229,19 +316,6 @@ export function avoidedCo2e(db: Db, p: Product): number {
     const f = MATERIAL_FACTORS[l.material];
     return s + l.recycledKg * (f.virgin - f.recycled);
   }, 0);
-}
-
-export function balances(db: Db): Map<string, number> {
-  const m = new Map<string, number>();
-  for (const e of db.ledger) {
-    if (e.type === "CREDIT_MINTED") m.set(String(e.data.to), (m.get(String(e.data.to)) ?? 0) + Number(e.data.amount));
-    if (e.type === "CREDIT_REDEEMED") m.set(e.actorId, (m.get(e.actorId) ?? 0) - Number(e.data.amount));
-  }
-  return m;
-}
-
-export function balanceOf(db: Db, actorId: string): number {
-  return balances(db).get(actorId) ?? 0;
 }
 
 /** Ordered list of places the product (and its materials) passed through. */

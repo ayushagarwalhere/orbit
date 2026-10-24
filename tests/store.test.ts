@@ -21,7 +21,7 @@ function reload() {
   return store.getDb();
 }
 const keys = () => JSON.parse(fs.readFileSync(path.join(dir, "keystore.json"), "utf8")) as Record<string, string>;
-const sign = (actor: string, action: string, body: Record<string, unknown>) => signRequest(newRequest(action, actor, body), keys()[actor]);
+const sign = (actor: string, action: string, body: Record<string, unknown>) => signRequest(newRequest(action, actor, body, store.getDb().ledgerId!), keys()[actor]);
 
 test("ledger persists as an append-only log and reloads identically", () => {
   const db = store.getDb();
@@ -49,10 +49,13 @@ test("a rejected write leaves memory and disk untouched", () => {
   assert.equal(reload().ledger.length, n);
 });
 
-test("tamper and restore rewrite the log, and the edit survives a reload", () => {
+test("tamper simulations stay in memory: disk keeps the genuine ledger and writes pause", () => {
   const idx = store.getDb().ledger.findIndex((e) => e.type === "SHIPPED");
+  const onDisk = fs.readFileSync(path.join(dir, "ledger.jsonl"), "utf8");
   store.mutate((tx) => tamper(tx.db, idx, "edit", tx.sequencerKey));
-  assert.equal(verifyLedger(reload()).ok, false);
-  store.mutate((tx) => restore(tx.db));
-  assert.equal(verifyLedger(reload()).ok, true);
+  assert.equal(verifyLedger(store.getDb()).ok, false);
+  assert.throws(() => store.submitSigned("create-batch", sign("kutch-coop", "create-batch", { material: "organic-cotton", massKg: 1 })), /simulation/);
+  assert.equal(fs.readFileSync(path.join(dir, "ledger.jsonl"), "utf8"), onDisk, "disk untouched");
+  assert.equal(verifyLedger(reload()).ok, true, "a restart brings back the genuine ledger");
+  void restore;
 });

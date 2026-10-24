@@ -1,29 +1,38 @@
 import fs from "node:fs";
-import "./crypto-node.ts"; // native Ed25519/SHA-256 on the server
 import path from "node:path";
+import "./crypto-node.ts"; // native Ed25519/SHA-256 on the server
 import { PROTOCOL_ID } from "./auth.ts";
 import { publicKeyOf, randomPrivateKey } from "./crypto.ts";
-import { restore, tamperExpired } from "./demo.ts";
+import { TAMPER_TTL_MS, restore, tamperExpired } from "./demo.ts";
 import { applySigned } from "./dispatch.ts";
+import { OrbitError } from "./domain.ts";
 import { generateKeystore, type Keystore } from "./keys.ts";
 import type { Tx } from "./ledger.ts";
+import { replay } from "./replay.ts";
 import { ACTOR_IDS, seedDb } from "./seed.ts";
-import type { Db, SignedRequest } from "./types.ts";
+import type { Db, LedgerEntry, SignedRequest } from "./types.ts";
 
-// File store. The ledger is the source of truth and is independently verifiable (hash chain +
-// signatures + on-chain Merkle anchors), so storage itself is not trusted.
+// Storage = one append-only JSON Lines file of ledger entries. Nothing else is persisted: actors,
+// lots, products, claims, audits, credits and checkpoints are all rebuilt by replaying the
+// ledger (replay.ts), so there is no mutable record that could disagree with it.
 
-const g = globalThis as unknown as { __orbit?: { db: Db; keys: Keystore } };
-
-export const DB_VERSION = 3;
+const g = globalThis as unknown as { __orbit?: { db: Db; keys: Keystore }; __orbitPersisted?: { n: number; head?: string } };
+const NL = String.fromCharCode(10);
 
 function dataDir(): string {
   return process.env.ORBIT_DATA_DIR ?? (process.env.VERCEL ? "/tmp" : path.join(process.cwd(), "data"));
 }
+const ledgerFile = () => path.join(dataDir(), "ledger.jsonl");
 
-/** Demo mode exposes demo actors' keys to the console and enables reset/tamper. On by default. */
+/**
+ * Demo mode exposes demo actors' keys to the console and enables reset/tamper. On by default in
+ * development; in production it must be switched on explicitly with ORBIT_DEMO_MODE=1.
+ */
 export function isDemoMode(): boolean {
-  return process.env.ORBIT_DEMO_MODE !== "0";
+  const v = process.env.ORBIT_DEMO_MODE;
+  if (v === "1") return true;
+  if (v === "0") return false;
+  return process.env.NODE_ENV !== "production";
 }
 
 /**
@@ -47,79 +56,66 @@ function loadKeystore(): Keystore {
   }
 }
 
-// Storage layout: the ledger is an append-only JSON Lines log (one entry per line), so a write
-// appends O(new entries) bytes instead of rewriting everything. Everything else (actors, products,
-// lots, claims, checkpoints) lives in a small state file.
-const files = () => ({ state: path.join(dataDir(), "state.json"), ledger: path.join(dataDir(), "ledger.jsonl") });
-
-interface Persisted {
-  n: number; // ledger entries already on disk
-  head: string | undefined;
-  tamperKey: string;
-}
-const p = globalThis as unknown as { __orbitPersisted?: Persisted };
-const NL = String.fromCharCode(10);
-
-function tamperKey(db: Db) {
-  return db.tamper ? `${db.tamper.mode}${db.tamper.index}` : "";
-}
-
-function loadDb(): Db | null {
+function readLedger(): LedgerEntry[] | null {
   try {
-    const f = files();
-    const rest = JSON.parse(fs.readFileSync(f.state, "utf8")) as Omit<Db, "ledger">;
-    const lines = fs.readFileSync(f.ledger, "utf8").split(NL).filter(Boolean);
-    const db = { ...rest, ledger: lines.map((l) => JSON.parse(l)) } as Db;
-    p.__orbitPersisted = { n: db.ledger.length, head: db.ledger.at(-1)?.hash, tamperKey: tamperKey(db) };
-    return db;
+    return fs
+      .readFileSync(ledgerFile(), "utf8")
+      .split(NL)
+      .filter(Boolean)
+      .map((l) => JSON.parse(l) as LedgerEntry);
   } catch {
     return null;
   }
 }
 
+/** A fresh id per ledger instance, so different deployments never mix checkpoints on-chain. */
+function newLedgerId(): string {
+  return randomPrivateKey();
+}
+
 function state() {
   if (!g.__orbit) {
     const keys = loadKeystore();
-    let db = loadDb();
-    const seqKey = db?.actors.find((a) => a.id === PROTOCOL_ID)?.publicKey;
-    if (db && (db.version !== DB_VERSION || seqKey !== publicKeyOf(keys[PROTOCOL_ID]))) db = null; // stale or other keystore
+    const stored = readLedger();
+    let db: Db | null = null;
+    const genesis = stored?.[0];
+    // Only reuse a ledger written by this version (genesis names the ledger) with this keystore.
+    if (genesis && genesis.subjectId === PROTOCOL_ID && typeof genesis.data.ledgerId === "string" && genesis.data.publicKey === publicKeyOf(keys[PROTOCOL_ID])) {
+      const r = replay(stored!);
+      if (r.issues.length) console.warn(`[orbit] stored ledger has ${r.issues.length} replay issue(s); they are shown on the ledger page`);
+      db = r.db;
+    }
     const fresh = !db;
-    g.__orbit = { db: db ?? seedDb(keys), keys };
-    if (!g.__orbit.db.ledgerId) g.__orbit.db.ledgerId = newLedgerId();
+    g.__orbit = { db: db ?? seedDb(keys, newLedgerId()), keys };
     if (fresh) persist(true);
+    else g.__orbitPersisted = { n: g.__orbit.db.ledger.length, head: g.__orbit.db.ledger.at(-1)?.hash };
   }
   return g.__orbit;
 }
 
 function persist(full = false) {
   const db = g.__orbit!.db;
-  const was = p.__orbitPersisted;
-  // Append when history only grew; rewrite the log if it was edited (demo tamper/restore) or reset.
-  const appendOnly = !full && was && was.tamperKey === tamperKey(db) && was.n <= db.ledger.length && (was.n === 0 || db.ledger[was.n - 1]?.hash === was.head);
+  if (db.tamper) return; // simulations are in-memory only: disk always holds the genuine ledger
+  const was = g.__orbitPersisted;
+  const appendOnly = !full && was && was.n <= db.ledger.length && (was.n === 0 || db.ledger[was.n - 1]?.hash === was.head);
   try {
-    const f = files();
     fs.mkdirSync(dataDir(), { recursive: true });
-    const { ledger, ...rest } = db;
-    const lines = (from: number) => ledger.slice(from).map((e) => JSON.stringify(e) + NL).join("");
+    const lines = (from: number) => db.ledger.slice(from).map((e) => JSON.stringify(e) + NL).join("");
     if (appendOnly) {
-      if (ledger.length > was!.n) fs.appendFileSync(f.ledger, lines(was!.n));
+      if (db.ledger.length > was!.n) fs.appendFileSync(ledgerFile(), lines(was!.n));
     } else {
-      fs.writeFileSync(f.ledger, lines(0));
+      fs.writeFileSync(ledgerFile(), lines(0));
     }
-    fs.writeFileSync(f.state, JSON.stringify(rest));
   } catch {
     // Read-only filesystem: keep running in memory.
   }
-  p.__orbitPersisted = { n: db.ledger.length, head: db.ledger.at(-1)?.hash, tamperKey: tamperKey(db) };
+  g.__orbitPersisted = { n: db.ledger.length, head: db.ledger.at(-1)?.hash };
 }
 
 export function getDb(): Db {
   const s = state();
   // Demo simulations roll themselves back after their TTL (lazily, on the next request).
-  if (tamperExpired(s.db)) {
-    restore(s.db);
-    persist();
-  }
+  if (tamperExpired(s.db)) restore(s.db);
   return s.db;
 }
 
@@ -134,41 +130,44 @@ export function demoKeys(): Record<string, string> {
 }
 
 /**
- * Runs a change atomically: if it throws, the database is rolled back. Rollback truncates the
- * append-only ledger and restores the (small) non-ledger state, so it doesn't copy the ledger.
+ * Runs a change atomically. State only ever grows by appending, so rollback is a truncation of
+ * each collection back to its previous length: no copying.
  */
 export function mutate<T>(fn: (tx: Tx) => T): T {
   const s = state();
-  const ledgerLen = s.db.ledger.length;
-  const ledgerRef = s.db.ledger;
-  const { ledger: _ledger, ...rest } = s.db;
-  const snapshot = JSON.stringify(rest);
+  const db = s.db;
+  const lens = { ledger: db.ledger.length, actors: db.actors.length, batches: db.batches.length, products: db.products.length, claims: db.claims.length, checkpoints: db.checkpoints.length };
+  const ledgerRef = db.ledger;
   try {
-    const result = fn({ db: s.db, sequencerKey: s.keys[PROTOCOL_ID] });
+    const result = fn({ db, sequencerKey: s.keys[PROTOCOL_ID] });
     persist();
     return result;
   } catch (err) {
-    const restored = JSON.parse(snapshot) as Omit<Db, "ledger">;
-    ledgerRef.length = ledgerLen;
-    s.db = { ...restored, ledger: ledgerRef } as Db;
+    if (s.db.ledger === ledgerRef) {
+      db.ledger.length = lens.ledger;
+      db.actors.length = lens.actors;
+      db.batches.length = lens.batches;
+      db.products.length = lens.products;
+      db.claims.length = lens.claims;
+      db.checkpoints.length = lens.checkpoints;
+    }
     throw err;
   }
 }
 
 /** Verifies and applies an actor-signed request. */
 export function submitSigned(action: string, sr: SignedRequest): unknown {
+  const db = getDb();
+  if (db.tamper) {
+    const left = Math.max(1, Math.ceil((db.tamper.at + TAMPER_TTL_MS - Date.now()) / 1000));
+    throw new OrbitError(`A tamper simulation is running; new writes resume when it auto-restores in ${left}s`, 409);
+  }
   return mutate((tx) => applySigned(tx.db, tx.sequencerKey, action, sr));
-}
-
-/** A fresh id per ledger instance, so different deployments never mix checkpoints on-chain. */
-function newLedgerId(): string {
-  return randomPrivateKey();
 }
 
 export function resetDb(): Db {
   const s = state();
-  s.db = seedDb(s.keys);
-  s.db.ledgerId = newLedgerId();
+  s.db = seedDb(s.keys, newLedgerId());
   persist(true);
   return s.db;
 }

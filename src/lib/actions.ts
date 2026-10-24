@@ -1,13 +1,16 @@
-// Write-side: every state change validates business rules, then appends a ledger entry that
-// carries the actor's own signed instruction and is sequenced by the protocol.
+// Write-side: every state change validates business rules, then appends ledger entries that carry
+// the actor's signed instruction. The same functions run live (dispatch.ts) and during replay
+// (replay.ts), so anyone can re-derive every entry from the signed instructions and check it.
 import { PROTOCOL_ID } from "./auth.ts";
 import { hashObject, merkleRoot, sha256Hex } from "./crypto.ts";
 import {
   OrbitError,
+  attestationsOf,
   balanceOf,
   batchConsumed,
   claimHash,
   custody,
+  findActor,
   getActor,
   getBatch,
   getClaim,
@@ -18,7 +21,7 @@ import {
 } from "./domain.ts";
 import { CREDITS_PER_KG_RECOVERED, MATERIAL_FACTORS, haversineKm } from "./factors.ts";
 import { append, type Tx } from "./ledger.ts";
-import type { Actor, Batch, Checkpoint, Claim, ClaimKind, Material, MaterialInput, Product, Role, TransportMode } from "./types.ts";
+import type { Actor, Batch, Checkpoint, Claim, ClaimKind, LedgerEntry, Material, MaterialInput, Product, Role, TransportMode } from "./types.ts";
 
 export { PROTOCOL_ID };
 
@@ -33,18 +36,50 @@ function nextId(prefix: string, n: number) {
 const round = (n: number, d = 3) => Math.round(n * 10 ** d) / 10 ** d;
 const now = (tx: Tx) => tx.at ?? new Date().toISOString();
 
+/**
+ * GTIN-14 in the GS1 restricted-circulation range (prefix 200–299 is reserved for internal use),
+ * so demo products can never collide with a real company's GTIN. Check digit per GS1 spec.
+ */
+export function demoGtin(n: number): string {
+  const body = `0200${String(n).padStart(9, "0")}`; // 13 digits
+  const sum = [...body].reverse().reduce((s, d, i) => s + Number(d) * (i % 2 === 0 ? 3 : 1), 0);
+  return body + String((10 - (sum % 10)) % 10);
+}
+
 // ---------- identity ----------
 
-/** Publishes an actor's public key on the ledger. Its auth is self-signed: proof of key possession. */
-export function registerActor(tx: Tx, actor: Actor) {
-  if (tx.db.ledger.some((e) => e.type === "ACTOR_REGISTERED" && e.subjectId === actor.id)) throw new OrbitError("Actor already registered", 409);
+export interface RegisterInput {
+  actorId: string;
+  name: string;
+  role: Role;
+  publicKey: string;
+  place: Actor["place"];
+  description?: string;
+  ledgerId?: string; // only for the protocol's genesis registration
+}
+
+/**
+ * Publishes an actor's public key on the ledger. Its instruction is self-signed with that key
+ * (proof of possession). The protocol's own registration is the genesis entry and names the ledger.
+ */
+export function registerActor(tx: Tx, input: RegisterInput) {
+  const { db } = tx;
+  if (findActor(db, input.actorId)) throw new OrbitError("Actor already registered", 409);
+  if (input.actorId === PROTOCOL_ID) {
+    if (db.ledger.length) throw new OrbitError("The protocol registers itself first, in the genesis entry");
+    if (!input.ledgerId) throw new OrbitError("Genesis must name the ledger");
+    db.ledgerId = input.ledgerId;
+  } else if (!findActor(db, PROTOCOL_ID)) {
+    throw new OrbitError("Ledger has no genesis");
+  }
+  const actor: Actor = { id: input.actorId, name: input.name, role: input.role, place: input.place, publicKey: input.publicKey, description: input.description ?? "" };
+  db.actors.push(actor);
   return append(tx, {
     type: "ACTOR_REGISTERED",
     subjectId: actor.id,
     actorId: actor.id,
     place: actor.place,
-    withAuth: true,
-    data: { name: actor.name, role: actor.role, publicKey: actor.publicKey },
+    data: { name: actor.name, role: actor.role, publicKey: actor.publicKey, ledgerId: input.ledgerId },
   });
 }
 
@@ -57,7 +92,7 @@ export function createBatch(tx: Tx, input: { producerId: string; material: Mater
   if (!MATERIAL_FACTORS[input.material]) throw new OrbitError("Unknown material");
   if (!(input.massKg > 0)) throw new OrbitError("massKg must be positive");
   const recycledKg = input.recycledKg ?? 0;
-  if (recycledKg < 0 || recycledKg > input.massKg) throw new OrbitError("recycledKg must be between 0 and massKg");
+  if (!(recycledKg >= 0) || recycledKg > input.massKg) throw new OrbitError("recycledKg must be between 0 and massKg");
   if (recycledKg > 0 && producer.role !== "recycler") {
     // Only recyclers can mint recycled material, so suppliers cannot invent recycled content.
     throw new OrbitError("Only a recycler can register recycled material");
@@ -103,12 +138,10 @@ export function manufacture(tx: Tx, input: ManufactureInput): Product {
   const { db } = tx;
   const brand = getActor(db, input.brandId);
   requireRole(brand, "manufacturer");
-  if (!input.name?.trim()) throw new OrbitError("Product name required");
-  if (!input.inputs?.length) throw new OrbitError("At least one material input required");
+  if (!input.inputs.length) throw new OrbitError("At least one material input required");
   const drawn = new Map<string, number>();
   for (const i of input.inputs) {
     const b = getBatch(db, i.batchId);
-    if (!(i.massKg > 0)) throw new OrbitError("Input mass must be positive");
     drawn.set(b.id, (drawn.get(b.id) ?? 0) + i.massKg);
     const remaining = b.massKg - batchConsumed(db, b.id);
     // Mass balance: you cannot put more of a lot into products than the lot contains.
@@ -117,17 +150,17 @@ export function manufacture(tx: Tx, input: ManufactureInput): Product {
   const n = db.products.length + 1;
   const product: Product = {
     id: nextId("DPP", n),
-    gtin: `0${String(4006381000000 + n * 7)}`,
+    gtin: demoGtin(n),
     serial: sha256Hex(`${input.brandId}:${n}:${input.name}`).slice(0, 10).toUpperCase(),
-    name: input.name.trim().slice(0, 80),
+    name: input.name,
     category: input.category,
-    emoji: (input.emoji ?? "📦").slice(0, 4),
+    emoji: input.emoji ?? "📦",
     brandId: brand.id,
-    description: (input.description ?? "").slice(0, 280),
+    description: input.description ?? "",
     inputs: input.inputs.map((i) => ({ batchId: i.batchId, massKg: round(i.massKg) })),
-    repairabilityScore: Math.max(0, Math.min(10, input.repairabilityScore ?? 5)),
+    repairabilityScore: input.repairabilityScore ?? 5,
     warrantyYears: input.warrantyYears ?? 2,
-    depositCredits: Math.max(0, Math.min(500, input.depositCredits ?? 0)),
+    depositCredits: input.depositCredits ?? 0,
     endOfLife: input.endOfLife ?? "Return through Orbit for recycling.",
     createdAt: now(tx),
   };
@@ -137,7 +170,7 @@ export function manufacture(tx: Tx, input: ManufactureInput): Product {
     subjectId: product.id,
     actorId: brand.id,
     place: brand.place,
-    data: { passportHash: passportHash(product), co2eKg: Math.max(0, input.co2eKg ?? 0), massKg: round(productMass(product)) },
+    data: { passportHash: passportHash(product), co2eKg: input.co2eKg ?? 0, massKg: round(productMass(product)) },
   });
   return product;
 }
@@ -147,7 +180,6 @@ export function ship(tx: Tx, input: { productId: string; actorId: string; toId: 
   const p = getProduct(db, input.productId);
   const from = getActor(db, input.actorId);
   const to = getActor(db, input.toId);
-  if (!["ship", "rail", "truck", "air"].includes(input.mode)) throw new OrbitError("Unknown transport mode");
   const c = custody(db, p.id);
   if (c.stage === "in-transit") throw new OrbitError("Product is already in transit");
   if (c.stage === "recycled" || c.stage === "returned" || c.stage === "in-use") throw new OrbitError(`Cannot ship a product that is ${c.stage}`);
@@ -177,7 +209,7 @@ export function sell(tx: Tx, input: { productId: string; actorId: string; toId: 
   requireRole(buyer, "consumer");
   const c = custody(db, p.id);
   if (c.stage !== "in-stock" || c.holderId !== seller.id) throw new OrbitError(`${seller.name} does not have this product in stock`, 403);
-  return append(tx, { type: "SOLD", subjectId: p.id, actorId: seller.id, place: seller.place, data: { to: buyer.id, deposit: p.depositCredits } });
+  return append(tx, { type: "SOLD", subjectId: p.id, actorId: seller.id, place: seller.place, data: { to: buyer.id, returnReward: p.depositCredits } });
 }
 
 export function repair(tx: Tx, input: { productId: string; actorId: string; note: string; co2eKg?: number }) {
@@ -187,7 +219,7 @@ export function repair(tx: Tx, input: { productId: string; actorId: string; note
   requireRole(r, "repairer");
   const c = custody(db, p.id);
   if (c.stage !== "in-use") throw new OrbitError("Only products in use can be repaired");
-  const e = append(tx, { type: "REPAIRED", subjectId: p.id, actorId: r.id, place: r.place, data: { note: input.note.slice(0, 200), owner: c.holderId, co2eKg: input.co2eKg ?? 0 } });
+  const e = append(tx, { type: "REPAIRED", subjectId: p.id, actorId: r.id, place: r.place, data: { note: input.note, owner: c.holderId, co2eKg: input.co2eKg ?? 0 } });
   // Repairs extend product life, so the owner gets a small incentive.
   mint(tx, { to: c.holderId, amount: 15, reason: "repair-instead-of-replace", productId: p.id, ref: e.hash });
   return e;
@@ -202,12 +234,24 @@ export function returnForRecycling(tx: Tx, input: { productId: string; actorId: 
   const c = custody(db, p.id);
   if (c.stage !== "in-use" || c.holderId !== owner.id) throw new OrbitError(`${owner.name} does not own this product`, 403);
   const e = append(tx, { type: "RETURNED", subjectId: p.id, actorId: owner.id, place: owner.place, data: { to: recycler.id, distanceKm: haversineKm(owner.place, recycler.place) } });
-  if (p.depositCredits > 0) mint(tx, { to: owner.id, amount: p.depositCredits, reason: "deposit-refund", productId: p.id, ref: e.hash });
+  // Return reward, funded in a real scheme by the brand's EPR (extended producer responsibility) fee.
+  if (p.depositCredits > 0) mint(tx, { to: owner.id, amount: p.depositCredits, reason: "return-reward", productId: p.id, ref: e.hash });
   return e;
 }
 
-/** Recycler breaks the product down. Recovered material becomes new traceable recycled batches. */
-export function recycle(tx: Tx, input: { productId: string; actorId: string }) {
+/** Model recovery per material (what a recycler would typically get back), used as UI defaults. */
+export function modelRecovery(tx: Pick<Tx, "db">, productId: string): Partial<Record<Material, number>> {
+  const out: Partial<Record<Material, number>> = {};
+  for (const l of materialLines(tx.db, getProduct(tx.db, productId))) out[l.material] = round((out[l.material] ?? 0) + l.massKg * MATERIAL_FACTORS[l.material].recoveryRate);
+  return out;
+}
+
+/**
+ * The recycler breaks the product down and SIGNS the mass it recovered per material (weighed at
+ * the plant). The protocol only checks it is physically possible: never more than went in.
+ * Recovered material becomes new recycled lots that point back to the source product.
+ */
+export function recycle(tx: Tx, input: { productId: string; actorId: string; recovered?: Partial<Record<Material, number>> }) {
   const { db } = tx;
   const p = getProduct(db, input.productId);
   const r = getActor(db, input.actorId);
@@ -215,16 +259,22 @@ export function recycle(tx: Tx, input: { productId: string; actorId: string }) {
   const c = custody(db, p.id);
   if (c.stage !== "returned" || c.holderId !== r.id) throw new OrbitError(`${r.name} has not received this product`, 403);
 
-  const recovered = new Map<Material, number>();
-  for (const l of materialLines(db, p)) {
-    recovered.set(l.material, (recovered.get(l.material) ?? 0) + l.massKg * MATERIAL_FACTORS[l.material].recoveryRate);
+  const inputByMaterial = new Map<Material, number>();
+  for (const l of materialLines(db, p)) inputByMaterial.set(l.material, (inputByMaterial.get(l.material) ?? 0) + l.massKg);
+  const claimed = input.recovered ?? modelRecovery(tx, p.id);
+  const recovered: [Material, number][] = [];
+  for (const [m, kg] of Object.entries(claimed) as [Material, number][]) {
+    const max = inputByMaterial.get(m);
+    if (max === undefined) throw new OrbitError(`${p.name} contains no ${m}`);
+    if (kg > max + 1e-9) throw new OrbitError(`Cannot recover ${kg} kg of ${m}: only ${round(max)} kg went in`, 422);
+    if (kg > 0) recovered.push([m, kg]);
   }
   const entry = append(tx, {
     type: "RECYCLED",
     subjectId: p.id,
     actorId: r.id,
     place: r.place,
-    data: { inputMassKg: round(productMass(p)), recoveredKg: round([...recovered.values()].reduce((a, b) => a + b, 0)) },
+    data: { inputMassKg: round(productMass(p)), recoveredKg: round(recovered.reduce((s, [, kg]) => s + kg, 0)) },
   });
   const outputs: { batchId: string; material: Material; massKg: number }[] = [];
   for (const [material, kg] of recovered) {
@@ -243,8 +293,6 @@ export function issueClaim(tx: Tx, input: { productId: string; issuerId: string;
   const p = getProduct(db, input.productId);
   const issuer = getActor(db, input.issuerId);
   if (issuer.id !== p.brandId) throw new OrbitError("Only the brand that made the product can issue claims about it", 403);
-  if (!["RECYCLED_CONTENT", "CARBON_FOOTPRINT", "ORIGIN", "ETHICAL_LABOR", "REPAIRABILITY"].includes(input.kind)) throw new OrbitError("Unknown claim kind");
-  if (!input.statement?.trim()) throw new OrbitError("Statement required");
   const textual = input.kind === "ORIGIN" || input.kind === "ETHICAL_LABOR";
   const value = textual ? String(input.value) : Number(input.value);
   if (!textual && !Number.isFinite(value)) throw new OrbitError("Claim value must be a number");
@@ -252,12 +300,11 @@ export function issueClaim(tx: Tx, input: { productId: string; issuerId: string;
     id: nextId("CLM", db.claims.length + 1),
     productId: p.id,
     kind: input.kind,
-    statement: input.statement.trim().slice(0, 200),
+    statement: input.statement,
     value,
     issuerId: issuer.id,
     evidenceHash: input.evidence ? sha256Hex(input.evidence) : undefined,
     createdAt: now(tx),
-    attestations: [],
   };
   db.claims.push(claim);
   append(tx, { type: "CLAIM_ISSUED", subjectId: claim.id, actorId: issuer.id, data: { productId: p.id, kind: claim.kind, value: claim.value, claimHash: claimHash(claim) } });
@@ -269,22 +316,20 @@ export function attestClaim(tx: Tx, input: { claimId: string; auditorId: string;
   const claim = getClaim(db, input.claimId);
   const auditor = getActor(db, input.auditorId);
   requireRole(auditor, "auditor");
-  if (claim.attestations.some((a) => a.auditorId === auditor.id)) throw new OrbitError("This auditor already attested this claim", 409);
-  const e = append(tx, {
+  if (attestationsOf(db, claim.id).some((a) => a.auditorId === auditor.id)) throw new OrbitError("This auditor already attested this claim", 409);
+  return append(tx, {
     type: "CLAIM_ATTESTED",
     subjectId: claim.id,
     actorId: auditor.id,
     place: auditor.place,
-    data: { productId: claim.productId, verdict: input.verdict, note: input.note.slice(0, 200), claimHash: claimHash(claim) },
+    data: { productId: claim.productId, verdict: input.verdict, note: input.note, claimHash: claimHash(claim) },
   });
-  claim.attestations.push({ auditorId: auditor.id, verdict: input.verdict, note: input.note, at: e.timestamp, entryHash: e.hash });
-  return e;
 }
 
 // ---------- credits ----------
 
 function mint(tx: Tx, input: { to: string; amount: number; reason: string; productId: string; ref: string }) {
-  if (input.amount <= 0) return;
+  if (!(input.amount > 0)) return;
   append(tx, { type: "CREDIT_MINTED", subjectId: input.to, actorId: PROTOCOL_ID, data: { to: input.to, amount: input.amount, reason: input.reason, productId: input.productId, ref: input.ref } });
 }
 
@@ -312,15 +357,30 @@ export function currentRoot(tx: Tx) {
   return { covers: tx.db.ledger.length, merkleRoot: merkleRoot(tx.db.ledger.map((e) => e.hash)) };
 }
 
-/** Records a checkpoint (already published on-chain, or local-only) as a ledger entry. */
+/** A checkpoint is fully described by its ANCHORED entry, so it can be re-derived on replay. */
+export function checkpointFromEntry(e: LedgerEntry): Checkpoint {
+  const d = e.data as Record<string, unknown>;
+  return {
+    covers: Number(d.covers),
+    merkleRoot: String(d.merkleRoot),
+    at: e.timestamp,
+    onChain: d.onChain === true,
+    network: String(d.network ?? ""),
+    chainId: d.chainId === undefined ? undefined : Number(d.chainId),
+    contract: d.contract === undefined ? undefined : String(d.contract),
+    checkpointId: d.checkpointId === undefined ? undefined : Number(d.checkpointId),
+    ledgerId: d.ledgerId === undefined ? undefined : String(d.ledgerId),
+    submitter: d.submitter === undefined ? undefined : String(d.submitter),
+    txHash: d.txHash === undefined ? undefined : String(d.txHash),
+    blockNumber: d.blockNumber === undefined ? undefined : Number(d.blockNumber),
+    explorerTx: d.explorerTx === undefined ? undefined : String(d.explorerTx),
+  };
+}
+
+/** Records a checkpoint (already published on-chain, or local-only) as a protocol ledger entry. */
 export function recordCheckpoint(tx: Tx, cp: Omit<Checkpoint, "at">): Checkpoint {
-  const e = append(tx, {
-    type: "ANCHORED",
-    subjectId: "ledger",
-    actorId: PROTOCOL_ID,
-    data: { merkleRoot: cp.merkleRoot, covers: cp.covers, network: cp.network, chainId: cp.chainId, contract: cp.contract, checkpointId: cp.checkpointId, txHash: cp.txHash },
-  });
-  const full: Checkpoint = { ...cp, at: e.timestamp };
+  const e = append(tx, { type: "ANCHORED", subjectId: "ledger", actorId: PROTOCOL_ID, withAuth: false, data: { ...cp } });
+  const full = checkpointFromEntry(e);
   tx.db.checkpoints.push(full);
   return full;
 }

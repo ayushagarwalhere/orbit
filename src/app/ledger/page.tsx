@@ -19,6 +19,10 @@ const PROBLEM_LABEL: Record<string, string> = {
   "unknown-actor": "unregistered actor",
   "replayed-request": "replayed instruction",
   "anchor-mismatch": "differs from on-chain root",
+  "timestamp-skew": "time differs from when the actor signed",
+  "rule-violation": "breaks the protocol rules",
+  "derived-mismatch": "differs from what the signed instructions produce",
+  "unauthorised-entry": "no signed instruction behind it",
 };
 
 export default async function LedgerPage() {
@@ -42,9 +46,21 @@ export default async function LedgerPage() {
   const audit = find((i) => db.ledger[i].type === "CLAIM_ATTESTED" && db.ledger[i].data.verdict === "REJECT");
   const mint = find((i) => db.ledger[i].type === "CREDIT_MINTED");
   const scenarios = [
-    freightLeg >= 0 && { index: freightLeg, mode: "rewrite", who: "Malicious operator", label: `Shrink the hoodie's freight leg to 1 km (#${freightLeg}), then re-hash and re-sign all later history`, catches: "Only the blockchain catches this one" },
-    audit >= 0 && { index: audit, mode: "rewrite", who: "Malicious operator", label: `Flip the failed labour audit (#${audit}) to APPROVE and re-sign`, catches: "Caught: the auditor's own signature says REJECT" },
-    mint >= 0 && { index: mint, mode: "edit", who: "Database intruder", label: `Inflate a credit payout ×10 (#${mint})`, catches: "Caught: hash no longer matches" },
+    audit >= 0 && {
+      index: audit,
+      mode: "erase",
+      who: "Malicious operator · sequencer key",
+      label: `Erase the failed labour audit (#${audit}), then regenerate and re-sign all later history through the real rules`,
+      catches: "Every local check passes. Only the roots already on-chain catch this one",
+    },
+    freightLeg >= 0 && {
+      index: freightLeg,
+      mode: "rewrite",
+      who: "Malicious operator · sequencer key",
+      label: `Shrink the hoodie's freight leg to 1 km (#${freightLeg}) and re-sign`,
+      catches: "Signatures pass. Caught by replay: the signed instructions recompute 2,892 km",
+    },
+    mint >= 0 && { index: mint, mode: "edit", who: "Database intruder", label: `Inflate a credit payout ×10 (#${mint})`, catches: "Caught: the entry's hash no longer matches" },
   ].filter(Boolean) as { index: number; mode: string; who: string; label: string; catches: string }[];
 
   return (
@@ -58,7 +74,7 @@ export default async function LedgerPage() {
           <div className="label">Local integrity</div>
           <div className={`display mt-2 text-5xl ${r.ok ? "text-leaf" : "text-rust"}`}>{r.ok ? "✓ Intact" : "✕ Tampered"}</div>
           <div className="mt-1 text-sm text-muted">
-            {r.checked} entries: hashes, links, {r.checked} sequencer + actor signatures, signed-instruction bindings, replay
+            {r.checked} entries: hashes, links, sequencer + actor signatures, signed times, and a full replay of every signed instruction through the rules
           </div>
           {!r.ok && (
             <ul className="mt-2 space-y-1 text-sm text-rust">
@@ -129,7 +145,7 @@ export default async function LedgerPage() {
           {db.tamper ? (
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <span className="text-sm font-semibold text-rust">
-                Simulation active: entry #{db.tamper.index} was altered ({db.tamper.mode === "rewrite" ? "insider rewrite with the sequencer key" : "direct database edit"}).
+                Simulation active: entry #{db.tamper.index} was altered ({db.tamper.mode === "erase" ? "instruction erased and history regenerated with the sequencer key" : db.tamper.mode === "rewrite" ? "insider rewrite with the sequencer key" : "direct database edit"}).
               </span>
               <Countdown until={db.tamper.at + TAMPER_TTL_MS} label="Auto-restores in" />
               <ActionButton action="restore" className="btn btn-primary text-xs">

@@ -18,9 +18,10 @@ export function verifyRequest(sr: SignedRequest, publicKeyHex: string): boolean 
   return verifySignature(requestHash(sr.request), sr.signature, publicKeyHex);
 }
 
-export function newRequest(action: string, actorId: string, body: Record<string, unknown>, issuedAt = new Date().toISOString(), nonce?: string): ActionRequest {
+export function newRequest(action: string, actorId: string, body: Record<string, unknown>, ledger: string, issuedAt = new Date().toISOString(), nonce?: string): ActionRequest {
   return {
     action,
+    ledger,
     actorId,
     body,
     issuedAt,

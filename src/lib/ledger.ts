@@ -1,15 +1,19 @@
 import { PROTOCOL_ID, authMismatch, requestHash, verifyRequest } from "./auth.ts";
 import { IncrementalMerkle, hashObject, merkleRoot, signHash, verifySignature } from "./crypto.ts";
+import { newReplayState, replayInto, type ReplayState } from "./replay.ts";
 import type { Db, EntryType, LedgerEntry, Place, SignedRequest } from "./types.ts";
 
 export const GENESIS_HASH = "0".repeat(64);
+const SKEW_MS = 5 * 60 * 1000;
 
 /** A write context: the database, the sequencer's key, and the actor's signed instruction. */
 export interface Tx {
   db: Db;
+  /** Sequencer signing key. Empty during replay (verifiers re-derive entries, they don't sign them). */
   sequencerKey: string;
   auth?: SignedRequest;
-  at?: string; // entry timestamp override (seeding); otherwise the sequencer's clock
+  /** One timestamp for every entry a request produces (set by the sequencer, or by replay). */
+  at?: string;
 }
 
 export function entryBody(e: Omit<LedgerEntry, "hash" | "signature">) {
@@ -37,13 +41,15 @@ export interface AppendInput {
   data?: Record<string, unknown>;
   place?: Place;
   timestamp?: string;
-  withAuth?: boolean; // default: attach tx.auth when the actor is not the protocol
+  withAuth?: boolean; // default: attach tx.auth whenever the write comes from a signed request
 }
 
 export function append(tx: Tx, input: AppendInput): LedgerEntry {
   const { db } = tx;
   const prev = db.ledger[db.ledger.length - 1];
-  const attach = input.withAuth ?? input.actorId !== PROTOCOL_ID;
+  // Everything a request produces (including protocol-minted credits) carries that request,
+  // so every entry can be traced to, and re-derived from, an actor's signed instruction.
+  const attach = input.withAuth ?? !!tx.auth;
   const base = {
     index: db.ledger.length,
     type: input.type,
@@ -56,7 +62,7 @@ export function append(tx: Tx, input: AppendInput): LedgerEntry {
     prevHash: prev ? prev.hash : GENESIS_HASH,
   };
   const hash = hashEntry(base);
-  const entry: LedgerEntry = { ...base, hash, signature: signHash(hash, tx.sequencerKey) };
+  const entry: LedgerEntry = { ...base, hash, signature: tx.sequencerKey ? signHash(hash, tx.sequencerKey) : "" };
   db.ledger.push(entry);
   return entry;
 }
@@ -69,6 +75,10 @@ export type EntryProblem =
   | "auth-mismatch"
   | "unknown-actor"
   | "replayed-request"
+  | "timestamp-skew"
+  | "rule-violation"
+  | "derived-mismatch"
+  | "unauthorised-entry"
   | "anchor-mismatch";
 
 export interface AnchorRef {
@@ -139,12 +149,13 @@ interface VerifyState {
   issues: IntegrityReport["issues"];
   bad: Set<number>;
   tree: IncrementalMerkle;
+  replay: ReplayState;
 }
 
 const states = new WeakMap<Db, VerifyState>();
 
 function freshState(tamperKey: string): VerifyState {
-  return { n: 0, head: undefined, tamperKey, keys: new Map(), seenRequests: new Set(), lastRequest: null, issues: [], bad: new Set(), tree: new IncrementalMerkle() };
+  return { n: 0, head: undefined, tamperKey, keys: new Map(), seenRequests: new Set(), lastRequest: null, issues: [], bad: new Set(), tree: new IncrementalMerkle(), replay: newReplayState() };
 }
 
 function checkEntry(s: VerifyState, ledger: LedgerEntry[], i: number) {
@@ -169,6 +180,9 @@ function checkEntry(s: VerifyState, ledger: LedgerEntry[], i: number) {
     const mismatch = authMismatch(e);
     if (mismatch) flag("auth-mismatch", mismatch);
     if (e.auth) {
+      // The sequencer's timestamp must agree with the time the actor signed (within the API's skew window).
+      const skew = Math.abs(Date.parse(e.timestamp) - Date.parse(e.auth.request.issuedAt));
+      if (!(skew <= SKEW_MS)) flag("timestamp-skew", `recorded ${e.timestamp}, but the actor signed at ${e.auth.request.issuedAt}`);
       // One instruction may produce a run of entries, but must never reappear later.
       const rh = requestHash(e.auth.request);
       if (s.seenRequests.has(rh) && s.lastRequest !== rh) flag("replayed-request", "this signed instruction was already used earlier");
@@ -197,6 +211,13 @@ export function verifyLedger(db: Db, anchors: AnchorRef[] = []): IntegrityReport
   }
   s.n = ledger.length;
   s.head = ledger.at(-1)?.hash;
+  // Re-run every instruction through the rules and compare the derived entries (incremental).
+  const before = s.replay.issues.length;
+  replayInto(s.replay, ledger);
+  for (const r of s.replay.issues.slice(before)) {
+    s.issues.push(r);
+    s.bad.add(r.index);
+  }
 
   const issues = s.issues.slice();
   const bad = new Set(s.bad);

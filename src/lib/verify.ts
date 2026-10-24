@@ -1,5 +1,5 @@
 // The accountability engine: checks every sustainability claim against what the ledger proves.
-import { claimHash, carbonFootprint, getActor, lifecycleEntries, materialLines, passportHash, productEntries, provenRecycledPct } from "./domain.ts";
+import { attestationsOf, claimHash, carbonFootprint, getActor, lifecycleEntries, materialLines, passportHash, productEntries, provenRecycledPct } from "./domain.ts";
 import { lintClaim, type LintHit } from "./greenwash.ts";
 import { verifyLedger, type IntegrityReport } from "./ledger.ts";
 import type { Claim, Db, Product } from "./types.ts";
@@ -27,7 +27,7 @@ export function evaluateClaim(db: Db, claim: Claim, product: Product): ClaimResu
 
   const issued = db.ledger.find((e) => e.type === "CLAIM_ISSUED" && e.subjectId === claim.id);
   const tampered = !issued || issued.data.claimHash !== claimHash(claim);
-  const independent = claim.attestations.filter((a) => {
+  const independent = attestationsOf(db, claim.id).filter((a) => {
     const aud = db.actors.find((x) => x.id === a.auditorId);
     return aud && aud.role === "auditor" && aud.id !== claim.issuerId;
   });
