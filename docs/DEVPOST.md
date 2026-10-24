@@ -28,13 +28,13 @@ It covers the whole circular loop:
 
 ## Why you can trust the passport
 A passport is only useful if the company running it can't quietly edit it. So:
-1. **Orbit can't sign for anyone.** Every step carries the actor's own signature.
+1. **Orbit can't sign for anyone.** Every step carries the actor's own signature. (In the demo, the server holds the role-play actors' keys; guests keep their own.)
 2. **Everything Orbit derives can be recomputed** from those signatures. Change a distance or a credit, and recomputing exposes it.
-3. **A fingerprint of the whole history is anchored on a public blockchain** (Base Sepolia). Witnesses anchor it from their own wallets too. If Orbit deletes the failed audit and rebuilds everything after it, the fingerprints stop matching. The Ledger page lets you try this attack live.
+3. **A fingerprint of the whole history is anchored on a public blockchain** (Base Sepolia). Witnesses can anchor it from their own wallets too (so far only a second wallet of ours). If Orbit deletes the failed audit and rebuilds everything after it, the fingerprints stop matching. The Ledger page lets you try this attack live.
 4. **Your browser checks everything itself.** The Verify page downloads the ledger, matches it to the on-chain fingerprint, re-checks every signature, confirms the passport leaves nothing out, and re-derives every verdict.
 
 ## Impact
-If 5% of EU textiles and batteries carried Orbit-style passports by 2030, we project about **0.08 Mt CO₂e avoided per year**, with a plausible range of 0.01–0.25 Mt. Most of it comes from longer textile life and more fibre-to-fibre recycling. One pilot (an apparel brand with 100,000 garments a year and an e-bike brand with 20,000 packs) would avoid about **48 t CO₂e a year**. The biggest unknown is how many people actually repair. Our central case uses 5% repair uptake, based on France's and Austria's repair bonuses. Every input is sourced in our [impact assessment](IMPACT.md), and the in-app Impact page reproduces the arithmetic.
+If 5% of EU textiles and batteries carried Orbit-style passports by 2030, we project about **0.08 Mt CO₂e avoided per year**, with a plausible range of 0.01–0.25 Mt. Most of it comes from longer textile life and more fibre-to-fibre recycling. One pilot (an apparel brand with 100,000 garments a year and an e-bike brand with 20,000 packs) would avoid about **48 t CO₂e a year**. The biggest unknown is how many people actually repair. Our central case assumes 5% repair uptake; France's and Austria's repair bonuses suggest even that may be high. Every input is sourced in our [impact assessment](IMPACT.md), and the in-app Impact page reproduces the arithmetic.
 
 ## How we built it
 - **Next.js 15, React 19, TypeScript, Tailwind v4**

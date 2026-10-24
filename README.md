@@ -79,7 +79,8 @@ Add your deployment and operator address to `OFFICIAL_ANCHORS` in `src/lib/netwo
 
 ```bash
 npm run witness -- --file ledger.jsonl --check-only   # verify a ledger file: no wallet, no gas
-npm run wallet -- --witness && npm run witness        # verify, then anchor from your own wallet
+npm run wallet -- --witness                           # creates your witness wallet; fund it from a faucet
+npm run witness                                       # verify, then anchor from your own wallet
 ```
 
 ### How it works
@@ -192,7 +193,7 @@ src/lib/          core engine (framework-free, unit tested)
   chain.ts / anchor-read.ts / networks.ts   anchoring, chain reads, pinned trust roots
   crypto.ts       canonical JSON, Ed25519/SHA-256, RFC 6962 Merkle tree
 contracts/        OrbitAnchor.sol (v3)
-scripts/          wallet, deploy, witness, fund, bench
+scripts/          wallet, deploy, witness, fund, live verify, bench
 tests/            core, storage, RFC 6962, verifier and on-chain tests
 docs/             problem, impact, security, Devpost, witness guide, user-testing kit
 ```
