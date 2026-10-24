@@ -21,6 +21,12 @@ Built for the **IEEE ClimateChain Global Hackathon**, track **Sustainable Supply
 
 The passport scores this **E (0/100)** and lists every point gained and lost, so the grade can be checked. An honest product in the same demo, the Orbit Tee, gets an A. A battery goes through its whole life (sold, repaired, returned, recycled), and its recovered materials become a new battery with **93% recycled content**, provable back to the original passport.
 
+| The hoodie's passport | The erase attack, caught by the chain |
+| --- | --- |
+| ![The EcoCloud Hoodie's passport: grade E, 0/100, with the reasons](docs/images/02-hoodie-caught.jpg) | ![The Ledger page after the erase attack: local checks pass, both on-chain fingerprints disagree](docs/images/04-tamper-caught.jpg) |
+| **Your browser verifies it** | **Fingerprints on Base Sepolia** |
+| ![The Verify page: all checks pass and every verdict is re-derived](docs/images/03-verifier-passes.jpg) | ![Checkpoints from Orbit's operator and the demo witness, read live from the chain](docs/images/05-chain-checkpoints.jpg) |
+
 ## Why you can believe the passport
 
 Anyone who can edit a database can make a passport say anything. Orbit makes that visible:

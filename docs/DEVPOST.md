@@ -65,6 +65,9 @@ Traceability alone doesn't create accountability. Accountability comes from chec
 - Signed scale weights and carrier pickup signatures at every handover
 - A pilot with one brand, measuring repair and return uptake first
 
+## Gallery images
+In [`docs/images`](images): `architecture.png` (the diagram), `01-home-globe.jpg` (thumbnail), `02-hoodie-caught.jpg`, `03-verifier-passes.jpg`, `04-tamper-caught.jpg`, `05-chain-checkpoints.jpg`.
+
 ## Try it
 - **Contract:** [OrbitAnchor v3 on Base Sepolia](https://sepolia.basescan.org/address/0x8a9bd10b411a5509916dbe812fd803611c2f9151), [source verified on Sourcify](https://repo.sourcify.dev/84532/0x8A9BD10b411A5509916dbe812fd803611C2F9151).
 - **Run it:**
