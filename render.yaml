@@ -22,3 +22,8 @@ services:
         sync: false
       - key: ORBIT_DEMO_MODE
         value: "1"
+      # Free instances lose their disk on every spin-down. Start (and demo-reset) from a ledger that is
+      # already anchored and witnessed on-chain, instead of seeding a new one each time (see deploy/README.md).
+      # Requires ORBIT_KEYSTORE to be the keystore that signed it.
+      - key: ORBIT_SNAPSHOT
+        value: deploy/ledger.jsonl

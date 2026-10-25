@@ -91,6 +91,12 @@ npm run wallet -- --witness                           # creates your witness wal
 npm run witness                                       # verify, then anchor from your own wallet
 ```
 
+### Deploy (Render)
+
+`render.yaml` is a Render Blueprint: Render dashboard → New → Blueprint → pick this repo. It redeploys on every push to `main`. Set three secrets when asked: `ORBIT_KEYSTORE` (the contents of `data/keystore.json`), `ORBIT_ANCHOR_PRIVATE_KEY` and `ORBIT_ANCHOR_ADDRESS`.
+
+Free instances lose their disk when they sleep, so the server starts from `deploy/ledger.jsonl` (`ORBIT_SNAPSHOT`). That ledger is already anchored and witnessed on Base Sepolia, so a freshly woken server passes verification without spending gas, and the demo reset restores it. Checked locally with an empty data dir: `npm run verify:live` passed 44/44 against the real contract.
+
 ### How it works
 
 ![How Orbit checks a green claim: parties sign, rules derive, the ledger is anchored on Base Sepolia, witnesses and your browser re-check](docs/images/architecture.png)

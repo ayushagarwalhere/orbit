@@ -78,24 +78,47 @@ function readLedger(): LedgerEntry[] | null {
   }
 }
 
+/**
+ * Optional starting ledger for hosts whose disk is wiped on restart (e.g. Render's free tier):
+ * ORBIT_SNAPSHOT names a JSON Lines ledger that is already anchored and witnessed on-chain. The
+ * server starts from it when its data dir is empty, and the demo "reset" restores it, instead of
+ * seeding a new, unanchored ledger every time.
+ */
+function readSnapshot(): LedgerEntry[] | null {
+  const file = process.env.ORBIT_SNAPSHOT;
+  if (!file) return null;
+  try {
+    return fs
+      .readFileSync(path.resolve(process.cwd(), file), "utf8")
+      .split(NL)
+      .filter(Boolean)
+      .map((l) => JSON.parse(l) as LedgerEntry);
+  } catch {
+    console.warn(`[orbit] ORBIT_SNAPSHOT ${file} could not be read; seeding a new ledger instead`);
+    return null;
+  }
+}
+
 /** A fresh id per ledger instance, so different deployments never mix checkpoints on-chain. */
 function newLedgerId(): string {
   return randomPrivateKey();
+}
+
+/** Rebuilds state from stored entries, if they were written by this version with this keystore. */
+function fromEntries(entries: LedgerEntry[] | null, keys: Keystore): Db | null {
+  const genesis = entries?.[0];
+  if (!genesis || genesis.subjectId !== PROTOCOL_ID || typeof genesis.data.ledgerId !== "string" || genesis.data.publicKey !== publicKeyOf(keys[PROTOCOL_ID])) return null;
+  const r = replay(entries!);
+  if (r.issues.length) console.warn(`[orbit] stored ledger has ${r.issues.length} replay issue(s); they are shown on the ledger page`);
+  return r.db;
 }
 
 function state() {
   if (!g.__orbit) {
     const keys = loadKeystore();
     const stored = readLedger();
-    let db: Db | null = null;
-    const genesis = stored?.[0];
-    // Only reuse a ledger written by this version (genesis names the ledger) with this keystore.
-    if (genesis && genesis.subjectId === PROTOCOL_ID && typeof genesis.data.ledgerId === "string" && genesis.data.publicKey === publicKeyOf(keys[PROTOCOL_ID])) {
-      const r = replay(stored!);
-      if (r.issues.length) console.warn(`[orbit] stored ledger has ${r.issues.length} replay issue(s); they are shown on the ledger page`);
-      db = r.db;
-    }
-    const fresh = !db;
+    const db = fromEntries(stored, keys) ?? (stored ? null : fromEntries(readSnapshot(), keys));
+    const fresh = !db || !stored;
     g.__orbit = { db: db ?? seedDb(keys, newLedgerId()), keys };
     if (fresh) persist(true);
     else g.__orbitPersisted = { n: g.__orbit.db.ledger.length, head: g.__orbit.db.ledger.at(-1)?.hash };
@@ -177,7 +200,7 @@ export function submitSigned(action: string, sr: SignedRequest): unknown {
 
 export function resetDb(): Db {
   const s = state();
-  s.db = seedDb(s.keys, newLedgerId());
+  s.db = fromEntries(readSnapshot(), s.keys) ?? seedDb(s.keys, newLedgerId());
   persist(true);
   return s.db;
 }
