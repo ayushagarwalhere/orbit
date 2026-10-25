@@ -11,6 +11,7 @@ Built for the **IEEE ClimateChain Global Hackathon**, track **Sustainable Supply
 | | |
 | --- | --- |
 | **Live demo** | [orbit-yp30.onrender.com](https://orbit-yp30.onrender.com) |
+| **Demo video** | [3-minute walkthrough on YouTube](https://youtu.be/YOcAf-6Za6E) |
 | **Smart contract** | [OrbitAnchor v3 on Base Sepolia](https://sepolia.basescan.org/address/0x8a9bd10b411a5509916dbe812fd803611c2f9151) · [source verified on Sourcify](https://repo.sourcify.dev/84532/0x8A9BD10b411A5509916dbe812fd803611C2F9151) |
 | **Documents** | [Problem statement](docs/PROBLEM_STATEMENT.md) · [Climate impact assessment](docs/IMPACT.md) · [Security assessment](docs/SECURITY.md) · [Devpost write-up](docs/DEVPOST.md) · [Witness guide](docs/WITNESS_GUIDE.md) |
 | **Architecture** | [Diagram](docs/images/architecture.png) · [How it works](#how-it-works) |
