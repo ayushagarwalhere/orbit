@@ -40,7 +40,22 @@ export function isDemoMode(): boolean {
  * generated randomly on first run. Never committed to git.
  */
 function loadKeystore(): Keystore {
-  if (process.env.ORBIT_KEYSTORE) return JSON.parse(process.env.ORBIT_KEYSTORE) as Keystore;
+  const fromEnv = process.env.ORBIT_KEYSTORE?.trim();
+  if (fromEnv) {
+    let keys: unknown;
+    try {
+      keys = JSON.parse(fromEnv);
+    } catch {
+      keys = null;
+    }
+    if (!keys || typeof keys !== "object" || Array.isArray(keys) || !(keys as Keystore)[PROTOCOL_ID]) {
+      throw new Error(
+        `ORBIT_KEYSTORE must be the whole JSON contents of data/keystore.json: it starts with "{" and contains "${PROTOCOL_ID}". ` +
+          `It currently starts with "${fromEnv.slice(0, 2)}…" (${fromEnv.length} characters). A hex private key or 0x address here means the secrets were pasted into the wrong fields.`,
+      );
+    }
+    return keys as Keystore;
+  }
   const file = path.join(dataDir(), "keystore.json");
   try {
     const keys = JSON.parse(fs.readFileSync(file, "utf8")) as Keystore;
