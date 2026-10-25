@@ -8,9 +8,14 @@ Orbit gives every product a digital product passport. The passport doesn't repea
 
 Built for the **IEEE ClimateChain Global Hackathon**, track **Sustainable Supply Chains**.
 
-🌐 **Live demo: [orbit-yp30.onrender.com](https://orbit-yp30.onrender.com)** (free hosting: the first visit after a quiet spell can take about 50 s to wake up)
+| | |
+| --- | --- |
+| **Live demo** | [orbit-yp30.onrender.com](https://orbit-yp30.onrender.com) |
+| **Smart contract** | [OrbitAnchor v3 on Base Sepolia](https://sepolia.basescan.org/address/0x8a9bd10b411a5509916dbe812fd803611c2f9151) · [source verified on Sourcify](https://repo.sourcify.dev/84532/0x8A9BD10b411A5509916dbe812fd803611C2F9151) |
+| **Documents** | [Problem statement](docs/PROBLEM_STATEMENT.md) · [Climate impact assessment](docs/IMPACT.md) · [Security assessment](docs/SECURITY.md) · [Devpost write-up](docs/DEVPOST.md) · [Witness guide](docs/WITNESS_GUIDE.md) |
+| **Architecture** | [Diagram](docs/images/architecture.png) · [How it works](#how-it-works) |
 
-📄 [Problem statement](docs/PROBLEM_STATEMENT.md) · 🌍 [Climate impact](docs/IMPACT.md) · 🔐 [Security](docs/SECURITY.md) · 📝 [Devpost write-up](docs/DEVPOST.md) · 🧾 [Be a witness](docs/WITNESS_GUIDE.md)
+The demo runs on Render's free tier and a scheduled ping keeps it awake. If it has been idle anyway, the first page can take up to a minute to load.
 
 ## How the hoodie gets caught
 
@@ -99,7 +104,9 @@ npm run witness                                       # verify, then anchor from
 
 `render.yaml` is a Render Blueprint: Render dashboard → New → Blueprint → pick this repo. It redeploys on every push to `main`. Set three secrets when asked: `ORBIT_KEYSTORE` (the contents of `data/keystore.json`), `ORBIT_ANCHOR_PRIVATE_KEY` and `ORBIT_ANCHOR_ADDRESS`.
 
-Free instances lose their disk when they sleep, so the server starts from `deploy/ledger.jsonl` (`ORBIT_SNAPSHOT`). That ledger is already anchored and witnessed on Base Sepolia, so a freshly woken server passes verification without spending gas, and the demo reset restores it. Checked locally with an empty data dir: `npm run verify:live` passed 44/44 against the real contract.
+Free instances lose their disk when they sleep, so the server starts from `deploy/ledger.jsonl` (`ORBIT_SNAPSHOT`). That ledger is already anchored and witnessed on Base Sepolia, so a freshly woken server passes verification without spending gas, and the demo reset restores it. A scheduled workflow (`.github/workflows/keep-alive.yml`) sends a read-only request every 5 minutes so the instance rarely sleeps.
+
+Verified on the live deployment: `ORBIT_URL=https://orbit-yp30.onrender.com npm run verify:live` passes 44/44 checks across the four passports against the real contract.
 
 ### How it works
 
@@ -247,4 +254,4 @@ We studied these open-source projects before designing Orbit. All code here is o
 
 ## License
 
-MIT
+[MIT](LICENSE)
