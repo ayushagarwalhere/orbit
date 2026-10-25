@@ -8,6 +8,8 @@ Orbit gives every product a digital product passport. The passport doesn't repea
 
 Built for the **IEEE ClimateChain Global Hackathon**, track **Sustainable Supply Chains**.
 
+🌐 **Live demo: [orbit-yp30.onrender.com](https://orbit-yp30.onrender.com)** (free hosting: the first visit after a quiet spell can take about 50 s to wake up)
+
 📄 [Problem statement](docs/PROBLEM_STATEMENT.md) · 🌍 [Climate impact](docs/IMPACT.md) · 🔐 [Security](docs/SECURITY.md) · 📝 [Devpost write-up](docs/DEVPOST.md) · 🧾 [Be a witness](docs/WITNESS_GUIDE.md)
 
 ## How the hoodie gets caught
@@ -43,6 +45,8 @@ The Ledger page lets you try three attacks and see each one caught. After verify
 Returning, repairing and recycling earn **non-transferable credits**, redeemable for repairs, transit top-ups or tree planting. In a real scheme the brand's EPR fee would fund the return reward. Credits only appear as a consequence of a signed return, repair or recovery, so Orbit can't mint them from nothing. Repairs earn credit at most once per product every 30 days. ([Why not a tradable token](#why-credits-are-not-a-tradable-token).)
 
 ## Try it (3 minutes)
+
+Open the **[live demo](https://orbit-yp30.onrender.com)**, or run it locally:
 
 ```bash
 npm install
