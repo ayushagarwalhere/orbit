@@ -47,7 +47,7 @@ Returning, repairing and recycling earn **non-transferable credits**, redeemable
 ```bash
 npm install
 npm run dev     # http://localhost:3000
-npm test        # 65 tests
+npm test        # 66 tests
 ```
 
 1. **Overview**: on a wide screen, drag the globe beside the headline. It shows every city where a party signs and the routes products actually took on the ledger, with the misdeclared leg in red. Then **"See a greenwashed product get caught"**: the hoodie's passport and the "Why 0/100" breakdown. Further down, **Check any claim**: paste a line from a real label and see whether EU rules ban the wording and what signed data Orbit would test it against.
@@ -156,7 +156,7 @@ The recycled factors for copper and ABS are our estimates; we found no primary s
 
 ### Quality checks
 
-CI runs on every push: type-check, 65 unit tests and a production build, plus a **contract job**. That job rebuilds `OrbitAnchor.json` from the Solidity source and fails if it differs, deploys the contract to a local EVM node (Anvil), and runs `npm run test:chain`, which includes a **differential test**: Solidity and TypeScript must give the same answer for every RFC 6962 inclusion and consistency proof, honest and tampered, for every tree size up to 24 (over 1,000 contract calls).
+CI runs on every push: type-check, 66 unit tests and a production build, plus a **contract job**. That job rebuilds `OrbitAnchor.json` from the Solidity source and fails if it differs, deploys the contract to a local EVM node (Anvil), and runs `npm run test:chain`, which includes a **differential test**: Solidity and TypeScript must give the same answer for every RFC 6962 inclusion and consistency proof, honest and tampered, for every tree size up to 24 (over 1,000 contract calls).
 
 Static analysis: [Slither](https://github.com/crytic/slither) 0.11.6 on `OrbitAnchor.sol` (solc 0.8.26, optimizer 200 runs) runs 102 detectors and reports **0 findings**.
 

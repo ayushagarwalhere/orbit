@@ -59,3 +59,12 @@ test("a single checkpoint is reported as nothing-to-compare, not as a pass", asy
   const checks = await contractChecks({ ledger: asLedger(hs), checkpoint: cps[0], trusted: cps, eventIndexes: [0, 9], contract });
   assert.equal(checks[2].ok, "warn");
 });
+
+test("the detail is honest about capped and not-yet-anchored events", async () => {
+  const hs = hashes(60);
+  const { cps, contract } = chain(hs, [50]);
+  const checks = await contractChecks({ ledger: asLedger(hs), checkpoint: cps[0], trusted: cps, eventIndexes: [...Array(45).keys(), 55, 58], contract, maxEvents: 40 });
+  assert.equal(checks[0].ok, true);
+  assert.match(checks[0].detail, /40 of 45 events/);
+  assert.match(checks[0].detail, /2 newer events not yet anchored/);
+});

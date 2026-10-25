@@ -23,10 +23,13 @@ export function OnChainPanel({ doc, network, trusted }: { doc: any; network: Net
     try {
       const { readCheckpoint, readLedgerCheckpoints, contractVerifier } = await import("@/lib/anchor-read.ts");
       const { contractChecks } = await import("@/lib/onchain-verify.ts");
-      const [ledger, cp] = await Promise.all([
-        fetch("/api/ledger", { cache: "no-store" }).then(async (r) => (await r.json()).entries as LedgerEntry[]),
-        readCheckpoint(network, trusted.contract, Number(doc.proof.anchor.checkpointId)),
-      ]);
+      const ledgerRes = await fetch("/api/ledger", { cache: "no-store" }).catch(() => null);
+      if (!ledgerRes?.ok) {
+        setErr(`Could not download the ledger from this Orbit server${ledgerRes ? ` (HTTP ${ledgerRes.status})` : ""}. The chain was not contacted.`);
+        return;
+      }
+      const ledger = (await ledgerRes.json()).entries as LedgerEntry[];
+      const cp = await readCheckpoint(network, trusted.contract, Number(doc.proof.anchor.checkpointId));
       const { checkpoints } = await readLedgerCheckpoints(network, trusted.contract, cp.ledgerId);
       const trustedCps = checkpoints.filter((c) => classifySubmitter(trusted, c.submitter).role !== "unidentified");
       const eventIndexes = (doc.credentialSubject?.traceabilityEvents ?? []).map((e: any) => Number(e.index));

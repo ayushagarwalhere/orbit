@@ -41,17 +41,22 @@ export async function contractChecks(input: ContractCheckInput): Promise<Check[]
   const tree = new MerkleTree(ledger.map((e) => e.hash));
 
   // 1. Each passport event is a leaf of the anchored tree, at the index it claims.
-  const indexes = [...new Set(input.eventIndexes)].filter((i) => i >= 0 && i < cp.ledgerLength).sort((a, b) => a - b).slice(0, input.maxEvents ?? 40);
+  const unique = [...new Set(input.eventIndexes)].filter((i) => i >= 0).sort((a, b) => a - b);
+  const inRange = unique.filter((i) => i < cp.ledgerLength);
+  const newer = unique.length - inRange.length;
+  const indexes = inRange.slice(0, input.maxEvents ?? 40);
   const results = await inBatches(indexes, 8, async (i) => ({ i, ok: await contract.verifyInclusion(cp.id, ledger[i].hash, i, tree.inclusionProof(i, cp.ledgerLength)) }));
   const failed = results.filter((r) => !r.ok).map((r) => `#${r.i}`);
+  const scope = indexes.length < inRange.length ? `${indexes.length} of ${inRange.length} events (first ${indexes.length} checked)` : `all ${indexes.length} events`;
+  const pending = newer ? `; ${newer} newer event${newer === 1 ? "" : "s"} not yet anchored` : "";
   out.push({
     label: "Contract: events are in the anchored ledger",
     ok: indexes.length > 0 && failed.length === 0,
     detail: !indexes.length
-      ? "No passport events fall inside this checkpoint"
+      ? `No passport events fall inside checkpoint #${cp.id}${pending}`
       : failed.length
         ? `OrbitAnchor.verifyInclusion returned false for ${failed.join(", ")}: these entries are not what was anchored`
-        : `OrbitAnchor.verifyInclusion returned true for all ${indexes.length} events against checkpoint #${cp.id}`,
+        : `OrbitAnchor.verifyInclusion returned true for ${scope} against checkpoint #${cp.id}${pending}`,
   });
 
   // 2. Control: the same call with a forged entry must fail, so the "true" above means something.

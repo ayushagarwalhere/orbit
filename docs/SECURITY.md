@@ -96,7 +96,7 @@ No private keys are in the repository.
 
 ## 7. Evidence
 
-- **`npm test`: 65 tests, all passing.** Also relevant: "RFC 6962: every inclusion proof verifies for every size up to 70, and forgeries fail"; "RFC 6962: every consistency proof verifies for every pair of sizes up to 50, and rewrites fail"; "native (server) and pure-JS (browser) Ed25519 + SHA-256 agree byte for byte"; "sequencer time must match the time the actor signed"; "all state is rebuilt from the ledger alone by replay, identical to the live state"; "browser verifier: an honest, witnessed passport passes every check, verdicts and grade re-derived".
+- **`npm test`: 66 tests, all passing.** Also relevant: "RFC 6962: every inclusion proof verifies for every size up to 70, and forgeries fail"; "RFC 6962: every consistency proof verifies for every pair of sizes up to 50, and rewrites fail"; "native (server) and pure-JS (browser) Ed25519 + SHA-256 agree byte for byte"; "sequencer time must match the time the actor signed"; "all state is rebuilt from the ledger alone by replay, identical to the live state"; "browser verifier: an honest, witnessed passport passes every check, verdicts and grade re-derived".
 - Browser-verifier tests run against a simulated chain, not Base Sepolia.
 - **`npm run verify:live`** runs the same verifier from Node against a running node and the real chain. On 24 Oct 2026, after the new seed, all 44 checks passed across the 4 demo passports on Base Sepolia, including the named-witness check.
 - **`npm run test:chain`** deploys the contract to a local EVM node and runs three tests. CI runs it on every push (job "contract", on Anvil), after checking that the committed `OrbitAnchor.json` rebuilds byte for byte from the Solidity source.
