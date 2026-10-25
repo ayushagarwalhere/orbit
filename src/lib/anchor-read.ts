@@ -30,6 +30,19 @@ export async function readCheckpoint(n: Network, address: string, id: number, rp
   return { id, ledgerId: ledgerId.slice(2), merkleRoot: root.slice(2), ledgerLength: Number(len), timestamp: Number(ts), submitter };
 }
 
+/** The contract's own proof checks, called read-only (eth_call): free, no wallet. */
+export function contractVerifier(n: Network, address: string, rpcOverride?: string) {
+  const c = client(n, rpcOverride);
+  const addr = address as `0x${string}`;
+  const h = (x: string) => `0x${x}` as `0x${string}`;
+  return {
+    verifyInclusion: (checkpointId: number, entryHash: string, index: number, path: string[]) =>
+      c.readContract({ address: addr, abi: ANCHOR_ABI, functionName: "verifyInclusion", args: [BigInt(checkpointId), h(entryHash), BigInt(index), path.map(h)] }),
+    verifyConsistency: (older: number, newer: number, proof: string[]) =>
+      c.readContract({ address: addr, abi: ANCHOR_ABI, functionName: "verifyConsistency", args: [BigInt(older), BigInt(newer), proof.map(h)] }),
+  };
+}
+
 /** Every checkpoint anyone has published for one ledger (oldest first), read in pages of 200. */
 export async function readLedgerCheckpoints(n: Network, address: string, ledgerId: string, rpcOverride?: string): Promise<{ operator: string; checkpoints: OnChainCheckpoint[] }> {
   const c = client(n, rpcOverride);

@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/core.test.ts tests/store.test.ts tests/merkle.test.ts tests/untp.test.ts",
+    "test": "node --test tests/core.test.ts tests/store.test.ts tests/merkle.test.ts tests/untp.test.ts tests/onchain.test.ts",
     "compile:anchor": "node scripts/compile-anchor.mjs",
     "wallet": "node --env-file-if-exists=.env.local scripts/new-wallet.mjs",
     "deploy:anchor": "node --env-file-if-exists=.env.local scripts/deploy-anchor.mjs",
@@ -19,7 +19,7 @@
     "witness": "node --env-file-if-exists=.env.local scripts/witness.ts",
     "verify:live": "node scripts/verify-live.ts",
     "fund:witness": "node --env-file-if-exists=.env.local scripts/fund-witness.mjs",
-    "chain:local": "npx -y hardhat@2.22.17 node"
+    "chain:local": "anvil"
   },
   "dependencies": {
     "@noble/curves": "1.9.7",

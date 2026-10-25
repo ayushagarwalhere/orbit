@@ -96,9 +96,14 @@ No private keys are in the repository.
 
 ## 7. Evidence
 
-- **`npm test`: 61 tests, all passing.** Also relevant: "RFC 6962: every inclusion proof verifies for every size up to 70, and forgeries fail"; "RFC 6962: every consistency proof verifies for every pair of sizes up to 50, and rewrites fail"; "native (server) and pure-JS (browser) Ed25519 + SHA-256 agree byte for byte"; "sequencer time must match the time the actor signed"; "all state is rebuilt from the ledger alone by replay, identical to the live state"; "browser verifier: an honest, witnessed passport passes every check, verdicts and grade re-derived".
+- **`npm test`: 65 tests, all passing.** Also relevant: "RFC 6962: every inclusion proof verifies for every size up to 70, and forgeries fail"; "RFC 6962: every consistency proof verifies for every pair of sizes up to 50, and rewrites fail"; "native (server) and pure-JS (browser) Ed25519 + SHA-256 agree byte for byte"; "sequencer time must match the time the actor signed"; "all state is rebuilt from the ledger alone by replay, identical to the live state"; "browser verifier: an honest, witnessed passport passes every check, verdicts and grade re-derived".
 - Browser-verifier tests run against a simulated chain, not Base Sepolia.
 - **`npm run verify:live`** runs the same verifier from Node against a running node and the real chain. On 24 Oct 2026, after the new seed, all 44 checks passed across the 4 demo passports on Base Sepolia, including the named-witness check.
-- **`npm run test:chain`** ("OrbitAnchor v3: open anchoring, RFC 6962 inclusion and consistency proofs verified on-chain") deploys the contract to a local EVM node and checks its proofs, a second wallet anchoring, and rejection of empty ledgers.
+- **`npm run test:chain`** deploys the contract to a local EVM node and runs three tests. CI runs it on every push (job "contract", on Anvil), after checking that the committed `OrbitAnchor.json` rebuilds byte for byte from the Solidity source.
+  - "OrbitAnchor v3: open anchoring, RFC 6962 inclusion and consistency proofs verified on-chain": proofs, a second wallet anchoring, and rejection of empty ledgers.
+  - "differential: Solidity and TypeScript agree on every RFC 6962 proof for every tree size up to 24": honest, forged-leaf, wrong-index and tampered-proof cases, over 1,000 contract calls.
+  - "Verify page's 'Ask the contract' checks run against real Solidity": the Verify page's on-chain checks pass for an honest ledger and fail for a rewritten one.
+- **"Verify on-chain" against Base Sepolia (25 Oct 2026):** with the demo ledger, the deployed contract's `verifyInclusion` returned true for all 6 events checked against operator checkpoint #11, false for a forged entry, and `verifyConsistency(#11, #12)` returned true across the witness's checkpoint. With entry #10 rewritten in memory, every inclusion call and the consistency call returned false.
+- **Static analysis:** Slither 0.11.6 (102 detectors) on `OrbitAnchor.sol` with solc 0.8.26: 0 findings. Slither doesn't run in CI.
 - The contract source is verified on Sourcify.
 - **Untested:** the 16 KB cap, the rate limits (guest registrations, manual anchors, demo resets), the 90 s tamper auto-restore, the balance floor, and the B6 timer fix (they live in the HTTP route, the chain service and timers, which the unit tests don't exercise).

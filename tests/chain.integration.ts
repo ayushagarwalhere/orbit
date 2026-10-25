@@ -1,6 +1,7 @@
 // Integration test against a real EVM node: deploys OrbitAnchor v3, anchors seeded ledger roots, and
 // checks that Solidity agrees with the TypeScript RFC 6962 inclusion and consistency proofs.
-// Run a local node first (e.g. `npx hardhat node`), then: npm run test:chain
+// Run a local EVM node with the standard dev accounts first (`anvil`, or `npx hardhat node` in a Hardhat project), then: npm run test:chain
+// CI runs this on every push (.github/workflows/ci.yml, job "contract").
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { test } from "node:test";
@@ -8,7 +9,7 @@ import { createPublicClient, createWalletClient, http, type Abi } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import "../src/lib/crypto-node.ts";
 import { readCheckpoint, readLedgerCheckpoints, viemChain } from "../src/lib/anchor-read.ts";
-import { MerkleTree, sha256Hex } from "../src/lib/crypto.ts";
+import { MerkleTree, sha256Hex, verifyConsistency, verifyInclusion } from "../src/lib/crypto.ts";
 import { generateKeystore } from "../src/lib/keys.ts";
 import { ANCHOR_ABI, networkByKey } from "../src/lib/networks.ts";
 import { ACTOR_IDS, seedDb } from "../src/lib/seed.ts";
@@ -67,4 +68,78 @@ test("OrbitAnchor v3: open anchoring, RFC 6962 inclusion and consistency proofs 
   assert.equal(checkpoints.length, 4);
   assert.equal(checkpoints[3].submitter.toLowerCase(), witnessAccount.address.toLowerCase());
   await assert.rejects(send(witness, ledgerId, tree.root(), 0));
+});
+
+test("differential: Solidity and TypeScript agree on every RFC 6962 proof for every tree size up to 24", async () => {
+  const chain = viemChain(n, RPC);
+  const account = privateKeyToAccount(DEV_KEY);
+  const pub = createPublicClient({ chain, transport: http(RPC) });
+  const wallet = createWalletClient({ account, chain, transport: http(RPC) });
+  const { abi, bytecode } = JSON.parse(fs.readFileSync("contracts/OrbitAnchor.json", "utf8")) as { abi: Abi; bytecode: `0x${string}` };
+  const address = (await pub.waitForTransactionReceipt({ hash: await wallet.deployContract({ abi, bytecode }) })).contractAddress!;
+  const MAX = 24;
+  const leaves = Array.from({ length: MAX }, (_, i) => sha256Hex(`diff-${i}`));
+  const tree = new MerkleTree(leaves);
+  const ledgerId = `0x${"22".repeat(32)}` as const;
+  // Checkpoint id k-1 holds the root of the first k leaves.
+  for (let k = 1; k <= MAX; k++) {
+    await pub.waitForTransactionReceipt({ hash: await wallet.writeContract({ address, abi: ANCHOR_ABI, functionName: "anchor", args: [ledgerId, `0x${tree.root(k)}`, BigInt(k)] }) });
+  }
+  const call = (functionName: "verifyInclusion" | "verifyConsistency", args: readonly unknown[]) => pub.readContract({ address, abi: ANCHOR_ABI, functionName, args } as never) as Promise<boolean>;
+  let calls = 0;
+  for (let size = 1; size <= MAX; size++) {
+    const id = BigInt(size - 1);
+    for (let m = 0; m < size; m++) {
+      const path = tree.inclusionProof(m, size);
+      const cases: [string, number, string[], boolean][] = [
+        [leaves[m], m, path, true],
+        [sha256Hex(`forged-${m}`), m, path, false],
+      ];
+      if (size > 1) cases.push([leaves[m], (m + 1) % size, path, verifyInclusion(leaves[m], (m + 1) % size, size, path, tree.root(size))]);
+      for (const [leaf, idx, p, ts] of cases) {
+        assert.equal(verifyInclusion(leaf, idx, size, p, tree.root(size)), ts);
+        assert.equal(await call("verifyInclusion", [id, `0x${leaf}`, BigInt(idx), hex(p)]), ts, `inclusion size=${size} m=${m} idx=${idx}`);
+        calls++;
+      }
+    }
+    for (let older = 1; older <= size; older++) {
+      const proof = tree.consistencyProof(older, size);
+      assert.equal(await call("verifyConsistency", [BigInt(older - 1), id, hex(proof)]), true, `consistency ${older}->${size}`);
+      if (proof.length) {
+        const bad = [sha256Hex("tampered"), ...proof.slice(1)];
+        assert.equal(await call("verifyConsistency", [BigInt(older - 1), id, hex(bad)]), verifyConsistency(older, size, tree.root(older), tree.root(size), bad), `tampered ${older}->${size}`);
+      }
+      calls += proof.length ? 2 : 1;
+    }
+  }
+  assert.ok(calls > 900, `ran ${calls} on-chain comparisons`);
+});
+
+test("Verify page's 'Ask the contract' checks run against real Solidity: honest ledger passes, rewritten ledger fails", async () => {
+  const { contractVerifier } = await import("../src/lib/anchor-read.ts");
+  const { contractChecks } = await import("../src/lib/onchain-verify.ts");
+  const chain = viemChain(n, RPC);
+  const account = privateKeyToAccount(DEV_KEY);
+  const pub = createPublicClient({ chain, transport: http(RPC) });
+  const wallet = createWalletClient({ account, chain, transport: http(RPC) });
+  const { abi, bytecode } = JSON.parse(fs.readFileSync("contracts/OrbitAnchor.json", "utf8")) as { abi: Abi; bytecode: `0x${string}` };
+  const address = (await pub.waitForTransactionReceipt({ hash: await wallet.deployContract({ abi, bytecode }) })).contractAddress!;
+  const ledgerId = "33".repeat(32);
+  const db = seedDb(generateKeystore(ACTOR_IDS), ledgerId);
+  const tree = new MerkleTree(db.ledger.map((e) => e.hash));
+  for (const size of [20, db.ledger.length]) {
+    await pub.waitForTransactionReceipt({ hash: await wallet.writeContract({ address, abi: ANCHOR_ABI, functionName: "anchor", args: [`0x${ledgerId}`, `0x${tree.root(size)}`, BigInt(size)] }) });
+  }
+  const { checkpoints } = await readLedgerCheckpoints(n, address, ledgerId, RPC);
+  const cp = checkpoints[checkpoints.length - 1];
+  const contract = contractVerifier(n, address, RPC);
+  const eventIndexes = db.ledger.filter((e) => e.subjectId === db.products[1].id).map((e) => e.index);
+
+  const honest = await contractChecks({ ledger: db.ledger, checkpoint: cp, trusted: checkpoints, eventIndexes, contract });
+  assert.deepEqual(honest.map((c) => c.ok), [true, true, true]);
+
+  const rewritten = db.ledger.map((e, i) => (i === 10 ? { ...e, hash: sha256Hex("rewritten") } : e));
+  const caught = await contractChecks({ ledger: rewritten, checkpoint: cp, trusted: checkpoints, eventIndexes, contract });
+  assert.equal(caught[0].ok, false);
+  assert.equal(caught[2].ok, false);
 });

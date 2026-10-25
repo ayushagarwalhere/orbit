@@ -47,7 +47,7 @@ Returning, repairing and recycling earn **non-transferable credits**, redeemable
 ```bash
 npm install
 npm run dev     # http://localhost:3000
-npm test        # 61 tests
+npm test        # 65 tests
 ```
 
 1. **Overview**: on a wide screen, drag the globe beside the headline. It shows every city where a party signs and the routes products actually took on the ledger, with the misdeclared leg in red. Then **"See a greenwashed product get caught"**: the hoodie's passport and the "Why 0/100" breakdown. Further down, **Check any claim**: paste a line from a real label and see whether EU rules ban the wording and what signed data Orbit would test it against.
@@ -57,7 +57,7 @@ npm test        # 61 tests
    - Orbit erases the failed audit and rebuilds all later history through the real rules. Every local check passes; only the on-chain fingerprints disagree.
 
    Simulations stay in memory and undo themselves after 90 s.
-3. **Verify**: load the hoodie. Your browser rebuilds the ledger, checks it against the chain and re-derives every verdict. With a wallet holding a little Base Sepolia ETH, you can then anchor it yourself as a witness.
+3. **Verify**: load the hoodie. Your browser rebuilds the ledger, checks it against the chain and re-derives every verdict. Then click **"Verify on-chain"**: your browser builds the Merkle proofs and the deployed OrbitAnchor contract checks them with its own Solidity code (read-only, free, no wallet), including a forged entry it must reject. With a wallet holding a little Base Sepolia ETH, you can then anchor it yourself as a witness.
 4. **Console → "Create my key & join"**: become a consumer whose key never leaves your browser, buy something and return it for the reward.
 
 **Live contract:** [OrbitAnchor v3 on Base Sepolia](https://sepolia.basescan.org/address/0x8a9bd10b411a5509916dbe812fd803611c2f9151), with source verified on [Sourcify](https://repo.sourcify.dev/84532/0x8A9BD10b411A5509916dbe812fd803611C2F9151). Its history shows checkpoints from Orbit's operator and from a witness wallet. That witness is a second wallet run by our team, to show the role; we're inviting outside witnesses ([guide](docs/WITNESS_GUIDE.md)).
@@ -155,6 +155,10 @@ Published averages, defined in [`src/lib/factors.ts`](src/lib/factors.ts). A rea
 The recycled factors for copper and ABS are our estimates; we found no primary source. Recycled metal values are gate-to-gate, so they understate collection.
 
 ### Quality checks
+
+CI runs on every push: type-check, 65 unit tests and a production build, plus a **contract job**. That job rebuilds `OrbitAnchor.json` from the Solidity source and fails if it differs, deploys the contract to a local EVM node (Anvil), and runs `npm run test:chain`, which includes a **differential test**: Solidity and TypeScript must give the same answer for every RFC 6962 inclusion and consistency proof, honest and tampered, for every tree size up to 24 (over 1,000 contract calls).
+
+Static analysis: [Slither](https://github.com/crytic/slither) 0.11.6 on `OrbitAnchor.sol` (solc 0.8.26, optimizer 200 runs) runs 102 detectors and reports **0 findings**.
 
 Lighthouse 12.6 (mobile, simulated throttling) on all 7 pages of a production build: **accessibility 100, best practices 100, SEO 100** on every page; performance 82–90. These are automated checks, not user testing.
 

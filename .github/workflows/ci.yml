@@ -21,3 +21,28 @@ jobs:
         run: npm test
       - name: Production build
         run: npm run build
+
+  contract:
+    # Deploys OrbitAnchor to a local EVM node and checks the Solidity proofs against the TypeScript ones.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Compiled artifact matches the Solidity source
+        run: |
+          npm run compile:anchor
+          git diff --exit-code -- contracts/OrbitAnchor.json
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: Start a local EVM node (Anvil, standard dev accounts)
+        run: |
+          anvil --silent &
+          for i in $(seq 1 30); do
+            curl -sf -X POST -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' http://127.0.0.1:8545 && break
+            sleep 1
+          done
+      - name: On-chain tests (inclusion, consistency, open anchoring, Solidity vs TypeScript differential, Verify page checks)
+        run: npm run test:chain

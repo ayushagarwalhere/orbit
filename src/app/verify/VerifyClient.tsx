@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 import type { Check, ChainReader } from "@/lib/passport-verify.ts";
 
 const WitnessPanel = dynamic(() => import("./WitnessPanel.tsx").then((m) => m.WitnessPanel), { ssr: false });
+const OnChainPanel = dynamic(() => import("./OnChainPanel.tsx").then((m) => m.OnChainPanel), { ssr: false });
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function chainFor(doc: any): { reader?: ChainReader; chainId?: number } {
@@ -36,10 +37,12 @@ export function VerifyClient({ products }: { products: { id: string; name: strin
   const [err, setErr] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [chainId, setChainId] = useState<number | undefined>();
+  const [doc, setDoc] = useState<any>(null);
 
   async function run(doc: any) {
     setRunning(true);
     setResults([]);
+    setDoc(doc);
     try {
       const { reader, chainId } = chainFor(doc);
       const network = chainId ? networkById(chainId) : undefined;
@@ -129,6 +132,9 @@ export function VerifyClient({ products }: { products: { id: string; name: strin
                 </li>
               ))}
             </ul>
+            {!running && results.length > 0 && doc?.proof?.anchor?.onChain && chainId && networkById(chainId) && OFFICIAL_ANCHORS[chainId] && (
+              <OnChainPanel key={`${doc.credentialSubject?.product?.passportId}-${doc.proof.anchor.checkpointId}`} doc={doc} network={networkById(chainId)!} trusted={OFFICIAL_ANCHORS[chainId]} />
+            )}
             {!running && !failed && results.length > 0 && chainId && networkById(chainId) && OFFICIAL_ANCHORS[chainId] && <WitnessPanel network={networkById(chainId)!} trusted={OFFICIAL_ANCHORS[chainId]} />}
           </>
         )}
